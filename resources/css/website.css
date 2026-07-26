@@ -1188,7 +1188,7 @@
    ══════════════════════════════════════════════════════════ */
 .tn-container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
 
-/* Hero — full-bleed poster (desktop 4:1 art; taller on mobile) */
+/* Hero — compact banner (1600×400 / 4:1), full width */
 .tn-hero {
     position: relative;
     width: 100%;
@@ -1258,35 +1258,13 @@
     line-height: normal;
 }
 .tn-hero-dot { width: 7px; height: 7px; border-radius: 50%; border: none; padding: 0; background: rgba(255,255,255,.45); cursor: pointer; }
-.tn-hero-dot.active { background: #fff; width: 18px; border-radius: 999px; }
+.tn-hero-dot.active { background: #fff; }
 
-@media (max-width: 1024px) {
-    .tn-hero {
-        aspect-ratio: 16 / 7;
-        min-height: 220px;
-    }
-}
 @media (max-width: 768px) {
-    .tn-hero {
-        aspect-ratio: 16 / 9;
-        min-height: 240px;
-        max-height: 56vw;
-    }
-    .tn-hero-img { object-position: 62% center; }
-    .tn-hero-arrow { width: 32px; height: 32px; }
-    .tn-hero-arrow.left { left: 10px; }
-    .tn-hero-arrow.right { right: 10px; }
-    .tn-hero-dots { bottom: 14px; padding: 6px 12px; }
-    .tn-hero-fallback-inner { padding: 28px 16px; }
-    .tn-hero-title { font-size: clamp(24px, 6vw, 32px); }
-    .tn-hero-sub { font-size: 13px; margin-bottom: 16px; }
-}
-@media (max-width: 480px) {
-    .tn-hero {
-        aspect-ratio: 5 / 3;
-        min-height: 260px;
-        max-height: none;
-    }
+    .tn-hero-arrow { width: 30px; height: 30px; }
+    .tn-hero-arrow.left { left: 8px; }
+    .tn-hero-arrow.right { right: 8px; }
+    .tn-hero-dots { bottom: 8px; }
 }
 
 
@@ -1709,23 +1687,22 @@
     object-fit: contain; pointer-events: none;
 }
 
-/* Features bar — premium panel under hero */
+/* Features bar — organized strip below hero (no overlap) */
 .tn-features {
-    background: linear-gradient(180deg, #f8fafc 0%, #fff 48%);
+    background: #fff;
     margin: 0;
     border-top: none;
     border-bottom: 1px solid #eef2f7;
-    padding: 0 0 22px;
+    padding: 18px 0;
 }
 .tn-features-panel {
-    background: #fff;
-    border: 1px solid #e8eef6;
-    border-radius: 18px;
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
-    padding: 18px 10px;
-    margin-top: -18px;
-    position: relative;
-    z-index: 2;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    margin-top: 0;
+    position: static;
 }
 .tn-features-grid {
     display: grid;
@@ -2069,7 +2046,6 @@
     .tn-feature-title { font-size: 12.5px; }
     .tn-feature-sub { font-size: 10.5px; }
     .tn-feature-icon { width: 38px; height: 38px; }
-    .tn-features-panel { margin-top: -14px; padding: 14px 8px; }
 }
 @media (max-width: 768px) {
     .tn-section { padding: 36px 0; }
@@ -2077,16 +2053,7 @@
     .tn-cat-icon { width: 56px; height: 56px; border-radius: 16px; }
     .tn-cat-svg { width: 24px; height: 24px; }
     .tn-promo-grid { grid-template-columns: 1fr; }
-    .tn-features {
-        padding: 0 0 18px;
-        background: #f8fafc;
-    }
-    .tn-features-panel {
-        margin-top: -22px;
-        border-radius: 16px;
-        padding: 12px;
-        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
-    }
+    .tn-features { padding: 14px 0 16px; }
     .tn-features-grid,
     .tn-features-grid--2,
     .tn-features-grid--3,
@@ -2149,7 +2116,6 @@
     .tn-flash-grid { grid-template-columns: 1fr 1fr; }
     .tn-product-img { height: 150px; }
     .tn-product-add span { font-size: 11px; }
-    .tn-features-panel { margin-top: -28px; padding: 10px; }
     .tn-feature { padding: 11px 9px; }
 }
 
