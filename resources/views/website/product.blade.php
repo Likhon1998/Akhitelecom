@@ -204,10 +204,10 @@
         <div class="lg:col-span-3 space-y-4">
             <div class="rounded-xl border border-slate-100 bg-slate-50/50 p-4 space-y-3">
                 @foreach([
-                    ['Free Shipping', 'On orders over Tk 500'],
+                    ['Fast Delivery', 'Cash on delivery available'],
                     ['30-Day Returns', 'Easy return policy'],
                     ['1 Year Warranty', 'Manufacturer warranty'],
-                    ['Secure Payment', 'Cash on delivery'],
+                    ['Secure Checkout', 'Sign in required · COD'],
                 ] as [$title, $sub])
                     <div class="flex gap-3 items-start">
                         <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">

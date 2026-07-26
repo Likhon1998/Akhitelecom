@@ -54,7 +54,8 @@ Route::get('/search/suggest', [WebsiteController::class, 'searchSuggest'])->name
 Route::get('/category/{slug}', [WebsiteController::class, 'category'])->name('website.category');
 Route::get('/brand/{slug}', [WebsiteController::class, 'brand'])->name('website.brand');
 Route::get('/product/{product}', [WebsiteController::class, 'product'])->name('website.product');
-Route::redirect('/track-order', '/account')->name('website.track');
+Route::get('/track-order', [WebsiteController::class, 'trackOrder'])->name('website.track');
+Route::post('/track-order', [WebsiteController::class, 'trackOrderLookup'])->name('website.track.lookup');
 Route::post('/account/login', [StorefrontAuthController::class, 'login'])->name('website.account.login');
 Route::post('/account/register', [StorefrontAuthController::class, 'register'])->name('website.account.register');
 Route::middleware('auth')->group(function () {

@@ -10,7 +10,11 @@
 
 <div class="gs-shop" x-data="{ view: @js($viewMode) }">
     <div class="gs-shop-inner">
-        @include('website.partials.shop-sidebar')
+        @if(!empty($showSidebar) && !empty($sidebarFacets))
+            @include('website.partials.category-filters')
+        @else
+            @include('website.partials.shop-sidebar')
+        @endif
 
         <div class="gs-main">
             <nav class="gs-breadcrumb" aria-label="Breadcrumb">

@@ -132,15 +132,29 @@ class AnalyticsService
 
     public function dailyRevenueChart(int $shopId, Carbon $start, Carbon $end)
     {
+        $dayExpr = $this->localDateExpression('created_at');
+
         return $this->baseOrderQuery($shopId, $start, $end)
             ->select(
-                DB::raw('DATE(created_at) as day'),
+                DB::raw("{$dayExpr} as day"),
                 DB::raw('COUNT(id) as orders'),
                 DB::raw('SUM(GREATEST(total_amount - COALESCE(discount_amount, 0) - COALESCE(exchange_credit, 0), 0)) as revenue')
             )
-            ->groupBy(DB::raw('DATE(created_at)'))
+            ->groupBy(DB::raw($dayExpr))
             ->orderBy('day')
             ->get();
+    }
+
+    /** Calendar date in app timezone (Asia/Dhaka) for chart buckets. */
+    protected function localDateExpression(string $column = 'created_at'): string
+    {
+        $driver = DB::connection()->getDriverName();
+
+        return match ($driver) {
+            'pgsql' => "(({$column} AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Dhaka')::date",
+            'mysql', 'mariadb' => "DATE(CONVERT_TZ({$column}, '+00:00', '+06:00'))",
+            default => "DATE({$column})",
+        };
     }
 
     public function topSellingProducts(int $shopId, Carbon $start, Carbon $end, int $limit = 5)

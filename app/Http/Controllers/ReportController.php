@@ -65,7 +65,7 @@ class ReportController extends Controller
             ))";
 
         return [
-            'cash' => "SUM(CASE WHEN {$hasBreakdown} THEN COALESCE(cash_paid, 0) WHEN {$cashFallback} THEN {$netExpr} ELSE 0 END)",
+            'cash' => "SUM(CASE WHEN {$hasBreakdown} THEN GREATEST(COALESCE(cash_paid, 0) - COALESCE(change_amount, 0), 0) WHEN {$cashFallback} THEN {$netExpr} ELSE 0 END)",
             'card' => "SUM(CASE WHEN {$hasBreakdown} THEN COALESCE(card_paid, 0) WHEN {$cardFallback} THEN {$netExpr} ELSE 0 END)",
             'bkash' => "SUM(CASE WHEN {$hasBreakdown} THEN COALESCE(mobile_paid, 0) WHEN {$bkashFallback} THEN {$netExpr} ELSE 0 END)",
         ];

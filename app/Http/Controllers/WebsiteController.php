@@ -67,6 +67,11 @@ class WebsiteController extends Controller
                 ->whereColumn('original_price', '>', 'selling_price');
         } elseif ($request->filter === 'new') {
             $query->newArrivals();
+        } elseif ($request->filter === 'bestsellers') {
+            $query->where(function ($q) {
+                $q->where('is_best_seller', true)
+                    ->orWhere('review_count', '>', 0);
+            })->orderByDesc('is_best_seller')->orderByDesc('review_count');
         }
 
         $sort = $request->query('sort', 'featured');
@@ -541,6 +546,49 @@ class WebsiteController extends Controller
         return back()->with('contact_success', 'Thanks! Your message has been sent. We\'ll get back to you soon.');
     }
 
+    public function trackOrder()
+    {
+        return view('website.track-order', array_merge($this->website->homepageData(), [
+            'tracking' => null,
+            'invoiceNo' => request('invoice'),
+            'phone' => request('phone'),
+        ]));
+    }
+
+    public function trackOrderLookup(Request $request)
+    {
+        $data = $request->validate([
+            'invoice_no' => ['required', 'string', 'max:64'],
+            'phone' => ['required', 'string', 'max:32'],
+        ]);
+
+        $shopId = $this->website->shopId();
+        abort_unless($shopId, 404);
+
+        $invoice = trim($data['invoice_no']);
+        $phone = Customer::normalizePhone($data['phone']);
+
+        $order = Order::where('shop_id', $shopId)
+            ->onlineOrders()
+            ->where('invoice_no', $invoice)
+            ->with(['customer', 'items.product', 'statusLogs'])
+            ->first();
+
+        if (! $order || ! $order->customer || Customer::normalizePhone($order->customer->phone) !== $phone) {
+            return back()
+                ->withInput()
+                ->with('error', 'No order found for that Order ID and phone number.');
+        }
+
+        $payload = $this->tracking->trackingPayload($order);
+
+        return view('website.track-order', array_merge($this->website->homepageData(), [
+            'tracking' => $payload,
+            'invoiceNo' => $invoice,
+            'phone' => $data['phone'],
+        ]));
+    }
+
     public function wishlist()
     {
         return view('website.wishlist', $this->website->homepageData());
@@ -588,7 +636,7 @@ class WebsiteController extends Controller
 
         $user->update(['name' => $request->customer_name]);
 
-        $deliveryFee = max(0, (float) ($request->delivery_fee ?? 0));
+        $deliveryFee = 0; // Server-controlled; free COD delivery for now (ignore client fee).
 
         $shopAdmin = \App\Models\User::where('shop_id', $shopId)->whereIn('role', ['admin', 'shop_owner', 'Shop Owner'])->first();
         $fallbackUserId = $shopAdmin?->id ?? $user->id;
@@ -666,17 +714,9 @@ class WebsiteController extends Controller
                     'unit_price' => $line['unit_price'],
                     'subtotal' => $line['subtotal'],
                 ]);
-
-                $this->stock->recordSale(
-                    $line['product'],
-                    (int) $line['qty'],
-                    'Website order - '.$order->invoice_no,
-                    $fallbackUserId,
-                    'order',
-                    $order->id,
-                );
             }
 
+            // Stock is committed when packing starts (processing), not at COD placement.
             $order->load('items.product');
             $this->accounts->postWebSale($order);
             $this->tracking->logInitialPlacement($order);

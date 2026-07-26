@@ -88,6 +88,9 @@ class SalesLedgerController extends Controller
         $isVoided = in_array($order->status, ['refunded', 'cancelled', 'returned'], true);
         $withinWindow = $order->created_at >= now()->subDays(7);
         $productRevenue = (float) $order->total_amount - (float) ($order->delivery_charge ?? 0);
+        $wasExchangedFrom = Order::where('shop_id', $order->shop_id)
+            ->where('exchange_for_order_id', $order->id)
+            ->exists();
 
         return [
             'id' => $order->id,
@@ -100,8 +103,9 @@ class SalesLedgerController extends Controller
             'delivery_charge_fmt' => number_format((float) ($order->delivery_charge ?? 0), 2),
             'is_voided' => $isVoided,
             'is_exchange_receipt' => (bool) $order->is_exchange_receipt,
-            'can_return' => ! $isVoided && ! $order->is_exchange_receipt && $withinWindow,
-            'return_expired' => ! $isVoided && ! $order->is_exchange_receipt && ! $withinWindow,
+            'was_exchanged_from' => $wasExchangedFrom,
+            'can_return' => ! $isVoided && ! $order->is_exchange_receipt && ! $wasExchangedFrom && $withinWindow,
+            'return_expired' => ! $isVoided && ! $order->is_exchange_receipt && ! $wasExchangedFrom && ! $withinWindow,
             'cashier' => $order->user->name ?? 'Unknown',
             'customer_name' => $order->customer->name ?? null,
             'customer_phone' => $order->customer->phone ?? null,
@@ -214,6 +218,14 @@ class SalesLedgerController extends Controller
 
         if (in_array($order->status, ['refunded', 'cancelled', 'returned'])) {
             return back()->with('error', 'This order has already been voided or refunded.');
+        }
+
+        if ($order->is_exchange_receipt) {
+            return back()->with('error', 'Exchange receipts cannot be refunded. Adjust from the original sale if needed.');
+        }
+
+        if (Order::where('shop_id', $order->shop_id)->where('exchange_for_order_id', $order->id)->exists()) {
+            return back()->with('error', 'This order was already exchanged. Refunding it would double-restock and cash-out incorrectly.');
         }
 
         if ($order->created_at < now()->subDays(7)) {

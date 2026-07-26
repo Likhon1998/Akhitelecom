@@ -481,7 +481,7 @@
             <template x-for="chat in history">
                 <div class="flex flex-col space-y-1">
                     <div class="max-w-[85%] self-end rounded-2xl bg-blue-600 p-3 text-white" x-text="chat.user"></div>
-                    <div class="max-w-[85%] self-start rounded-2xl border bg-white p-3 text-slate-700" x-html="chat.ai"></div>
+                    <div class="max-w-[85%] self-start rounded-2xl border bg-white p-3 text-slate-700 whitespace-pre-wrap" x-text="chat.ai"></div>
                 </div>
             </template>
         </div>
@@ -490,7 +490,7 @@
             history.push({user:message, ai:'...'});
             let currentMsg=message; message=''; loading=true;
             fetch('{{ route('ai.chat') }}',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'},body:JSON.stringify({message:currentMsg})})
-            .then(r=>r.json()).then(d=>{history[history.length-1].ai=d.reply?d.reply.replace(/\n/g,'<br>'):'Sorry, something went wrong.';loading=false;})
+            .then(r=>r.json()).then(d=>{history[history.length-1].ai=d.reply||'Sorry, something went wrong.';loading=false;})
             .catch(()=>{history[history.length-1].ai='Access Denied.';loading=false;});
         ">
             <input x-model="message" type="text" placeholder="Type your message..." class="w-full rounded-xl border-slate-200 text-sm">

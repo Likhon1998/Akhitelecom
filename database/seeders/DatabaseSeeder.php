@@ -37,5 +37,9 @@ class DatabaseSeeder extends Seeder
         );
 
         $admin->syncRoles(['Shop Owner']);
+
+        $this->call([
+            WebsiteSeeder::class,
+        ]);
     }
 }

@@ -2211,6 +2211,9 @@ openCheckout() {
             this.isProcessing = true;
 
             const payload = {
+                client_uuid:             (window.crypto && crypto.randomUUID)
+                    ? crypto.randomUUID()
+                    : ('off-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10)),
                 cart:                    this.cart,
                 items:                   this.cart,
                 total_amount:            this.getTotal(),
@@ -2283,7 +2286,9 @@ openCheckout() {
                         this.showToast('Error: ' + (data.message || 'Something went wrong'), 'error');
                     }
                 } catch(e) {
-                    // Network failed mid-request — save offline + allow print
+                    // Only queue offline if we never got a successful JSON body
+                    // (avoid duplicate when server committed but response was lost —
+                    // client_uuid + unique constraint makes resync safe).
                     this.isOnline = false;
                     this.saveOfflineSale(payload);
                 }

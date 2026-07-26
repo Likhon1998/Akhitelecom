@@ -38,8 +38,8 @@ class SiteSetting extends Model
     {
         return static::query()->first() ?? new static([
             'store_name' => config('app.name', 'GAGET STORE'),
-            'currency_code' => 'USD',
-            'currency_symbol' => '$',
+            'currency_code' => 'BDT',
+            'currency_symbol' => '৳',
         ]);
     }
 }

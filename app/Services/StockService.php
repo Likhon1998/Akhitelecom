@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\StockLocation;
 use App\Models\StockMovement;
@@ -125,7 +126,7 @@ class StockService
     }
 
     /**
-     * Restore stock from refund / return / cancel — skips if already restocked for this document.
+     * Restore stock from refund / return / cancel — skips if never sold or already restocked.
      */
     public function restockForDocument(
         Product $product,
@@ -136,6 +137,21 @@ class StockService
         string $reason = 'order_return',
         ?int $userId = null,
     ): ?StockMovement {
+        // Only gate web/POS order refunds: skip restock when stock was never committed
+        // (deferred COD). Exchange returns use document_type "exchange_return" and must proceed.
+        if (str_starts_with($documentType, 'order')) {
+            $hadSale = StockMovement::where('shop_id', $product->shop_id)
+                ->where('product_id', $product->id)
+                ->where('document_type', 'order')
+                ->where('document_id', $documentId)
+                ->where('type', 'sale')
+                ->exists();
+
+            if (! $hadSale) {
+                return null;
+            }
+        }
+
         $alreadyRestocked = StockMovement::where('shop_id', $product->shop_id)
             ->where('product_id', $product->id)
             ->where('document_type', $documentType)
@@ -158,6 +174,45 @@ class StockService
             $documentId,
             $this->defaultStore($product->shop_id)?->id,
         );
+    }
+
+    /** True when sellable stock was already deducted for this order line. */
+    public function hasSaleForOrder(Product $product, int $orderId): bool
+    {
+        return StockMovement::where('shop_id', $product->shop_id)
+            ->where('product_id', $product->id)
+            ->where('document_type', 'order')
+            ->where('document_id', $orderId)
+            ->where('type', 'sale')
+            ->exists();
+    }
+
+    /**
+     * Deduct stock for a web order once (e.g. when packing starts).
+     * Idempotent per product+order.
+     */
+    public function commitWebOrderStock(Order $order, ?int $userId = null): void
+    {
+        $order->loadMissing('items.product');
+        $userId ??= Auth::id() ?? $order->user_id;
+
+        foreach ($order->items as $item) {
+            $product = $item->product;
+            if (! $product) {
+                continue;
+            }
+            if ($this->hasSaleForOrder($product, $order->id)) {
+                continue;
+            }
+            $this->recordSale(
+                $product,
+                (int) $item->quantity,
+                'Website order - '.$order->invoice_no,
+                $userId,
+                'order',
+                $order->id,
+            );
+        }
     }
 
     public function setOpeningStock(Product $product, int $quantity, ?int $userId = null): StockMovement

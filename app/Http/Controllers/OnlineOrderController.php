@@ -301,8 +301,20 @@ class OnlineOrderController extends Controller
                 Auth::id(),
             );
 
+            if ($newStatus === 'processing' && $oldStatus === 'pending') {
+                $order->load('items.product');
+                $this->stock->commitWebOrderStock($order, Auth::id());
+            }
+
+            // If an order skips packing and goes pending → shipped, still commit stock.
+            if ($newStatus === 'shipped' && in_array($oldStatus, ['pending', 'processing'], true)) {
+                $order->load('items.product');
+                $this->stock->commitWebOrderStock($order, Auth::id());
+            }
+
             if ($newStatus === 'completed' && $oldStatus !== 'completed') {
                 $order->load('items.product');
+                $this->stock->commitWebOrderStock($order, Auth::id());
                 $this->accounts->postWebSettlement($order);
             }
 

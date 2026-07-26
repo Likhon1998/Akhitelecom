@@ -237,6 +237,25 @@ class PosController extends Controller
             $cardPaid = $request->has('card_paid') ? max(0, (float) $request->card_paid) : null;
             $mobilePaid = $request->has('mobile_paid') ? max(0, (float) $request->mobile_paid) : null;
 
+            $clientUuid = trim((string) $request->input('client_uuid', ''));
+            if ($clientUuid !== '') {
+                $existing = Order::where('shop_id', $shopId)
+                    ->where('offline_client_uuid', $clientUuid)
+                    ->first();
+                if ($existing) {
+                    DB::commit();
+
+                    return response()->json([
+                        'success' => true,
+                        'order_id' => $existing->id,
+                        'invoice_no' => $existing->invoice_no,
+                        'change' => (float) $existing->change_amount,
+                        'total_amount' => (float) $existing->total_amount,
+                        'duplicate' => true,
+                    ]);
+                }
+            }
+
             // 4. Create the Main Order
             $order = Order::create([
                 'shop_id' => $shopId,
@@ -244,6 +263,7 @@ class PosController extends Controller
                 'counter_id' => $counterId,
                 'customer_id' => $customerId, 
                 'invoice_no' => $invoiceNo,
+                'offline_client_uuid' => $clientUuid !== '' ? $clientUuid : null,
                 'total_amount' => $totalAmount,
                 'discount_amount' => $discountAmount,
                 'paid_amount' => $paidAmount,
@@ -408,6 +428,20 @@ class PosController extends Controller
             DB::beginTransaction();
 
             foreach ($orders as $offlineOrder) {
+                $clientUuid = isset($offlineOrder['client_uuid'])
+                    ? trim((string) $offlineOrder['client_uuid'])
+                    : '';
+
+                if ($clientUuid !== '') {
+                    $existing = Order::where('shop_id', $shopId)
+                        ->where('offline_client_uuid', $clientUuid)
+                        ->first();
+                    if ($existing) {
+                        $syncedCount++;
+                        continue;
+                    }
+                }
+
                 // 1. Customer Handling (shared with website shoppers)
                 $customerId = null;
                 if (!empty($offlineOrder['customer_phone'])) {
@@ -443,14 +477,33 @@ class PosController extends Controller
                 // 2. Unique offline invoice (locked inside outer transaction)
                 $invoiceNo = Order::nextPosInvoiceNo($shopId, 'OFF');
 
-                // 3. Create Order
-                $gross = (float) ($offlineOrder['total_amount'] ?? 0);
-                $paid = max(0, (float) ($offlineOrder['paid_amount'] ?? $gross));
+                // 3. Create Order — recompute line totals from DB prices (ignore client gross)
+                $lineGross = 0.0;
+                $resolvedItems = [];
+                foreach (($offlineOrder['items'] ?? []) as $item) {
+                    $product = Product::where('shop_id', $shopId)->find($item['id'] ?? 0);
+                    if (! $product) {
+                        throw new \Exception('Product not found for offline sync item.');
+                    }
+                    $qty = max(1, (int) ($item['qty'] ?? 0));
+                    if ($product->stock_quantity < $qty) {
+                        throw new \Exception("Insufficient stock for {$product->name} during offline sync.");
+                    }
+                    $subtotal = (float) $product->selling_price * $qty;
+                    $lineGross += $subtotal;
+                    $resolvedItems[] = compact('product', 'qty', 'subtotal');
+                }
+
+                if ($resolvedItems === []) {
+                    throw new \Exception('Offline order has no items.');
+                }
+
+                $paid = max(0, (float) ($offlineOrder['paid_amount'] ?? $lineGross));
                 $requestedDiscount = max(0, (float) ($offlineOrder['discount_amount'] ?? 0));
-                $discount = min($gross, $requestedDiscount);
-                $payable = max(0, $gross - $discount);
+                $discount = min($lineGross, $requestedDiscount);
+                $payable = max(0, $lineGross - $discount);
                 if ($paid < $payable) {
-                    $discount = min($gross, $gross - $paid);
+                    $discount = min($lineGross, $lineGross - $paid);
                     $payable = $paid;
                 }
 
@@ -464,45 +517,34 @@ class PosController extends Controller
                     'counter_id' => $counterId,
                     'customer_id' => $customerId,
                     'invoice_no' => $invoiceNo,
-                    'total_amount' => $gross,
+                    'offline_client_uuid' => $clientUuid !== '' ? $clientUuid : null,
+                    'total_amount' => $lineGross,
                     'discount_amount' => $discount,
                     'paid_amount' => $paid,
                     'cash_paid' => $cashPaid,
                     'card_paid' => $cardPaid,
                     'mobile_paid' => $mobilePaid,
                     'change_amount' => max(0, $paid - $payable),
-                    'payment_method' => $offlineOrder['payment_method'],
+                    'payment_method' => $offlineOrder['payment_method'] ?? 'cash',
                     'status' => 'completed',
-                    'created_at' => Carbon::parse($offlineOrder['created_at'] ?? now()), 
+                    'created_at' => Carbon::parse($offlineOrder['created_at'] ?? now()),
                     'updated_at' => Carbon::parse($offlineOrder['created_at'] ?? now()),
                 ]);
 
                 // 4. Save Items and Deduct Stock
-                foreach ($offlineOrder['items'] as $item) {
-                    $product = Product::where('shop_id', $shopId)->find($item['id']);
-
-                    if (! $product) {
-                        throw new \Exception('Product not found for offline sync item.');
-                    }
-
-                    if ($product->stock_quantity < $item['qty']) {
-                        throw new \Exception("Insufficient stock for {$product->name} during offline sync.");
-                    }
-
-                    $subtotal = $product->selling_price * $item['qty'];
-
+                foreach ($resolvedItems as $line) {
                     OrderItem::create([
                         'order_id' => $order->id,
-                        'product_id' => $product->id,
-                        'quantity' => $item['qty'],
-                        'unit_price' => $product->selling_price,
-                        'subtotal' => $subtotal,
+                        'product_id' => $line['product']->id,
+                        'quantity' => $line['qty'],
+                        'unit_price' => $line['product']->selling_price,
+                        'subtotal' => $line['subtotal'],
                     ]);
 
                     $this->stock->recordSale(
-                        $product,
-                        (int) $item['qty'],
-                        'Offline sync - ' . $invoiceNo,
+                        $line['product'],
+                        (int) $line['qty'],
+                        'Offline sync - '.$invoiceNo,
                         $userId,
                         'order',
                         $order->id,

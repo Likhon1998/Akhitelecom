@@ -285,11 +285,11 @@ class WebsiteService
         }
 
         $samples = [
-            ['orders-payments', 'How do I place an order?', "Browse our store, add items to your cart, then proceed to checkout. Enter your shipping details, choose a payment method, and confirm. You'll receive an order confirmation by email."],
-            ['orders-payments', 'What payment methods do you accept?', 'We accept major credit/debit cards, mobile banking, and cash on delivery where available. Available options are shown at checkout.'],
+            ['orders-payments', 'How do I place an order?', "Browse our store, add items to your cart, then sign in to checkout. Enter your delivery details and confirm — we currently accept cash on delivery (COD)."],
+            ['orders-payments', 'What payment methods do you accept?', 'Online orders are cash on delivery (COD) only. Pay the delivery agent when your package arrives.'],
             ['orders-payments', 'Can I change or cancel my order after placing it?', 'Contact support as soon as possible with your order number. We can change or cancel orders that have not yet been prepared for shipping.'],
-            ['shipping-delivery', 'How can I track my order?', 'Sign in to your account and open My Orders to see status updates for recent orders.'],
-            ['shipping-delivery', 'Do you offer international shipping?', 'Shipping options depend on your location and product. Available destinations and rates are calculated at checkout.'],
+            ['shipping-delivery', 'How can I track my order?', 'Use Track Order with your Order ID and phone number, or sign in and open My Orders for status updates.'],
+            ['shipping-delivery', 'Do you offer international shipping?', 'We currently deliver within our service area. Contact support if you need help with your location.'],
             ['returns-refunds', 'What is your return policy?', 'Most products can be returned within 30 days if unused and in original packaging. Some items may be excluded — see the product page or contact support.'],
             ['returns-refunds', 'How do I request a return or refund?', 'Go to Help Center or contact support with your order number and reason. Once approved, follow the return shipping instructions we send you.'],
             ['products-warranty', 'Are your products covered by warranty?', 'Yes. Eligible gadgets include manufacturer or store warranty as shown on each product page. Keep your invoice for warranty claims.'],

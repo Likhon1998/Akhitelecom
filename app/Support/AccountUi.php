@@ -55,11 +55,4 @@ class AccountUi
             default => 'text-gray-900',
         };
     }
-
-    public static function statusBadge(bool $active): array
-    {
-        return $active
-            ? ['label' => 'Active', 'bg' => 'bg-emerald-50', 'text' => 'text-emerald-700', 'ring' => 'ring-emerald-100']
-            : ['label' => 'Inactive', 'bg' => 'bg-gray-50', 'text' => 'text-gray-600', 'ring' => 'ring-gray-100'];
-    }
 }

@@ -6,8 +6,8 @@
     $heroSub = data_get($settings, 'contact_hero_subtitle')
         ?: 'Have a question about an order, product, or return? Our support team is ready to assist you.';
     $email = data_get($settings, 'contact_email') ?: 'support@gagetstore.com';
-    $phone = data_get($settings, 'contact_phone') ?: '+1 (800) 123-4567';
-    $address = data_get($settings, 'contact_address') ?: '123 Tech Avenue, Suite 500, New York, NY 10001, USA';
+    $phone = data_get($settings, 'contact_phone') ?: '+880 1700-000000';
+    $address = data_get($settings, 'contact_address') ?: 'Dhaka, Bangladesh';
     $website = data_get($settings, 'contact_website_url') ?: url('/');
     $websiteLabel = preg_replace('#^https?://#', '', rtrim($website, '/'));
     $mapEmbed = data_get($settings, 'contact_map_embed');
@@ -41,14 +41,14 @@
 
 <div class="max-w-7xl mx-auto px-4 -mt-2 relative z-10">
     <div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        <a href="#contact-form" class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm hover:border-blue-200 transition block">
             <div class="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 inline-flex items-center justify-center">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
             </div>
-            <h3 class="mt-3 text-sm font-bold text-slate-900">{{ data_get($settings, 'contact_chat_title') ?: 'Live Chat' }}</h3>
-            <p class="mt-1 text-xs text-slate-500 leading-relaxed">{{ data_get($settings, 'contact_chat_text') ?: 'Chat with our support team in real-time.' }}</p>
-            <p class="mt-2 text-xs font-semibold text-emerald-600">{{ data_get($settings, 'contact_chat_status') ?: 'Available 24/7' }}</p>
-        </div>
+            <h3 class="mt-3 text-sm font-bold text-slate-900">{{ data_get($settings, 'contact_chat_title') ?: 'Message Us' }}</h3>
+            <p class="mt-1 text-xs text-slate-500 leading-relaxed">{{ data_get($settings, 'contact_chat_text') ?: 'Send a message through the contact form below.' }}</p>
+            <p class="mt-2 text-xs font-semibold text-blue-600">{{ data_get($settings, 'contact_chat_status') ?: 'Use the form below' }}</p>
+        </a>
         <div class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             <div class="w-11 h-11 rounded-xl bg-violet-50 text-violet-600 inline-flex items-center justify-center">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
@@ -91,7 +91,7 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('website.contact.submit') }}" class="mt-6 space-y-4">
+            <form id="contact-form" method="POST" action="{{ route('website.contact.submit') }}" class="mt-6 space-y-4">
                 @csrf
                 <div class="grid sm:grid-cols-2 gap-4">
                     <div>

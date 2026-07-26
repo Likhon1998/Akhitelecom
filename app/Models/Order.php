@@ -12,21 +12,22 @@ class Order extends Model
         'user_id', 
         'customer_id', 
         'counter_id', 
-        'invoice_no', 
+        'invoice_no',
+        'offline_client_uuid',
         'total_amount',
         'discount_amount',
         'paid_amount',
         'cash_paid',
         'card_paid',
         'mobile_paid',
-        'change_amount', 
+        'change_amount',
         'payment_method',
         'status',
         'delivery_charge',
         'shipping_courier',
         'shipping_tracking_no',
-        
-        // 🚀 NEW: Exchange & Return tracking fields
+
+        // Exchange & Return tracking fields
         'is_exchange_receipt',
         'exchange_for_order_id',
         'return_product_id',
