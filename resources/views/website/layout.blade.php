@@ -448,9 +448,9 @@
 </div>
 
 {{-- Checkout: sign in / register / place order (one modal) --}}
-<div x-show="checkoutOpen" x-cloak class="fixed inset-0 z-[80] flex items-center justify-center p-4">
+<div x-show="checkoutOpen" x-cloak class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4">
     <div class="absolute inset-0 bg-black/50" @click="checkoutStep !== 'success' && (checkoutOpen=false)"></div>
-    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6"
+    <div class="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-6"
          :class="checkoutStep === 'success' && 'overflow-hidden'">
         <button type="button" x-show="checkoutStep !== 'success'" @click="checkoutOpen=false" class="absolute right-4 top-4 text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
 

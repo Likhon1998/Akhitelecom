@@ -71,7 +71,7 @@
 @if($features->isNotEmpty())
 <section class="tn-features">
     <div class="tn-container">
-        <div class="tn-features-grid" style="grid-template-columns: repeat({{ min($features->count(), 5) }}, 1fr);">
+        <div class="tn-features-grid tn-features-grid--{{ min($features->count(), 5) }}">
             @foreach($features as $feature)
                 <div class="tn-feature">
                     <div class="tn-feature-icon">@include('website.partials.feature-icon', ['icon' => $feature->icon])</div>

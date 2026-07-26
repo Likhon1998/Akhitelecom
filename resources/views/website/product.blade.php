@@ -36,20 +36,20 @@
          x-data="{ active: 0, images: @js($images), tab: 'description', qty: 1 }">
 
         {{-- Gallery column --}}
-        <div class="lg:col-span-5 flex gap-3">
+        <div class="lg:col-span-5 flex flex-col-reverse sm:flex-row gap-3">
             @if(count($images) > 1)
-                <div class="flex flex-col gap-2 w-14 shrink-0">
+                <div class="flex sm:flex-col gap-2 w-full sm:w-14 shrink-0 overflow-x-auto sm:overflow-visible pb-1 sm:pb-0">
                     @foreach($images as $i => $url)
                         <button type="button"
                                 @click="active = {{ $i }}"
                                 :class="active === {{ $i }} ? 'border-blue-600 ring-1 ring-blue-200' : 'border-slate-200 hover:border-slate-300'"
-                                class="aspect-square rounded-lg border bg-white overflow-hidden p-1 transition">
+                                class="aspect-square w-14 sm:w-auto shrink-0 rounded-lg border bg-white overflow-hidden p-1 transition">
                             <img src="{{ $url }}" alt="" class="w-full h-full object-contain">
                         </button>
                     @endforeach
                 </div>
             @endif
-            <div class="flex-1 relative bg-slate-50 rounded-xl border border-slate-100 p-4 sm:p-6 flex items-center justify-center min-h-[260px] sm:min-h-[340px]">
+            <div class="flex-1 relative bg-slate-50 rounded-xl border border-slate-100 p-4 sm:p-6 flex items-center justify-center min-h-[220px] sm:min-h-[340px]">
                 @if($discountPct > 0)
                     <span class="absolute top-3 left-3 text-[10px] font-semibold bg-red-500 text-white px-2 py-0.5 rounded">-{{ $discountPct }}%</span>
                 @endif
