@@ -179,13 +179,12 @@
                                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                             Profile
                                         </a>
-                                        <form method="POST" action="{{ route('website.account.logout') }}">
-                                            @csrf
-                                            <button type="submit" class="gaget-account-menu__item gaget-account-menu__item--danger">
-                                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                                                Sign out
-                                            </button>
-                                        </form>
+                                        <button type="button"
+                                                class="gaget-account-menu__item gaget-account-menu__item--danger"
+                                                @mousedown.prevent="typeof storefrontLogout === 'function' && storefrontLogout()">
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                                            Sign out
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -247,6 +246,11 @@
             @auth
                 @if(auth()->user()->isStorefrontCustomer())
                     <a href="{{ route('website.account') }}" class="gaget-mobile-drawer-link mt-4" @click="mobileOpen = false">My Account</a>
+                    <button type="button"
+                            class="gaget-mobile-drawer-link w-full text-left text-rose-300"
+                            @click="mobileOpen = false; typeof storefrontLogout === 'function' && storefrontLogout()">
+                        Sign out
+                    </button>
                 @else
                     <a href="{{ route('dashboard') }}" class="gaget-mobile-drawer-link mt-4" @click="mobileOpen = false">Staff dashboard</a>
                 @endif

@@ -408,6 +408,23 @@
 
 @include('website.partials.header')
 
+@auth
+    <form id="storefront-logout-form" method="POST" action="{{ route('website.account.logout') }}" class="hidden" aria-hidden="true">
+        @csrf
+    </form>
+    <script>
+        window.storefrontLogout = function () {
+            const form = document.getElementById('storefront-logout-form');
+            if (form) form.submit();
+        };
+        window.addEventListener('pageshow', function (event) {
+            if (event.persisted) {
+                window.location.reload();
+            }
+        });
+    </script>
+@endauth
+
 <main>
     @yield('content')
 </main>

@@ -58,12 +58,12 @@ Route::get('/track-order', [WebsiteController::class, 'trackOrder'])->name('webs
 Route::post('/track-order', [WebsiteController::class, 'trackOrderLookup'])->name('website.track.lookup');
 Route::post('/account/login', [StorefrontAuthController::class, 'login'])->name('website.account.login');
 Route::post('/account/register', [StorefrontAuthController::class, 'register'])->name('website.account.register');
+Route::post('/account/logout', [StorefrontAuthController::class, 'logout'])->name('website.account.logout');
 Route::middleware('auth')->group(function () {
     Route::get('/account', [StorefrontAuthController::class, 'account'])->name('website.account');
     Route::get('/account/profile', [StorefrontAuthController::class, 'editProfile'])->name('website.account.profile.edit');
     Route::put('/account/profile', [StorefrontAuthController::class, 'updateProfile'])->name('website.account.profile.update');
     Route::delete('/account/profile', [StorefrontAuthController::class, 'destroyAccount'])->name('website.account.profile.destroy');
-    Route::post('/account/logout', [StorefrontAuthController::class, 'logout'])->name('website.account.logout');
     Route::post('/checkout', [WebsiteController::class, 'checkout'])->name('website.checkout');
 });
 Route::get('/page/{slug}', [WebsiteController::class, 'page'])->name('website.page');
