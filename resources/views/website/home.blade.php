@@ -67,20 +67,22 @@
     @endif
 </section>
 
-{{-- Service features — flush under banner, 5 across --}}
+{{-- Service features — premium strip under hero --}}
 @if($features->isNotEmpty())
 <section class="tn-features">
     <div class="tn-container">
-        <div class="tn-features-grid tn-features-grid--{{ min($features->count(), 5) }}">
-            @foreach($features as $feature)
-                <div class="tn-feature">
-                    <div class="tn-feature-icon">@include('website.partials.feature-icon', ['icon' => $feature->icon])</div>
-                    <div>
-                        <p class="tn-feature-title">{{ $feature->title }}</p>
-                        @if($feature->subtitle)<p class="tn-feature-sub">{{ $feature->subtitle }}</p>@endif
+        <div class="tn-features-panel">
+            <div class="tn-features-grid tn-features-grid--{{ min($features->count(), 5) }}">
+                @foreach($features as $feature)
+                    <div class="tn-feature">
+                        <div class="tn-feature-icon">@include('website.partials.feature-icon', ['icon' => $feature->icon])</div>
+                        <div class="tn-feature-copy">
+                            <p class="tn-feature-title">{{ $feature->title }}</p>
+                            @if($feature->subtitle)<p class="tn-feature-sub">{{ $feature->subtitle }}</p>@endif
+                        </div>
                     </div>
-                </div>
-            @endforeach
+                @endforeach
+            </div>
         </div>
     </div>
 </section>
