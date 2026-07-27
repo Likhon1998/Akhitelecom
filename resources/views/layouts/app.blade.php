@@ -28,14 +28,14 @@
         <div class="admin-scroll-hide relative flex flex-col flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
             @isset($header)
                 <header class="bg-white/80 backdrop-blur border-b border-slate-100 mt-16 lg:mt-[4.25rem]">
-                    <div class="max-w-[1400px] mx-auto py-3 px-3 sm:px-6 lg:px-8">
+                    <div class="max-w-[1800px] mx-auto py-3 px-3 sm:px-6 lg:px-8">
                         {{ $header }}
                     </div>
                 </header>
             @endisset
 
-            <main class="w-full grow p-3 sm:p-6 min-w-0 {{ !isset($header) ? 'mt-16 lg:mt-[4.25rem]' : '' }}">
-                <div class="max-w-[1400px] mx-auto min-w-0">
+            <main class="w-full grow p-3 sm:p-4 lg:p-5 min-w-0 {{ !isset($header) ? 'mt-16 lg:mt-[4.25rem]' : '' }}">
+                <div class="w-full max-w-[1800px] mx-auto min-w-0">
                     {{ $slot }}
                 </div>
             </main>
