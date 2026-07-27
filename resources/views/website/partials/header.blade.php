@@ -243,6 +243,12 @@
                     <a href="{{ route('website.category', $cat->slug) }}" class="gaget-mobile-drawer-link" @click="mobileOpen = false">{{ $cat->name }}</a>
                 @endforeach
             @endif
+            @if(($brands ?? collect())->isNotEmpty())
+                <p class="gaget-mobile-drawer-title mt-4">Brands</p>
+                @foreach(($brands ?? []) as $brand)
+                    <a href="{{ route('website.brand', \Illuminate\Support\Str::slug($brand->name)) }}" class="gaget-mobile-drawer-link" @click="mobileOpen = false">{{ $brand->name }}</a>
+                @endforeach
+            @endif
             @auth
                 @if(auth()->user()->isStorefrontCustomer())
                     <a href="{{ route('website.account') }}" class="gaget-mobile-drawer-link mt-4" @click="mobileOpen = false">My Account</a>
@@ -265,8 +271,48 @@
         <div class="gaget-navbar-inner">
             <div class="gaget-navbar-left">
                 <div class="gaget-nav-links">
-                    @forelse($mainNav ?? [] as $link)
-                        <a href="{{ $link->url }}" class="gaget-nav-link">{{ $link->label }}</a>
+                    @php
+                        $navLinks = $mainNav ?? collect();
+                    @endphp
+                    @forelse($navLinks as $link)
+                        @php $navLabel = trim((string) $link->label); @endphp
+                        @if(strcasecmp($navLabel, 'Categories') === 0 || strcasecmp($navLabel, 'Category') === 0)
+                            <div class="gaget-nav-dropdown">
+                                <a href="{{ $link->url ?: route('website.shop') }}" class="gaget-nav-link gaget-nav-link--dropdown">
+                                    {{ $link->label }}
+                                    <svg class="gaget-nav-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                </a>
+                                <div class="gaget-nav-dropdown-menu">
+                                    @forelse($allCategories ?? [] as $cat)
+                                        <a href="{{ route('website.category', $cat->slug) }}" class="gaget-nav-dropdown-item">
+                                            <span>{{ $cat->name }}</span>
+                                            <span class="gaget-nav-dropdown-count">{{ $cat->products_count ?? 0 }}</span>
+                                        </a>
+                                    @empty
+                                        <span class="gaget-nav-dropdown-empty">No categories yet</span>
+                                    @endforelse
+                                </div>
+                            </div>
+                        @elseif(strcasecmp($navLabel, 'Brands') === 0 || strcasecmp($navLabel, 'Brand') === 0)
+                            <div class="gaget-nav-dropdown">
+                                <a href="{{ $link->url ?: route('home').'#brands' }}" class="gaget-nav-link gaget-nav-link--dropdown">
+                                    {{ $link->label }}
+                                    <svg class="gaget-nav-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                </a>
+                                <div class="gaget-nav-dropdown-menu">
+                                    @forelse($brands ?? [] as $brand)
+                                        <a href="{{ route('website.brand', \Illuminate\Support\Str::slug($brand->name)) }}" class="gaget-nav-dropdown-item">
+                                            <span>{{ $brand->name }}</span>
+                                            <span class="gaget-nav-dropdown-count">{{ $brand->products_count ?? 0 }}</span>
+                                        </a>
+                                    @empty
+                                        <span class="gaget-nav-dropdown-empty">No brands yet</span>
+                                    @endforelse
+                                </div>
+                            </div>
+                        @else
+                            <a href="{{ $link->url }}" class="gaget-nav-link">{{ $link->label }}</a>
+                        @endif
                     @empty
                         <a href="{{ route('home') }}" class="gaget-nav-link">Home</a>
                         <a href="{{ route('website.shop') }}" class="gaget-nav-link">Shop</a>

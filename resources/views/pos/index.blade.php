@@ -1872,21 +1872,73 @@ function posSystem() {
         },
         brandsForCategory(categoryId) {
             const ids = new Set();
+            const looseNames = new Map();
             this.productsInCategory(categoryId).forEach(p => {
-                if (p.brand_id) ids.add(String(p.brand_id));
+                const resolved = this.resolveBrand(p);
+                if (resolved.id) {
+                    ids.add(String(resolved.id));
+                } else if (resolved.name) {
+                    const key = resolved.name.toLowerCase();
+                    if (!looseNames.has(key)) looseNames.set(key, resolved.name);
+                }
             });
-            return (this.brands || []).filter(b => ids.has(String(b.id)));
+            const fromCatalog = (this.brands || []).filter(b => ids.has(String(b.id)));
+            const synthetic = Array.from(looseNames.entries()).map(([key, name], i) => ({
+                id: 'name:' + key,
+                name,
+                _synthetic: true,
+            }));
+            return [...fromCatalog, ...synthetic];
+        },
+        resolveBrand(product) {
+            if (product.brand_id) {
+                return { id: String(product.brand_id), name: product.brand_name || null };
+            }
+            const explicit = String(product.brand_name || '').trim();
+            if (explicit) {
+                const match = (this.brands || []).find(b => String(b.name).toLowerCase() === explicit.toLowerCase());
+                if (match) return { id: String(match.id), name: match.name };
+                return { id: null, name: explicit };
+            }
+            const pname = String(product.name || '').trim().toLowerCase();
+            if (pname) {
+                const match = (this.brands || [])
+                    .slice()
+                    .sort((a, b) => String(b.name).length - String(a.name).length)
+                    .find(b => {
+                        const bn = String(b.name || '').trim().toLowerCase();
+                        if (!bn) return false;
+                        return pname === bn || pname.startsWith(bn + ' ') || pname.startsWith(bn + '-') || pname.startsWith(bn + '_');
+                    });
+                if (match) return { id: String(match.id), name: match.name };
+            }
+            return { id: null, name: null };
         },
         brandProductCount(categoryId, brandId) {
-            return this.productsInCategory(categoryId).filter(p => String(p.brand_id) === String(brandId)).length;
+            const key = String(brandId);
+            return this.productsInCategory(categoryId).filter(p => {
+                const resolved = this.resolveBrand(p);
+                if (key.startsWith('name:')) {
+                    return !resolved.id && resolved.name && ('name:' + resolved.name.toLowerCase()) === key;
+                }
+                return resolved.id && String(resolved.id) === key;
+            }).length;
         },
         unbrandedCount(categoryId) {
-            return this.productsInCategory(categoryId).filter(p => !p.brand_id).length;
+            return this.productsInCategory(categoryId).filter(p => {
+                const resolved = this.resolveBrand(p);
+                return !resolved.id && !resolved.name;
+            }).length;
         },
         matchesBrand(product) {
             if (this.selectedBrand === 'all') return true;
-            if (this.selectedBrand === 'none') return !product.brand_id;
-            return String(product.brand_id) === String(this.selectedBrand);
+            const resolved = this.resolveBrand(product);
+            if (this.selectedBrand === 'none') return !resolved.id && !resolved.name;
+            const key = String(this.selectedBrand);
+            if (key.startsWith('name:')) {
+                return !resolved.id && resolved.name && ('name:' + resolved.name.toLowerCase()) === key;
+            }
+            return resolved.id && String(resolved.id) === key;
         },
         matchesCategory(product) {
             return this.selectedCategory === 'all' || String(product.category_id) === String(this.selectedCategory);

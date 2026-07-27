@@ -51,11 +51,16 @@ class PosController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
+        $brandById = $brands->keyBy('id');
+        $brandsSortedByNameLength = $brands->sortByDesc(fn (Brand $b) => mb_strlen($b->name))->values();
+
         $products = Product::where('shop_id', $shopId)
             ->with(['category:id,name', 'brand:id,name'])
             ->orderBy('name')
             ->get()
-            ->map(function (Product $product) {
+            ->map(function (Product $product) use ($brandById, $brandsSortedByNameLength) {
+                [$brandId, $brandName] = $this->resolvePosBrand($product, $brandById, $brandsSortedByNameLength);
+
                 return [
                     'id' => $product->id,
                     'name' => $product->name,
@@ -65,9 +70,9 @@ class PosController extends Controller
                     'stock_quantity' => $product->stock_quantity,
                     'image' => $product->image,
                     'category_id' => $product->category_id,
-                    'brand_id' => $product->brand_id,
+                    'brand_id' => $brandId,
                     'category_name' => $product->category?->name,
-                    'brand_name' => $product->brand?->name ?? $product->brand_name,
+                    'brand_name' => $brandName,
                 ];
             })
             ->values();
@@ -599,5 +604,52 @@ class PosController extends Controller
         }
 
         return (int) $counter->id;
+    }
+
+    /**
+     * Resolve brand for POS filters: linked brand, brand_name text, or brand name in product title.
+     *
+     * @param  \Illuminate\Support\Collection<int, Brand>  $brandById
+     * @param  \Illuminate\Support\Collection<int, Brand>  $brandsSortedByNameLength
+     * @return array{0: int|null, 1: string|null}
+     */
+    protected function resolvePosBrand(Product $product, $brandById, $brandsSortedByNameLength): array
+    {
+        if ($product->brand_id && $brandById->has($product->brand_id)) {
+            $brand = $brandById->get($product->brand_id);
+
+            return [(int) $brand->id, $brand->name];
+        }
+
+        if ($product->brand && $product->brand->name) {
+            return [(int) $product->brand->id, $product->brand->name];
+        }
+
+        $explicitName = trim((string) ($product->brand_name ?? ''));
+        if ($explicitName !== '') {
+            $match = $brandsSortedByNameLength->first(
+                fn (Brand $b) => strcasecmp($b->name, $explicitName) === 0
+            );
+            if ($match) {
+                return [(int) $match->id, $match->name];
+            }
+
+            return [null, $explicitName];
+        }
+
+        $productName = trim((string) $product->name);
+        if ($productName !== '') {
+            foreach ($brandsSortedByNameLength as $brand) {
+                $brandName = trim($brand->name);
+                if ($brandName === '') {
+                    continue;
+                }
+                if (preg_match('/^'.preg_quote($brandName, '/').'(?:\b|[\s\-_])/iu', $productName)) {
+                    return [(int) $brand->id, $brand->name];
+                }
+            }
+        }
+
+        return [null, null];
     }
 }
