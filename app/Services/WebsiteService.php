@@ -137,9 +137,10 @@ class WebsiteService
             ->take(5)
             ->get();
 
+        $this->linkOrphanProductsToBrands($shopId);
+
         $brands = Brand::where('shop_id', $shopId)
             ->where('is_active', true)
-            ->whereHas('products', $visibleProducts)
             ->withCount(['products' => $visibleProducts])
             ->orderBy('sort_order')
             ->orderBy('name')
@@ -563,5 +564,56 @@ class WebsiteService
         }
 
         return null;
+    }
+
+    /**
+     * Attach products missing brand_id when brand_name or product title matches an active brand.
+     */
+    public function linkOrphanProductsToBrands(int $shopId): void
+    {
+        $brands = Brand::where('shop_id', $shopId)
+            ->where('is_active', true)
+            ->orderByDesc(\Illuminate\Support\Facades\DB::raw('LENGTH(name)'))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        if ($brands->isEmpty()) {
+            return;
+        }
+
+        $orphans = Product::where('shop_id', $shopId)
+            ->where(function ($q) {
+                $q->whereNull('brand_id')->orWhere('brand_id', 0);
+            })
+            ->get(['id', 'name', 'brand_name', 'brand_id']);
+
+        foreach ($orphans as $product) {
+            $match = null;
+            $explicit = trim((string) ($product->brand_name ?? ''));
+            if ($explicit !== '') {
+                $match = $brands->first(fn (Brand $b) => strcasecmp($b->name, $explicit) === 0);
+            }
+
+            if (! $match) {
+                $productName = trim((string) $product->name);
+                foreach ($brands as $brand) {
+                    $brandName = trim($brand->name);
+                    if ($brandName === '') {
+                        continue;
+                    }
+                    if (preg_match('/^'.preg_quote($brandName, '/').'(?:\b|[\s\-_])/iu', $productName)) {
+                        $match = $brand;
+                        break;
+                    }
+                }
+            }
+
+            if ($match) {
+                Product::where('id', $product->id)->update([
+                    'brand_id' => $match->id,
+                    'brand_name' => $match->name,
+                ]);
+            }
+        }
     }
 }

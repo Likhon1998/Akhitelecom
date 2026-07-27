@@ -224,6 +224,8 @@ class WebsiteController extends Controller
      */
     protected function shopSidebarData(int $shopId): array
     {
+        $this->website->linkOrphanProductsToBrands($shopId);
+
         $catalog = $this->website->catalogQuery($shopId);
 
         $categories = Category::where('shop_id', $shopId)
@@ -249,9 +251,7 @@ class WebsiteController extends Controller
                         $qq->where('is_published', true)->orWhereNull('is_published');
                     });
             }])
-            ->get()
-            ->filter(fn ($b) => (int) $b->published_count > 0)
-            ->values();
+            ->get();
 
         return [
             'categories' => $categories,
@@ -405,6 +405,8 @@ class WebsiteController extends Controller
             ->first(fn ($b) => \Illuminate\Support\Str::slug($b->name) === $slug);
 
         abort_unless($brand, 404);
+
+        $this->website->linkOrphanProductsToBrands($shopId);
 
         $products = $this->website->catalogQuery($shopId)
             ->where(function ($q) use ($brand) {

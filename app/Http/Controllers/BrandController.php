@@ -50,6 +50,8 @@ class BrandController extends Controller
 
         $brand = Brand::create($data);
 
+        app(\App\Services\WebsiteService::class)->linkOrphanProductsToBrands((int) $brand->shop_id);
+
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
