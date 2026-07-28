@@ -17,8 +17,9 @@ class CounterController extends Controller
     {
         $shop = Auth::user()->shop;
         $counters = Counter::where('shop_id', $shop->id)
+            ->with(['users:id,name,counter_id'])
             ->withCount(['users', 'sessions' => fn ($q) => $q->where('status', 'open')])
-            ->latest()
+            ->orderBy('name')
             ->get();
 
         $staffWithoutCounter = User::where('shop_id', $shop->id)
