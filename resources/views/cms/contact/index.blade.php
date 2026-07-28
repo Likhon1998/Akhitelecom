@@ -160,7 +160,7 @@
                         </td>
                         <td class="px-5 py-4 text-right space-x-3">
                             <a href="{{ route('cms.contact.messages.show', $msg) }}" class="font-semibold text-indigo-600">View</a>
-                            <form action="{{ route('cms.contact.messages.destroy', $msg) }}" method="POST" class="inline" onsubmit="return confirm('Delete message?')">@csrf @method('DELETE')<button class="font-semibold text-rose-600">Delete</button></form>
+                            <form action="{{ route('cms.contact.messages.destroy', $msg) }}" method="POST" class="inline" data-confirm="Delete message?" data-confirm-title="Delete?" data-confirm-ok="Delete" data-confirm-tone="danger">@csrf @method('DELETE')<button class="font-semibold text-rose-600">Delete</button></form>
                         </td>
                     </tr>
                 @empty

@@ -25,7 +25,7 @@
     <div class="flex flex-wrap gap-2 mb-6">
         @if($order->status !== 'cancelled' && $order->items->every(fn ($i) => $i->received_quantity === 0))
             <a href="{{ route('supply.purchase-orders.edit', $order) }}" class="inline-flex items-center px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50">Edit PO</a>
-            <form method="POST" action="{{ route('supply.purchase-orders.cancel', $order) }}" onsubmit="return confirm('Cancel this purchase order?')">
+            <form method="POST" action="{{ route('supply.purchase-orders.cancel', $order) }}" data-confirm="Cancel this purchase order?" data-confirm-title="Cancel order?" data-confirm-ok="Cancel order" data-confirm-tone="warning">
                 @csrf
                 <button class="inline-flex items-center px-4 py-2 rounded-xl bg-red-50 border border-red-100 text-sm font-bold text-red-700 hover:bg-red-100">Cancel PO</button>
             </form>

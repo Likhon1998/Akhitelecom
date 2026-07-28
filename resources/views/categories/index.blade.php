@@ -53,7 +53,7 @@
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
                                         <a href="{{ route('categories.edit', $category) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
                                         
-                                        <form action="{{ route('categories.destroy', $category) }}" method="POST" class="inline-block" onsubmit="return confirm('Delete this category? Items inside will become uncategorized.')">
+                                        <form action="{{ route('categories.destroy', $category) }}" method="POST" class="inline-block" data-confirm="Delete this category? Items inside will become uncategorized." data-confirm-title="Delete?" data-confirm-ok="Delete" data-confirm-tone="danger">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>

@@ -116,11 +116,16 @@ class WebsiteService
 
         $flashSaleProducts = $this->catalogQuery($shopId)
             ->with(['category', 'brand'])
-            ->whereNotNull('original_price')
-            ->whereColumn('original_price', '>', 'selling_price')
-            ->orderByRaw('(original_price - selling_price) / NULLIF(original_price, 0) DESC')
+            ->onSale()
+            ->orderByRaw('(selling_price - sale_price) / NULLIF(selling_price, 0) DESC')
             ->take(5)
             ->get();
+
+        $flashSaleEndsAt = $flashSaleProducts
+            ->map(fn (Product $p) => $p->sale_ends_at)
+            ->filter()
+            ->sort()
+            ->first();
 
         $newArrivals = $this->catalogQuery($shopId)
             ->with(['category', 'brand'])
@@ -159,6 +164,7 @@ class WebsiteService
             'promoBanners' => PromoBanner::where('shop_id', $shopId)->where('is_active', true)->orderBy('sort_order')->orderBy('id')->get(),
             'bestSellers' => $bestSellers,
             'flashSaleProducts' => $flashSaleProducts,
+            'flashSaleEndsAt' => $flashSaleEndsAt,
             'newArrivals' => $newArrivals,
             'trendingProducts' => $trendingProducts,
             'brands' => $brands,
@@ -182,6 +188,7 @@ class WebsiteService
             'promoBanners' => collect(),
             'bestSellers' => collect(),
             'flashSaleProducts' => collect(),
+            'flashSaleEndsAt' => null,
             'newArrivals' => collect(),
             'trendingProducts' => collect(),
             'brands' => collect(),

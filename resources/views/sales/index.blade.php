@@ -271,14 +271,20 @@
                                                     class="inline-flex items-center justify-center text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 px-2.5 py-1 rounded text-xs font-bold">Receipt</button>
                                             <template x-if="order.can_mark_returned">
                                                 <form method="POST" :action="order.return_url"
-                                                      @submit="if (!confirm('Mark ' + order.invoice + ' as Returned? Stock will come back. No cash refund (COD not collected).')) $event.preventDefault()">
+                                                      :data-confirm="'Mark ' + order.invoice + ' as Returned? Stock will come back. No cash refund (COD not collected).'"
+                                                      data-confirm-title="Mark returned?"
+                                                      data-confirm-ok="Mark returned"
+                                                      data-confirm-tone="warning">
                                                     <input type="hidden" name="_token" :value="csrf">
                                                     <button type="submit" class="inline-flex w-full items-center justify-center text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2.5 py-1 rounded text-xs font-bold">Returned</button>
                                                 </form>
                                             </template>
                                             <template x-if="order.can_refund">
                                                 <form method="POST" :action="order.refund_url"
-                                                      @submit="if (!confirm('Refund ' + order.invoice + '? Money was collected — cash will be reversed and stock restored.')) $event.preventDefault()">
+                                                      :data-confirm="'Refund ' + order.invoice + '? Money was collected — cash will be reversed and stock restored.'"
+                                                      data-confirm-title="Refund?"
+                                                      data-confirm-ok="Refund"
+                                                      data-confirm-tone="danger">
                                                     <input type="hidden" name="_token" :value="csrf">
                                                     <button type="submit" class="inline-flex w-full items-center justify-center text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-100 px-2.5 py-1 rounded text-xs font-bold">Refund</button>
                                                 </form>

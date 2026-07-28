@@ -11,6 +11,7 @@ use App\Services\StockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -20,14 +21,52 @@ class ProductController extends Controller
         protected StockService $stock,
         protected AccountService $accounts,
     ) {}
-    public function index()
+    public function index(Request $request)
     {
-        $products = Product::where('shop_id', Auth::user()->shop_id)
-            ->with(['category', 'brand'])
-            ->latest()
-            ->paginate(10);
+        $shopId = Auth::user()->shop_id;
+        $base = Product::where('shop_id', $shopId);
 
-        return view('products.index', compact('products'));
+        $stats = [
+            'total_products' => (clone $base)->count(),
+            'total_stock' => (int) ((clone $base)->sum('stock_quantity') ?? 0),
+            'total_value' => (float) ((clone $base)->selectRaw('COALESCE(SUM(cost_price * stock_quantity), 0) as v')->value('v') ?? 0),
+            'out_of_stock' => (clone $base)->where('stock_quantity', '<=', 0)->count(),
+        ];
+
+        $query = Product::where('shop_id', $shopId)->with(['category', 'brand']);
+
+        $search = trim((string) $request->input('q', ''));
+        if ($search !== '') {
+            $likeOp = Schema::getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+            $like = '%'.$search.'%';
+            $query->where(function ($q) use ($like, $likeOp) {
+                $q->where('name', $likeOp, $like)
+                    ->orWhere('barcode', $likeOp, $like)
+                    ->orWhere('sku', $likeOp, $like)
+                    ->orWhere('brand_name', $likeOp, $like);
+            });
+        }
+
+        if ($request->filled('category_id')) {
+            $query->where('category_id', (int) $request->input('category_id'));
+        }
+
+        $status = trim((string) $request->input('status', ''));
+        match ($status) {
+            'ok' => $query->whereRaw('stock_quantity > COALESCE(alert_quantity, 5)'),
+            'low' => $query->where('stock_quantity', '>', 0)
+                ->whereRaw('stock_quantity <= COALESCE(alert_quantity, 5)'),
+            'out' => $query->where('stock_quantity', '<=', 0),
+            'sale' => $query->onSale(),
+            'hidden' => $query->where('is_published', false),
+            default => null,
+        };
+
+        $products = $query->latest('id')->paginate(10)->appends($request->only(['q', 'category_id', 'status']));
+        $brands = Brand::where('shop_id', $shopId)->where('is_active', true)->orderBy('name')->get();
+        $categories = Category::where('shop_id', $shopId)->orderBy('name')->get();
+
+        return view('products.index', compact('products', 'brands', 'categories', 'stats', 'status', 'search'));
     }
 
     public function create(Request $request)
@@ -54,7 +93,6 @@ class ProductController extends Controller
             'availability' => 'nullable|in:in_stock,pre_order,up_coming,out_of_stock',
             'cost_price' => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',
-            'original_price' => 'nullable|numeric|min:0',
             'short_description' => 'nullable|string|max:2000',
             'category_id' => [
                 'nullable',
@@ -91,7 +129,6 @@ class ProductController extends Controller
                     'availability' => $validated['availability'] ?? 'in_stock',
                     'cost_price' => $validated['cost_price'],
                     'selling_price' => $validated['selling_price'],
-                    'original_price' => $validated['original_price'] ?? null,
                     'short_description' => $validated['short_description'] ?? null,
                     'category_id' => $validated['category_id'] ?? null,
                     'brand_id' => $validated['brand_id'] ?? null,
@@ -177,7 +214,6 @@ class ProductController extends Controller
             'availability' => 'nullable|in:in_stock,pre_order,up_coming,out_of_stock',
             'cost_price' => 'required|numeric',
             'selling_price' => 'required|numeric',
-            'original_price' => 'nullable|numeric|min:0',
             'short_description' => 'nullable|string|max:2000',
             'category_id' => 'nullable|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
@@ -556,11 +592,106 @@ class ProductController extends Controller
             $data['color_hex'] = null;
         }
 
-        if (array_key_exists('original_price', $data) && ($data['original_price'] === '' || $data['original_price'] === null)) {
-            $data['original_price'] = null;
-        }
+        unset($data['original_price'], $data['sale_price'], $data['sale_starts_at'], $data['sale_ends_at']);
 
         return $data;
+    }
+
+    public function applySale(Request $request, Product $product)
+    {
+        if ($product->shop_id !== Auth::user()->shop_id) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $validated = $request->validate([
+            'sale_price' => 'required|numeric|min:0|lt:'.$product->selling_price,
+            'sale_starts_at' => 'required|date',
+            'sale_ends_at' => 'required|date|after:sale_starts_at',
+        ], [
+            'sale_price.lt' => 'Sale price must be lower than the selling price (Tk '.number_format((float) $product->selling_price, 2).').',
+            'sale_ends_at.after' => 'Sale end time must be after the start time.',
+        ]);
+
+        $product->applySale(
+            (float) $validated['sale_price'],
+            \Illuminate\Support\Carbon::parse($validated['sale_starts_at']),
+            \Illuminate\Support\Carbon::parse($validated['sale_ends_at']),
+        );
+
+        return redirect()->route('products.index')->with(
+            'success',
+            "Sale set on {$product->name}: Tk ".number_format((float) $validated['sale_price'], 2).' until '.$product->fresh()->sale_ends_at->format('d M Y, h:i A').'.'
+        );
+    }
+
+    public function clearSale(Product $product)
+    {
+        if ($product->shop_id !== Auth::user()->shop_id) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $product->clearSale();
+
+        return redirect()->route('products.index')->with('success', "Sale removed from {$product->name}.");
+    }
+
+    public function applyBrandSale(Request $request)
+    {
+        $shopId = Auth::user()->shop_id;
+
+        $validated = $request->validate([
+            'brand_id' => [
+                'required',
+                Rule::exists('brands', 'id')->where(fn ($q) => $q->where('shop_id', $shopId)),
+            ],
+            'percent' => 'required|numeric|min:1|max:90',
+            'sale_starts_at' => 'required|date',
+            'sale_ends_at' => 'required|date|after:sale_starts_at',
+        ], [
+            'sale_ends_at.after' => 'Sale end time must be after the start time.',
+        ]);
+
+        $brand = Brand::where('shop_id', $shopId)->findOrFail($validated['brand_id']);
+        $starts = \Illuminate\Support\Carbon::parse($validated['sale_starts_at']);
+        $ends = \Illuminate\Support\Carbon::parse($validated['sale_ends_at']);
+        $percent = (float) $validated['percent'];
+        $factor = 1 - ($percent / 100);
+
+        $products = Product::where('shop_id', $shopId)
+            ->where(function ($q) use ($brand) {
+                $q->where('brand_id', $brand->id)
+                    ->orWhere(function ($qq) use ($brand) {
+                        $qq->whereNull('brand_id')
+                            ->where('brand_name', $brand->name);
+                    });
+            })
+            ->get();
+
+        $updated = 0;
+        foreach ($products as $product) {
+            $list = (float) $product->selling_price;
+            if ($list <= 0) {
+                continue;
+            }
+            $salePrice = round($list * $factor, 2);
+            if ($salePrice >= $list) {
+                continue;
+            }
+            $product->applySale($salePrice, $starts, $ends);
+            $updated++;
+        }
+
+        if ($updated === 0) {
+            return redirect()->route('products.index')->with(
+                'success',
+                "No products found for brand {$brand->name}."
+            );
+        }
+
+        return redirect()->route('products.index')->with(
+            'success',
+            "{$percent}% sale applied to {$updated} {$brand->name} product(s) until ".$ends->format('d M Y, h:i A').'.'
+        );
     }
 
     /**

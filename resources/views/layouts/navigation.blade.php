@@ -226,28 +226,6 @@
         @endif
 
     </nav>
-
-    <div class="shrink-0 border-t border-white/5 p-3">
-        <div class="flex items-center gap-2.5 rounded-xl px-2 py-2 hover:bg-white/5">
-            @if(Auth::user()->avatarUrl())
-                <img src="{{ Auth::user()->avatarUrl() }}" alt="" class="h-9 w-9 rounded-full object-cover border border-white/10">
-            @else
-                <div class="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600/20 text-sm font-bold text-blue-300">
-                    {{ Auth::user()->avatarInitials() }}
-                </div>
-            @endif
-            <div class="min-w-0 flex-1">
-                <p class="truncate text-[13px] font-semibold text-white">{{ Auth::user()->name }}</p>
-                <p class="truncate text-[11px] text-slate-500">{{ Auth::user()->getRoleNames()->first() ?? 'Staff' }}</p>
-            </div>
-            <form method="POST" action="{{ route('logout') }}" class="shrink-0">
-                @csrf
-                <button type="submit" class="rounded-lg px-2 py-1.5 text-[11px] font-bold text-rose-300 hover:bg-white/10 hover:text-rose-200" title="Log out">
-                    Log out
-                </button>
-            </form>
-        </div>
-    </div>
 </aside>
 
 <header class="fixed top-0 right-0 left-0 lg:left-[260px] h-[4.25rem] bg-white/90 backdrop-blur border-b border-slate-100 z-30 flex items-center gap-3 px-4 sm:px-6">

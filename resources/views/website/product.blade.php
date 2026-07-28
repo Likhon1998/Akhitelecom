@@ -5,9 +5,9 @@
     $img = $images[0];
     $reviews = $reviews ?? collect();
     $variantOptions = $variantOptions ?? ['colors' => [], 'storages' => []];
-    $discountPct = ($product->original_price && $product->original_price > $product->selling_price)
-        ? (int) round((1 - ($product->selling_price / $product->original_price)) * 100)
-        : 0;
+    $discountPct = $product->discountPercent();
+    $currentPrice = $product->currentPrice();
+    $compareAt = $product->compareAtPrice();
     $displayName = $product->variant_group
         ? trim(preg_replace('/\s*(128GB|256GB|512GB|1TB|64GB|32GB)\s*$/i', '', $product->name))
         : $product->name;
@@ -43,17 +43,17 @@
                         <button type="button"
                                 @click="active = {{ $i }}"
                                 :class="active === {{ $i }} ? 'border-blue-600 ring-1 ring-blue-200' : 'border-slate-200 hover:border-slate-300'"
-                                class="aspect-square w-14 sm:w-auto shrink-0 rounded-lg border bg-white overflow-hidden p-1 transition">
-                            <img src="{{ $url }}" alt="" class="w-full h-full object-contain">
+                                class="aspect-square w-14 sm:w-auto shrink-0 rounded-lg border bg-white overflow-hidden transition">
+                            <img src="{{ $url }}" alt="" class="w-full h-full object-contain bg-white">
                         </button>
                     @endforeach
                 </div>
             @endif
-            <div class="flex-1 relative bg-slate-50 rounded-xl border border-slate-100 p-4 sm:p-6 flex items-center justify-center min-h-[220px] sm:min-h-[340px]">
+            <div class="flex-1 relative bg-white rounded-xl border border-slate-100 overflow-hidden min-h-[260px] sm:min-h-[380px] aspect-square sm:aspect-auto">
                 @if($discountPct > 0)
-                    <span class="absolute top-3 left-3 text-[10px] font-semibold bg-red-500 text-white px-2 py-0.5 rounded">-{{ $discountPct }}%</span>
+                    <span class="absolute top-3 left-3 z-10 text-[10px] font-semibold bg-red-500 text-white px-2 py-0.5 rounded">-{{ $discountPct }}%</span>
                 @endif
-                <img :src="images[active]" alt="{{ $product->name }}" class="max-h-[300px] sm:max-h-[360px] w-full object-contain">
+                <img :src="images[active]" alt="{{ $product->name }}" class="absolute inset-0 w-full h-full object-contain bg-white p-2 sm:p-3">
             </div>
         </div>
 
@@ -81,9 +81,9 @@
             @endif
 
             <div class="flex flex-wrap items-baseline gap-2 mb-4 pb-4 border-b border-slate-100">
-                <span class="text-lg font-semibold text-blue-600">{{ $ws->formatPrice($product->selling_price, $settings) }}</span>
-                @if($product->original_price && $product->original_price > $product->selling_price)
-                    <span class="text-sm text-slate-400 line-through">{{ $ws->formatPrice($product->original_price, $settings) }}</span>
+                <span class="text-lg font-semibold text-blue-600">{{ $ws->formatPrice($currentPrice, $settings) }}</span>
+                @if($compareAt)
+                    <span class="text-sm text-slate-400 line-through">{{ $ws->formatPrice($compareAt, $settings) }}</span>
                     @if($discountPct > 0)
                         <span class="text-[10px] font-medium text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded">{{ $discountPct }}% OFF</span>
                     @endif
@@ -154,7 +154,7 @@
                         $cartItem = [
                             'id' => $product->id,
                             'name' => $product->name,
-                            'price' => (float) $product->selling_price,
+                            'price' => $currentPrice,
                             'image' => $img,
                         ];
                     @endphp
@@ -181,7 +181,7 @@
                     $listItem = [
                         'id' => $product->id,
                         'name' => $product->name,
-                        'price' => (float) $product->selling_price,
+                        'price' => $currentPrice,
                         'image' => $img,
                         'url' => route('website.product', $product),
                         'category' => $product->category?->name ?? $product->brand_name ?? 'Electronics',
@@ -228,10 +228,10 @@
                         @foreach($related->take(3) as $rel)
                             @php $relImg = $ws->productImageUrl($rel); @endphp
                             <a href="{{ route('website.product', $rel) }}" class="flex gap-3 group">
-                                <img src="{{ $relImg }}" alt="" class="w-14 h-14 object-contain rounded-lg bg-slate-50 border border-slate-100">
+                                <img src="{{ $relImg }}" alt="" class="w-14 h-14 object-cover rounded-lg bg-slate-50 border border-slate-100">
                                 <div class="min-w-0 flex-1">
                                     <p class="text-xs font-medium text-slate-800 group-hover:text-blue-600 line-clamp-2">{{ $rel->name }}</p>
-                                    <p class="text-xs font-semibold text-blue-600 mt-0.5">{{ $ws->formatPrice($rel->selling_price, $settings) }}</p>
+                                    <p class="text-xs font-semibold text-blue-600 mt-0.5">{{ $ws->formatPrice($rel->currentPrice(), $settings) }}</p>
                                 </div>
                             </a>
                         @endforeach

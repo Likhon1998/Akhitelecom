@@ -13,6 +13,15 @@
     </style>
 </head>
 <body class="h-full overflow-hidden font-sans antialiased text-gray-900 bg-slate-100">
+    @php
+        $adminFlash = array_filter([
+            'success' => session('success'),
+            'error' => session('error'),
+            'warning' => session('warning'),
+            'info' => session('info'),
+        ], fn ($v) => filled($v));
+    @endphp
+    <script>window.__ADMIN_FLASH__ = @json($adminFlash);</script>
     {{ $slot }}
     <script>
         setInterval(function () {

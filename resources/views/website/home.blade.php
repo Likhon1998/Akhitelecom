@@ -126,7 +126,14 @@
                 </div>
                 <div class="tn-countdown tn-countdown--flash" x-data="{
                     h:0,m:0,s:0,
-                    tick(){ const d=Math.max(0,new Date().setHours(23,59,59,999)-Date.now()); this.h=Math.floor(d/3600000); this.m=Math.floor((d%3600000)/60000); this.s=Math.floor((d%60000)/1000); }
+                    end: {{ ($flashSaleEndsAt ?? null) ? ((int) $flashSaleEndsAt->timestamp * 1000) : 'null' }},
+                    tick(){
+                        const target = this.end ?? new Date().setHours(23,59,59,999);
+                        const d = Math.max(0, target - Date.now());
+                        this.h = Math.floor(d/3600000);
+                        this.m = Math.floor((d%3600000)/60000);
+                        this.s = Math.floor((d%60000)/1000);
+                    }
                 }" x-init="tick(); setInterval(()=>tick(),1000)">
                     <span class="tn-countdown-label">Ends in</span>
                     <span class="tn-countdown-box"><strong x-text="String(h).padStart(2,'0')">00</strong><small>Hrs</small></span>

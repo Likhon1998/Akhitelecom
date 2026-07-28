@@ -12,7 +12,6 @@
         storage: @js(old('storage', $product?->storage ?? '')),
         variantGroup: @js(old('variant_group', $product?->variant_group ?? '')),
         selling: @js(old('selling_price', $product?->selling_price ?? '')),
-        original: @js(old('original_price', $product?->original_price ?? '')),
         autoGroup: true,
         categoryModal: false,
         brandModal: false,
@@ -214,9 +213,9 @@
     <section class="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/80">
             <h3 class="text-sm font-semibold text-slate-800">3. Pricing</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Selling price shows on the store; original price shows as strike-through when higher.</p>
+            <p class="text-xs text-slate-500 mt-0.5">Selling price is the normal store price. Timed sales are set from the product list.</p>
         </div>
-        <div class="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
                 <label class="block text-xs font-semibold text-slate-600 mb-1.5">Cost price (Tk) <span class="text-red-500">*</span></label>
                 <input type="number" step="0.01" name="cost_price" value="{{ old('cost_price', $product?->cost_price ?? '') }}" required
@@ -228,12 +227,6 @@
                 <input type="number" step="0.01" name="selling_price" x-model="selling" value="{{ old('selling_price', $product?->selling_price ?? '') }}" required
                        class="block w-full rounded-lg border-slate-200 text-sm py-2.5 font-medium text-blue-600">
                 @error('selling_price') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1.5">Original / compare-at (Tk)</label>
-                <input type="number" step="0.01" name="original_price" x-model="original" value="{{ old('original_price', $product?->original_price ?? '') }}"
-                       class="block w-full rounded-lg border-slate-200 text-sm py-2.5"
-                       placeholder="Optional — for % OFF badge">
             </div>
         </div>
     </section>
@@ -326,7 +319,6 @@
                 <p class="text-sm font-semibold text-slate-900" x-text="name || 'Product name'"></p>
                 <div class="flex items-baseline gap-2 mt-1">
                     <span class="text-sm font-semibold text-blue-600" x-text="selling ? ('Tk ' + Number(selling).toLocaleString()) : 'Tk —'"></span>
-                    <span class="text-xs text-slate-400 line-through" x-show="original && Number(original) > Number(selling)" x-text="'Tk ' + Number(original).toLocaleString()"></span>
                 </div>
                 <p class="text-xs text-slate-600 mt-2" x-show="storage">
                     Storage: <span class="font-medium" x-text="storage"></span>

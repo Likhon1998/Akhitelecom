@@ -1,8 +1,8 @@
 @php
     $ws = app(\App\Services\WebsiteService::class);
-    $discount = ($product->original_price && $product->original_price > $product->selling_price)
-        ? round((($product->original_price - $product->selling_price) / $product->original_price) * 100)
-        : 0;
+    $discount = $product->discountPercent();
+    $currentPrice = $product->currentPrice();
+    $compareAt = $product->compareAtPrice();
     $img = $ws->productImageUrl($product);
     $catLabel = $product->category?->name ?? $product->brand_name ?? 'Electronics';
     $flash = !empty($flash);
@@ -11,7 +11,7 @@
     $listItem = [
         'id' => $product->id,
         'name' => $product->name,
-        'price' => (float) $product->selling_price,
+        'price' => $currentPrice,
         'image' => $img,
         'url' => route('website.product', $product),
         'category' => $catLabel,
@@ -21,7 +21,7 @@
     $cartItem = [
         'id' => $product->id,
         'name' => $product->name,
-        'price' => (float) $product->selling_price,
+        'price' => $currentPrice,
         'image' => $img,
     ];
 @endphp
@@ -65,9 +65,9 @@
         @endif
 
         <div class="tn-product-price-row">
-            <span class="tn-product-price">{{ $ws->formatPrice($product->selling_price, $settings) }}</span>
-            @if($product->original_price && $product->original_price > $product->selling_price)
-                <span class="tn-product-old">{{ $ws->formatPrice($product->original_price, $settings) }}</span>
+            <span class="tn-product-price">{{ $ws->formatPrice($currentPrice, $settings) }}</span>
+            @if($compareAt)
+                <span class="tn-product-old">{{ $ws->formatPrice($compareAt, $settings) }}</span>
             @endif
         </div>
 
@@ -78,9 +78,9 @@
                     data-qty="1"
                     data-open-cart="1">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 2.3c-.6.6-.2 1.7.7 1.7H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l3-8H6.4M7 13L5.4 5M7 13l-2 6h12m-8 0a1 1 0 100 2 1 1 0 000-2zm8 0a1 1 0 100 2 1 1 0 000-2z"/>
                 </svg>
-                <span>Add to cart</span>
+                Add
             </button>
         </div>
     </div>

@@ -175,7 +175,10 @@
                                                 Edit
                                             </button>
                                             <form action="{{ route('counters.destroy', $counter->id) }}" method="POST"
-                                                  onsubmit="return confirm('Delete “{{ addslashes($counter->name) }}”?');">
+                                                  data-confirm="Delete “{{ addslashes($counter->name) }}”?"
+                                                  data-confirm-title="Delete?"
+                                                  data-confirm-ok="Delete"
+                                                  data-confirm-tone="danger">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit"

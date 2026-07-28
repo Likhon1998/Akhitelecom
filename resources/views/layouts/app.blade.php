@@ -14,6 +14,18 @@
     <style>[x-cloak]{display:none!important}</style>
 </head>
 <body class="admin-panel font-sans antialiased text-slate-900 bg-[#F4F6FB]">
+    @php
+        $adminFlash = array_filter([
+            'success' => session('success'),
+            'error' => session('error'),
+            'warning' => session('warning'),
+            'info' => session('info'),
+        ], fn ($v) => filled($v));
+    @endphp
+    <script>
+        window.__ADMIN_FLASH__ = @json($adminFlash);
+    </script>
+
     <div id="admin-progress" class="admin-progress" aria-hidden="true">
         <div id="admin-progress-bar" class="admin-progress__bar"></div>
         <div id="admin-progress-peg" class="admin-progress__peg"></div>

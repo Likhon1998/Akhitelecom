@@ -2217,9 +2217,17 @@ function posSystem() {
             this.customerPhone = '';
             this.showToast('Cart suspended. Ready for next customer.', 'info');
         },
-        resumeHeldCart(index) {
+        async resumeHeldCart(index) {
             const rec = this.heldCarts[index];
-            if (this.cart.length > 0 && !confirm('Resume this cart? Your current cart will be cleared.')) return;
+            if (this.cart.length > 0) {
+                const ok = await window.adminConfirm({
+                    title: 'Resume cart?',
+                    message: 'Resume this cart? Your current cart will be cleared.',
+                    confirmText: 'Resume',
+                    tone: 'warning',
+                });
+                if (!ok) return;
+            }
             this.cart          = JSON.parse(JSON.stringify(rec.cartData));
             this.customerName  = rec.customerName  || '';
             this.customerPhone = rec.customerPhone || '';
@@ -2228,11 +2236,16 @@ function posSystem() {
             this.holdCartsModalOpen = false;
             this.showToast('Cart resumed!', 'success');
         },
-        deleteHeldCart(index) {
-            if (confirm('Permanently delete this suspended cart?')) {
-                this.heldCarts.splice(index, 1);
-                localStorage.setItem('nexa_held_carts', JSON.stringify(this.heldCarts));
-            }
+        async deleteHeldCart(index) {
+            const ok = await window.adminConfirm({
+                title: 'Delete?',
+                message: 'Permanently delete this suspended cart?',
+                confirmText: 'Delete',
+                tone: 'danger',
+            });
+            if (!ok) return;
+            this.heldCarts.splice(index, 1);
+            localStorage.setItem('nexa_held_carts', JSON.stringify(this.heldCarts));
         },
 
         /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

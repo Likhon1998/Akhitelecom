@@ -102,7 +102,10 @@
                                 </div>
                             </div>
                             <form method="POST" action="{{ route('counters.sessions.close', $staleSession) }}" class="space-y-3"
-                                  onsubmit="return confirm('Confirm you counted the drawer.');">
+                                  data-confirm="Confirm you counted the drawer."
+                                  data-confirm-title="Confirm count?"
+                                  data-confirm-ok="Confirm"
+                                  data-confirm-tone="warning">
                                 @csrf
                                 @include('counters.partials.transfer-log', ['transferLog' => $transferLog ?? [], 'class' => ''])
                                 <div>

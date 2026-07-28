@@ -66,7 +66,9 @@ class PosController extends Controller
                     'name' => $product->name,
                     'barcode' => $product->barcode,
                     'sku' => $product->sku,
-                    'selling_price' => $product->selling_price,
+                    'selling_price' => $product->currentPrice(),
+                    'list_price' => (float) $product->selling_price,
+                    'on_sale' => $product->isOnSale(),
                     'stock_quantity' => $product->stock_quantity,
                     'image' => $product->image,
                     'category_id' => $product->category_id,
@@ -189,7 +191,7 @@ class PosController extends Controller
                 if ($product->stock_quantity < $item['qty']) {
                     throw new \Exception("Not enough stock for {$product->name}");
                 }
-                $totalAmount += $product->selling_price * $item['qty'];
+                $totalAmount += $product->currentPrice() * $item['qty'];
             }
 
             // 🚀 EXCHANGE MATH & SECURITY
@@ -301,13 +303,13 @@ class PosController extends Controller
             // 5. Save Items & Decrease Inventory
             foreach ($request->cart as $item) {
                 $product = Product::where('shop_id', $shopId)->findOrFail($item['id']);
-                $subtotal = $product->selling_price * $item['qty'];
+                $subtotal = $product->currentPrice() * $item['qty'];
 
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $product->id,
                     'quantity' => $item['qty'],
-                    'unit_price' => $product->selling_price,
+                    'unit_price' => $product->currentPrice(),
                     'subtotal' => $subtotal,
                 ]);
 
@@ -507,7 +509,7 @@ class PosController extends Controller
                     if ($product->stock_quantity < $qty) {
                         throw new \Exception("Insufficient stock for {$product->name} during offline sync.");
                     }
-                    $subtotal = (float) $product->selling_price * $qty;
+                    $subtotal = $product->currentPrice() * $qty;
                     $lineGross += $subtotal;
                     $resolvedItems[] = compact('product', 'qty', 'subtotal');
                 }
@@ -555,7 +557,7 @@ class PosController extends Controller
                         'order_id' => $order->id,
                         'product_id' => $line['product']->id,
                         'quantity' => $line['qty'],
-                        'unit_price' => $line['product']->selling_price,
+                        'unit_price' => $line['product']->currentPrice(),
                         'subtotal' => $line['subtotal'],
                     ]);
 

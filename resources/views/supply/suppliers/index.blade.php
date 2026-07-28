@@ -40,7 +40,7 @@
                             </td>
                             <td class="p-4 text-right space-x-3">
                                 <a href="{{ route('supply.suppliers.edit', $supplier) }}" class="text-[#1d68ff] font-bold text-[12px]">Edit</a>
-                                <form action="{{ route('supply.suppliers.destroy', $supplier) }}" method="POST" class="inline" onsubmit="return confirm('Delete supplier?')">
+                                <form action="{{ route('supply.suppliers.destroy', $supplier) }}" method="POST" class="inline" data-confirm="Delete supplier?" data-confirm-title="Delete?" data-confirm-ok="Delete" data-confirm-tone="danger">
                                     @csrf @method('DELETE')
                                     <button class="text-rose-600 font-bold text-[12px]">Delete</button>
                                 </form>

@@ -216,7 +216,13 @@
                 return 'Add a customer or wait for website / POS sales.';
             },
             async remove(c) {
-                if (!confirm(`Delete ${c.name}? This cannot be undone.`)) return;
+                const ok = await window.adminConfirm({
+                    title: 'Delete?',
+                    message: `Delete ${c.name}? This cannot be undone.`,
+                    confirmText: 'Delete',
+                    tone: 'danger',
+                });
+                if (!ok) return;
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = c.destroy;

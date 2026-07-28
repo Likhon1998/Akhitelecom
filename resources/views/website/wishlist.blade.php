@@ -24,7 +24,7 @@
         <template x-for="item in wishlist" :key="item.id">
             <div class="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden flex flex-col">
                 <a :href="item.url" class="block bg-slate-50 aspect-[4/3]">
-                    <img :src="item.image" :alt="item.name" class="w-full h-full object-contain p-4">
+                    <img :src="item.image" :alt="item.name" class="w-full h-full object-cover">
                 </a>
                 <div class="p-4 flex flex-col flex-1">
                     <a :href="item.url" class="text-sm font-semibold text-slate-900 hover:text-blue-600 line-clamp-2" x-text="item.name"></a>

@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class Product extends Model
 {
@@ -12,7 +14,9 @@ class Product extends Model
     protected $fillable = [
         'shop_id', 'category_id', 'brand_id', 'name', 'barcode', 'sku',
         'variant_group', 'color', 'color_hex', 'storage',
-        'cost_price', 'selling_price', 'original_price', 'stock_quantity', 'availability', 'filter_attributes', 'alert_quantity', 'reorder_quantity',
+        'cost_price', 'selling_price', 'original_price',
+        'sale_price', 'sale_starts_at', 'sale_ends_at',
+        'stock_quantity', 'availability', 'filter_attributes', 'alert_quantity', 'reorder_quantity',
         'image', 'image_2', 'image_3',
         'short_description', 'brand_name', 'rating', 'review_count',
         'is_best_seller', 'is_featured', 'is_new_arrival', 'is_published',
@@ -22,6 +26,9 @@ class Product extends Model
         'cost_price' => 'decimal:2',
         'selling_price' => 'decimal:2',
         'original_price' => 'decimal:2',
+        'sale_price' => 'decimal:2',
+        'sale_starts_at' => 'datetime',
+        'sale_ends_at' => 'datetime',
         'rating' => 'decimal:1',
         'is_best_seller' => 'boolean',
         'is_featured' => 'boolean',
@@ -83,6 +90,82 @@ class Product extends Model
     public function showsAsNew(): bool
     {
         return (bool) $this->is_new_arrival;
+    }
+
+    /** Active timed sale: offer price lower than list price within the window. */
+    public function isOnSale(?CarbonInterface $at = null): bool
+    {
+        $at = $at ?? now();
+
+        if ($this->sale_price === null || $this->sale_starts_at === null || $this->sale_ends_at === null) {
+            return false;
+        }
+
+        if ((float) $this->sale_price >= (float) $this->selling_price) {
+            return false;
+        }
+
+        return $at->greaterThanOrEqualTo($this->sale_starts_at)
+            && $at->lessThanOrEqualTo($this->sale_ends_at);
+    }
+
+    /** Price charged now (sale price when active, otherwise list price). */
+    public function currentPrice(): float
+    {
+        return $this->isOnSale()
+            ? (float) $this->sale_price
+            : (float) $this->selling_price;
+    }
+
+    /** List / compare-at price shown struck through during an active sale. */
+    public function compareAtPrice(): ?float
+    {
+        return $this->isOnSale() ? (float) $this->selling_price : null;
+    }
+
+    public function discountPercent(): int
+    {
+        if (! $this->isOnSale()) {
+            return 0;
+        }
+
+        $base = (float) $this->selling_price;
+        if ($base <= 0) {
+            return 0;
+        }
+
+        return (int) round((1 - ((float) $this->sale_price / $base)) * 100);
+    }
+
+    public function scopeOnSale($query, ?CarbonInterface $at = null)
+    {
+        $at = $at ?? now();
+
+        return $query
+            ->whereNotNull('sale_price')
+            ->whereNotNull('sale_starts_at')
+            ->whereNotNull('sale_ends_at')
+            ->whereRaw('sale_price < selling_price')
+            ->where('sale_starts_at', '<=', $at)
+            ->where('sale_ends_at', '>=', $at);
+    }
+
+    public function clearSale(): void
+    {
+        $this->forceFill([
+            'sale_price' => null,
+            'sale_starts_at' => null,
+            'sale_ends_at' => null,
+        ])->save();
+    }
+
+    public function applySale(float $salePrice, CarbonInterface $startsAt, CarbonInterface $endsAt): void
+    {
+        $this->forceFill([
+            'sale_price' => round($salePrice, 2),
+            'sale_starts_at' => Carbon::parse($startsAt),
+            'sale_ends_at' => Carbon::parse($endsAt),
+        ])->save();
     }
 
     /** Sibling products in the same variant group (other colors / storage). */

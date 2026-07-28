@@ -48,10 +48,15 @@ class WebsiteController extends Controller
 
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('brand_name', 'like', "%{$search}%")
-                    ->orWhere('barcode', 'like', "%{$search}%");
+            $like = Schema::getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+            $query->where(function ($q) use ($search, $like) {
+                $q->where('name', $like, "%{$search}%")
+                    ->orWhere('brand_name', $like, "%{$search}%")
+                    ->orWhere('sku', $like, "%{$search}%")
+                    ->orWhere('barcode', $like, "%{$search}%")
+                    ->orWhere('short_description', $like, "%{$search}%")
+                    ->orWhereHas('brand', fn ($brand) => $brand->where('name', $like, "%{$search}%"))
+                    ->orWhereHas('category', fn ($category) => $category->where('name', $like, "%{$search}%"));
             });
         }
 
@@ -63,8 +68,7 @@ class WebsiteController extends Controller
         }
 
         if ($request->filter === 'deals') {
-            $query->whereNotNull('original_price')
-                ->whereColumn('original_price', '>', 'selling_price');
+            $query->onSale();
         } elseif ($request->filter === 'new') {
             $query->newArrivals();
         } elseif ($request->filter === 'bestsellers') {
@@ -126,7 +130,11 @@ class WebsiteController extends Controller
             $query->where(function ($builder) use ($q, $like) {
                 $builder->where('name', $like, "%{$q}%")
                     ->orWhere('brand_name', $like, "%{$q}%")
-                    ->orWhere('barcode', $like, "%{$q}%");
+                    ->orWhere('sku', $like, "%{$q}%")
+                    ->orWhere('barcode', $like, "%{$q}%")
+                    ->orWhere('short_description', $like, "%{$q}%")
+                    ->orWhereHas('brand', fn ($brand) => $brand->where('name', $like, "%{$q}%"))
+                    ->orWhereHas('category', fn ($category) => $category->where('name', $like, "%{$q}%"));
             })->orderBy('name');
         } else {
             $query->orderByDesc('is_best_seller')
@@ -138,7 +146,7 @@ class WebsiteController extends Controller
             'id' => $product->id,
             'name' => $product->name,
             'brand' => $product->brand?->name ?? $product->brand_name,
-            'price' => (float) $product->selling_price,
+            'price' => $product->currentPrice(),
             'image' => $this->website->productImageUrl($product),
             'url' => route('website.product', $product),
             'in_stock' => $product->stock_quantity > 0,
@@ -665,7 +673,7 @@ class WebsiteController extends Controller
                 ]);
             }
 
-            $unitPrice = (float) $product->selling_price;
+            $unitPrice = $product->currentPrice();
             $lineTotal = $unitPrice * $qty;
             $subtotal += $lineTotal;
 

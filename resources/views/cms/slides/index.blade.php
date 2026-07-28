@@ -43,7 +43,7 @@
                         </td>
                         <td class="px-5 py-4 text-right space-x-3">
                             <a href="{{ route('cms.slides.edit', $slide) }}" class="font-semibold text-indigo-600">Edit</a>
-                            <form action="{{ route('cms.slides.destroy', $slide) }}" method="POST" class="inline" onsubmit="return confirm('Delete this poster?')">
+                            <form action="{{ route('cms.slides.destroy', $slide) }}" method="POST" class="inline" data-confirm="Delete this poster?" data-confirm-title="Delete?" data-confirm-ok="Delete" data-confirm-tone="danger">
                                 @csrf @method('DELETE')
                                 <button class="font-semibold text-rose-600">Delete</button>
                             </form>

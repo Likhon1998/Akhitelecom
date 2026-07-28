@@ -72,6 +72,7 @@ export function initAdminProgress() {
 
     const shouldTrackLink = (a) => {
         if (!a) return false;
+        if (a.hasAttribute('data-no-progress') || a.closest?.('[data-no-progress]')) return false;
         const href = a.getAttribute('href');
         if (!href || href.startsWith('#') || href.startsWith('javascript:')) return false;
         if (a.hasAttribute('download')) return false;
@@ -101,7 +102,7 @@ export function initAdminProgress() {
         const form = e.target;
         if (!(form instanceof HTMLFormElement)) return;
         if (form.target && form.target !== '_self') return;
-        if (form.hasAttribute('data-no-progress')) return;
+        if (form.hasAttribute('data-no-progress') || form.closest?.('[data-no-progress]')) return;
         start();
     }, true);
 
@@ -112,7 +113,7 @@ export function initAdminProgress() {
         }
     });
 
-    // Arrive on page: finish any pending navigation bar, else quick load flash
+    // Finish bar only when arriving from a tracked navigation — no flash on refresh/filter.
     let pending = false;
     try {
         pending = sessionStorage.getItem('admin-progress-pending') === '1';
@@ -123,14 +124,5 @@ export function initAdminProgress() {
         setWidth(78);
         show();
         requestAnimationFrame(() => done());
-    } else {
-        // Subtle first-paint finish so refreshes also feel responsive
-        active = true;
-        setWidth(40);
-        show();
-        requestAnimationFrame(() => {
-            setWidth(85);
-            setTimeout(done, 120);
-        });
     }
 }

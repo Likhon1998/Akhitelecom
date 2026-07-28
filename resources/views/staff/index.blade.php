@@ -128,8 +128,11 @@
                                         
                                         @if($member->id !== Auth::id() && !$member->isAdminUser())
                                             
-                                            <form action="{{ route('staff.toggle-suspend', $member->id) }}" method="POST" class="inline" 
-                                                  onsubmit="return confirm('Are you sure you want to {{ $member->is_suspended ? 'reactivate' : 'suspend' }} this employee?');">
+                                            <form action="{{ route('staff.toggle-suspend', $member->id) }}" method="POST" class="inline"
+                                                  data-confirm="Are you sure you want to {{ $member->is_suspended ? 'reactivate' : 'suspend' }} this employee?"
+                                                  data-confirm-title="{{ $member->is_suspended ? 'Reactivate?' : 'Suspend?' }}"
+                                                  data-confirm-ok="{{ $member->is_suspended ? 'Reactivate' : 'Suspend' }}"
+                                                  data-confirm-tone="{{ $member->is_suspended ? 'primary' : 'warning' }}">
                                                 @csrf
                                                 @if($member->is_suspended)
                                                     <button type="submit" class="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded text-xs font-bold transition inline-flex items-center gap-1.5 shadow-sm" title="Restore system access">
@@ -144,7 +147,7 @@
                                                 @endif
                                             </form>
 
-                                            <form action="{{ route('staff.destroy', $member->id) }}" method="POST" class="inline" onsubmit="return confirm('WARNING: This will permanently delete this staff member. Are you absolutely sure?');">
+                                            <form action="{{ route('staff.destroy', $member->id) }}" method="POST" class="inline" data-confirm="WARNING: This will permanently delete this staff member. Are you absolutely sure?" data-confirm-title="Delete?" data-confirm-ok="Delete" data-confirm-tone="danger">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-100 hover:border-rose-200 px-3 py-1.5 rounded text-xs font-bold transition flex items-center justify-center shadow-sm" title="Permanently delete account">

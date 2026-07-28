@@ -2,6 +2,7 @@ import './bootstrap';
 
 import Alpine from 'alpinejs';
 import { initAdminProgress } from './admin-progress';
+import { initAdminFeedback } from './admin-feedback';
 
 window.Alpine = Alpine;
 
@@ -30,4 +31,5 @@ startAlpineWhenReady();
 
 document.addEventListener('DOMContentLoaded', () => {
     initAdminProgress();
+    initAdminFeedback();
 });

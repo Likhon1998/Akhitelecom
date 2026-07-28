@@ -14,7 +14,7 @@
         <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-sm text-slate-700 whitespace-pre-line leading-relaxed">{{ $message->message }}</div>
         <div class="flex flex-wrap gap-2 justify-end">
             <a href="mailto:{{ $message->email }}?subject=Re: {{ urlencode($message->subject) }}" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white">Reply by email</a>
-            <form action="{{ route('cms.contact.messages.destroy', $message) }}" method="POST" onsubmit="return confirm('Delete message?')">@csrf @method('DELETE')
+            <form action="{{ route('cms.contact.messages.destroy', $message) }}" method="POST" data-confirm="Delete message?" data-confirm-title="Delete?" data-confirm-ok="Delete" data-confirm-tone="danger">@csrf @method('DELETE')
                 <button class="rounded-xl border px-4 py-2 text-sm font-bold text-rose-600">Delete</button>
             </form>
         </div>

@@ -129,6 +129,9 @@ Route::middleware([
         Route::resource('categories', CategoryController::class)->except(['show']);
         Route::resource('brands', BrandController::class)->except(['show']);
         Route::resource('products', ProductController::class)->except(['show']);
+        Route::post('/products/{product}/sale', [ProductController::class, 'applySale'])->name('products.sale');
+        Route::delete('/products/{product}/sale', [ProductController::class, 'clearSale'])->name('products.sale.clear');
+        Route::post('/products-brand-sale', [ProductController::class, 'applyBrandSale'])->name('products.brand-sale');
         Route::get('/products-import/csv', [ProductController::class, 'importForm'])->name('products.import');
         Route::post('/products-import/csv', [ProductController::class, 'importStore'])->name('products.import.store');
         Route::get('/products-barcodes', [ProductController::class, 'barcodes'])->name('products.barcodes');

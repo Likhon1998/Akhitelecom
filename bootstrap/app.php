@@ -6,6 +6,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Auth;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -50,5 +51,38 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->back()
                 ->withInput($request->except('_token', 'password', 'password_confirmation'))
                 ->with('error', 'Your session expired for security. Please try again.');
+        });
+
+        $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, Request $request) {
+            $message = 'You do not have permission to do that.';
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['message' => $message], 403);
+            }
+
+            return redirect()
+                ->back()
+                ->with('error', $message);
+        });
+
+        $exceptions->render(function (HttpException $e, Request $request) {
+            if ($e->getStatusCode() !== 403) {
+                return null;
+            }
+
+            $message = $e->getMessage() ?: 'You do not have permission to do that.';
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['message' => $message], 403);
+            }
+
+            // Prefer a toastable redirect over a bare 403 page for admin actions.
+            if ($request->user() && ! $request->is('login', 'register')) {
+                return redirect()
+                    ->back()
+                    ->with('error', $message);
+            }
+
+            return null;
         });
     })->create();

@@ -61,7 +61,10 @@
         @include('counters.partials.transfer-log', ['transferLog' => $transferLog ?? [], 'class' => 'mb-5'])
 
         <form method="POST" action="{{ route('counters.sessions.close', $session) }}" class="bg-white rounded-2xl border border-gray-100 p-5 space-y-4"
-              onsubmit="return confirm('Confirm you physically counted the drawer. Expected is only a guide — enter the real counted cash.');">
+              data-confirm="Confirm you physically counted the drawer. Expected is only a guide — enter the real counted cash."
+              data-confirm-title="Confirm count?"
+              data-confirm-ok="Confirm"
+              data-confirm-tone="warning">
             @csrf
             <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
                 <strong>Count the cash yourself.</strong> Expected ৳{{ number_format($expected, 2) }} is a guide only — do not copy it blindly.

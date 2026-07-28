@@ -67,7 +67,7 @@
                             </td>
                             <td class="px-4 py-3 text-center text-slate-500">{{ $cat->faqs_count }}</td>
                             <td class="px-4 py-3 text-right">
-                                <form method="POST" action="{{ route('cms.faq-categories.destroy', $cat) }}" onsubmit="return confirm('Delete category?')">
+                                <form method="POST" action="{{ route('cms.faq-categories.destroy', $cat) }}" data-confirm="Delete category?" data-confirm-title="Delete?" data-confirm-ok="Delete" data-confirm-tone="danger">
                                     @csrf @method('DELETE')
                                     <button class="text-xs font-bold text-rose-600">Delete</button>
                                 </form>

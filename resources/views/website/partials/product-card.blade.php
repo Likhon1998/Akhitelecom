@@ -1,14 +1,15 @@
 @php
     $ws = app(\App\Services\WebsiteService::class);
-    $discount = ($product->original_price && $product->original_price > $product->selling_price)
-        ? round((($product->original_price - $product->selling_price) / $product->original_price) * 100) : 0;
+    $discount = $product->discountPercent();
+    $currentPrice = $product->currentPrice();
+    $compareAt = $product->compareAtPrice();
     $img = $ws->productImageUrl($product);
     $catLabel = $product->category?->name ?? $product->brand_name ?? 'Electronics';
     $isNew = $product->showsAsNew();
     $listItem = [
         'id' => $product->id,
         'name' => $product->name,
-        'price' => (float) $product->selling_price,
+        'price' => $currentPrice,
         'image' => $img,
         'url' => route('website.product', $product),
         'category' => $catLabel,
@@ -17,7 +18,7 @@
     $cartItem = [
         'id' => $product->id,
         'name' => $product->name,
-        'price' => (float) $product->selling_price,
+        'price' => $currentPrice,
         'image' => $img,
     ];
 @endphp
@@ -45,9 +46,9 @@
 
         <div class="gs-card-footer">
             <div class="gaget-price-row">
-                <span class="gaget-price-current">{{ $ws->formatPrice($product->selling_price, $settings) }}</span>
-                @if($product->original_price && $product->original_price > $product->selling_price)
-                    <span class="gaget-price-old">{{ $ws->formatPrice($product->original_price, $settings) }}</span>
+                <span class="gaget-price-current">{{ $ws->formatPrice($currentPrice, $settings) }}</span>
+                @if($compareAt)
+                    <span class="gaget-price-old">{{ $ws->formatPrice($compareAt, $settings) }}</span>
                 @endif
             </div>
 

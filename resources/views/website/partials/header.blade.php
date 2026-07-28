@@ -2,7 +2,8 @@
     {{-- Main header --}}
     <div class="gaget-header-main">
         <div class="max-w-[1280px] mx-auto px-4 sm:px-6 py-3.5">
-            <div class="flex items-center gap-3 sm:gap-5">
+            <div class="gaget-header-row">
+                <div class="gaget-header-left">
                 <button type="button"
                         class="gaget-mobile-menu-btn md:hidden"
                         @click="mobileOpen = !mobileOpen"
@@ -22,38 +23,41 @@
                     @endif
                     <span class="gaget-logo-text truncate">{{ $settings->store_name ?? 'GAGET STORE' }}</span>
                 </a>
+                </div>
 
-                {{-- Live search: suggestions on focus + as you type --}}
-                <div class="hidden lg:block flex-1 mx-2 max-w-[640px]"
+                {{-- Live search: truly centered between logo and actions --}}
+                <div class="gaget-header-center hidden lg:block"
                      x-data="headerSearch(@js(route('website.search.suggest')), @js(route('website.shop')), @js($settings->currency_symbol ?? '$'))"
                      @click.outside="open = false">
-                    <form action="{{ route('website.shop') }}" method="GET" class="gaget-search-wrap relative" @submit="open = false">
-                        <input type="search"
-                               name="search"
-                               x-model="q"
-                               value="{{ request('search') }}"
-                               placeholder="Search for products, brands..."
-                               class="gaget-search-input"
-                               autocomplete="off"
-                               @focus="onFocus()"
-                               @input.debounce.250ms="fetchSuggestions()"
-                               @keydown.escape.prevent="open = false"
-                               @keydown.arrow-down.prevent="move(1)"
-                               @keydown.arrow-up.prevent="move(-1)"
-                               @keydown.enter="onEnter($event)">
-                        <select name="category" class="gaget-search-select" x-model="category" @change="fetchSuggestions()">
-                            <option value="">All Categories</option>
-                            @foreach($allCategories ?? $categories ?? [] as $cat)
-                                <option value="{{ $cat->slug }}" {{ request('category')==$cat->slug?'selected':'' }}>{{ $cat->name }}</option>
-                            @endforeach
-                        </select>
-                        <button type="submit" class="gaget-search-btn" aria-label="Search">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                        </button>
+                    <form action="{{ route('website.shop') }}" method="GET" class="gaget-search-wrap" @submit="open = false">
+                        <div class="gaget-search-bar">
+                            <input type="search"
+                                   name="search"
+                                   x-model="q"
+                                   value="{{ request('search') }}"
+                                   placeholder="Search for products, brands..."
+                                   class="gaget-search-input"
+                                   autocomplete="off"
+                                   @focus="onFocus()"
+                                   @input.debounce.200ms="fetchSuggestions()"
+                                   @keydown.escape.prevent="open = false"
+                                   @keydown.arrow-down.prevent="move(1)"
+                                   @keydown.arrow-up.prevent="move(-1)"
+                                   @keydown.enter="onEnter($event)">
+                            <select name="category" class="gaget-search-select" x-model="category" @change="fetchSuggestions()">
+                                <option value="">All Categories</option>
+                                @foreach($allCategories ?? $categories ?? [] as $cat)
+                                    <option value="{{ $cat->slug }}" {{ request('category')==$cat->slug?'selected':'' }}>{{ $cat->name }}</option>
+                                @endforeach
+                            </select>
+                            <button type="submit" class="gaget-search-btn" aria-label="Search">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            </button>
+                        </div>
 
                         <div class="gaget-search-suggest" x-show="open" x-cloak x-transition.opacity.duration.120ms>
                             <div class="gaget-search-suggest__head">
-                                <span x-text="mode === 'best' ? 'Best picks for you' : 'Products'"></span>
+                                <span x-text="mode === 'best' ? 'Best picks for you' : 'Matching products'"></span>
                                 <span class="gaget-search-suggest__hint" x-show="loading">Searching…</span>
                             </div>
 
@@ -84,7 +88,7 @@
                     </form>
                 </div>
 
-                <div class="flex items-center ml-auto gap-0.5">
+                <div class="gaget-header-right flex items-center gap-0.5">
                     {{-- Wishlist with hover preview --}}
                     <div class="gaget-action-wrap" x-data="{ open: false }" @mouseenter="open=true" @mouseleave="open=false">
                         <a href="{{ route('website.wishlist') }}" class="gaget-action-btn" aria-label="Wishlist">
@@ -216,13 +220,59 @@
                 </div>
             </div>
 
-            {{-- Mobile search --}}
-            <form action="{{ route('website.shop') }}" method="GET" class="gaget-mobile-search lg:hidden mt-3">
-                <input type="search" name="search" value="{{ request('search') }}" placeholder="Search products..." class="gaget-mobile-search-input">
-                <button type="submit" aria-label="Search" class="gaget-mobile-search-btn">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                </button>
-            </form>
+            {{-- Mobile live search --}}
+            <div class="lg:hidden mt-3"
+                 x-data="headerSearch(@js(route('website.search.suggest')), @js(route('website.shop')), @js($settings->currency_symbol ?? '$'))"
+                 @click.outside="open = false">
+                <form action="{{ route('website.shop') }}" method="GET" class="gaget-search-wrap" @submit="open = false">
+                    <div class="gaget-mobile-search">
+                        <input type="search"
+                               name="search"
+                               x-model="q"
+                               value="{{ request('search') }}"
+                               placeholder="Search products..."
+                               class="gaget-mobile-search-input"
+                               autocomplete="off"
+                               @focus="onFocus()"
+                               @input.debounce.200ms="fetchSuggestions()"
+                               @keydown.escape.prevent="open = false"
+                               @keydown.arrow-down.prevent="move(1)"
+                               @keydown.arrow-up.prevent="move(-1)"
+                               @keydown.enter="onEnter($event)">
+                        <button type="submit" aria-label="Search" class="gaget-mobile-search-btn">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="gaget-search-suggest" x-show="open" x-cloak x-transition.opacity.duration.120ms>
+                        <div class="gaget-search-suggest__head">
+                            <span x-text="mode === 'best' ? 'Best picks for you' : 'Matching products'"></span>
+                            <span class="gaget-search-suggest__hint" x-show="loading">Searching…</span>
+                        </div>
+                        <template x-if="!loading && products.length === 0">
+                            <p class="gaget-search-suggest__empty" x-text="q ? 'No products found' : 'No products available yet'"></p>
+                        </template>
+                        <div class="gaget-search-suggest__list" x-show="products.length > 0">
+                            <template x-for="(item, index) in products" :key="'m'+item.id">
+                                <a :href="item.url"
+                                   class="gaget-search-suggest__item"
+                                   :class="{ 'is-active': index === activeIndex }"
+                                   @mouseenter="activeIndex = index">
+                                    <img :src="item.image" :alt="item.name" loading="lazy">
+                                    <div class="min-w-0 flex-1">
+                                        <p class="gaget-search-suggest__name" x-text="item.name"></p>
+                                        <p class="gaget-search-suggest__meta" x-text="item.brand || 'Product'"></p>
+                                    </div>
+                                    <strong class="gaget-search-suggest__price" x-text="currency + Number(item.price).toFixed(2)"></strong>
+                                </a>
+                            </template>
+                        </div>
+                        <a :href="shopUrl" class="gaget-search-suggest__all" x-show="q.length > 0">
+                            View all results for “<span x-text="q"></span>”
+                        </a>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 

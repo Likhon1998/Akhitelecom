@@ -443,7 +443,7 @@
             <template x-if="cart.length===0"><p class="text-gray-500 text-center py-10">Your cart is empty.</p></template>
             <template x-for="(item,i) in cart" :key="item.id">
                 <div class="flex gap-3 border rounded-xl p-3">
-                    <img :src="item.image" class="w-16 h-16 object-contain rounded-lg bg-gray-50" alt="">
+                    <img :src="item.image" class="w-16 h-16 object-cover rounded-lg bg-gray-50" alt="">
                     <div class="flex-1">
                         <p class="font-semibold text-sm" x-text="item.name"></p>
                         <p class="text-blue-600 font-bold text-sm" x-text="currency+item.price.toFixed(2)"></p>
