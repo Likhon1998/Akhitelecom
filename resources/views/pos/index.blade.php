@@ -2287,7 +2287,7 @@ openCheckout() {
             if (this.isAdminPos && !this.hasOpenAdminCounter()) {
                 this.isProcessing = false;
                 this.playBeep(false);
-                this.showToast('Open a cash session on a counter, then select it before billing.', 'error');
+                this.showToast('Open a free counter with opening cash before billing.', 'error');
                 return;
             }
 
