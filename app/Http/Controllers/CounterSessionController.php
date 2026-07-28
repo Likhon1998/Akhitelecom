@@ -143,6 +143,7 @@ class CounterSessionController extends Controller
 
             $freeCounters = Counter::where('shop_id', $user->shop_id)
                 ->where('is_active', true)
+                ->unassigned()
                 ->whereDoesntHave('openSession')
                 ->orderBy('name')
                 ->get();
@@ -216,8 +217,12 @@ class CounterSessionController extends Controller
                 ->where('is_active', true)
                 ->findOrFail($request->counter_id);
 
+            if (! $counter->isUnassigned()) {
+                return back()->with('error', 'That counter is assigned to staff. They can open it later — pick an unassigned counter instead.');
+            }
+
             if ($this->sessions->currentOpen($counter)) {
-                return back()->with('error', 'That counter is already in use. Choose a free counter.');
+                return back()->with('error', 'That counter already has an open cash session. Close it first or choose another unassigned counter.');
             }
 
             try {
@@ -277,14 +282,19 @@ class CounterSessionController extends Controller
             }
         } else {
             if ($user->adminOpenPosSession()) {
-                return back()->with('error', 'Close your current POS till before opening another free counter.');
+                return back()->with('error', 'Close your current POS till before opening another unassigned counter.');
             }
         }
 
         $counter = Counter::where('shop_id', $user->shop_id)->findOrFail($request->counter_id);
 
-        if ($user->isAdminUser() && $this->sessions->currentOpen($counter)) {
-            return back()->with('error', 'That counter is already in use. Choose a free counter.');
+        if ($user->isAdminUser()) {
+            if (! $counter->isUnassigned()) {
+                return back()->with('error', 'That counter is assigned to staff. Pick an unassigned counter.');
+            }
+            if ($this->sessions->currentOpen($counter)) {
+                return back()->with('error', 'That counter already has an open cash session. Choose another unassigned counter.');
+            }
         }
 
         try {

@@ -93,7 +93,7 @@ class PosController extends Controller
             if (! $openSession) {
                 return redirect()
                     ->route('counters.sessions.open-today')
-                    ->with('error', 'Select a free counter and enter opening cash before using POS.');
+                    ->with('error', 'Select an unassigned counter and enter opening cash before using POS.');
             }
 
             $openSession->loadMissing('counter');
@@ -149,7 +149,7 @@ class PosController extends Controller
         if ($user->isAdminUser() && ! $user->adminOpenPosSession()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Open a free counter with opening cash before making sales.',
+                'message' => 'Open an unassigned counter with opening cash before making sales.',
                 'redirect' => route('counters.sessions.open-today'),
             ], 403);
         }
@@ -429,7 +429,7 @@ class PosController extends Controller
         }
 
         if ($user->isAdminUser() && ! $user->adminOpenPosSession()) {
-            return response()->json(['success' => false, 'message' => 'Open a free counter with opening cash before syncing sales.', 'redirect' => route('counters.sessions.open-today')], 403);
+            return response()->json(['success' => false, 'message' => 'Open an unassigned counter with opening cash before syncing sales.', 'redirect' => route('counters.sessions.open-today')], 403);
         }
 
         if ($user->requiresDailyOpeningBalance() && ! $user->hasOpenCounterSession()) {
@@ -599,14 +599,14 @@ class PosController extends Controller
         $adminSession = $user->adminOpenPosSession();
         if (! $adminSession) {
             throw new InvalidArgumentException(
-                'Select a free counter and enter opening cash before selling as admin.'
+                'Select an unassigned counter and enter opening cash before selling as admin.'
             );
         }
 
         $counterId = (int) ($requestedCounterId ?: $adminSession->counter_id);
         if ($counterId > 0 && $counterId !== (int) $adminSession->counter_id) {
             throw new InvalidArgumentException(
-                'You can only sell on the free counter you opened. Close it first to switch tills.'
+                'You can only sell on the unassigned counter you opened. Close it first to switch tills.'
             );
         }
 
@@ -616,7 +616,14 @@ class PosController extends Controller
 
         if (! $session || (int) $session->opened_by !== (int) $user->id) {
             throw new InvalidArgumentException(
-                'That counter is in use by another staff member. Use a free counter and open it with your opening cash.'
+                'You can only sell on an unassigned counter that you opened with your own opening cash.'
+            );
+        }
+
+        $counter = Counter::where('shop_id', $user->shop_id)->find($adminSession->counter_id);
+        if ($counter && ! $counter->isUnassigned()) {
+            throw new InvalidArgumentException(
+                'That counter is now assigned to staff. Close this session and use an unassigned counter.'
             );
         }
 

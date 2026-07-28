@@ -9,7 +9,7 @@
                 <h2 class="text-2xl font-black text-slate-900 tracking-tight">Opening balance</h2>
                 <p class="mt-1.5 text-sm text-slate-500">
                     @if(!empty($isAdminOpen))
-                        Choose a free counter, enter opening cash, then sell on that till.
+                        Choose an unassigned counter, enter opening cash, then sell on that till.
                     @else
                         Count the cash in your drawer, then start your day.
                     @endif
@@ -32,13 +32,13 @@
                 @if(!empty($isAdminOpen))
                     <div class="px-5 py-4 bg-slate-50 border-b border-slate-100">
                         <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Admin POS till</p>
-                        <p class="text-sm font-semibold text-slate-700 mt-0.5">Only free counters are listed. Busy tills stay with their cashier.</p>
+                        <p class="text-sm font-semibold text-slate-700 mt-0.5">Only counters with no staff assigned. Assigned tills stay reserved even if the cashier opens later.</p>
                     </div>
 
                     @if(($freeCounters ?? collect())->isEmpty())
                         <div class="p-5 space-y-3">
                             <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 font-medium">
-                                No free counters right now. Wait until a till is closed, or ask staff to finish their session.
+                                No unassigned counters available. Create a counter with no staff assigned, or wait until one is free of assignment.
                             </div>
                             <a href="{{ route('counters.sessions.index') }}" class="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold py-3 transition">
                                 View cash sessions
@@ -48,7 +48,7 @@
                         <form method="POST" action="{{ route('counters.sessions.open-today.store') }}" class="p-5 space-y-4">
                             @csrf
                             <div>
-                                <label for="counter_id" class="block text-xs font-bold text-slate-500 mb-1.5">Free counter *</label>
+                                <label for="counter_id" class="block text-xs font-bold text-slate-500 mb-1.5">Unassigned counter *</label>
                                 <select id="counter_id" name="counter_id" required
                                         class="w-full rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-500 focus:ring-indigo-500 text-sm py-2.5 px-3 font-bold text-slate-900">
                                     @foreach($freeCounters as $free)
@@ -69,7 +69,7 @@
                                        class="w-full rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-500 focus:ring-indigo-500 text-sm py-2.5 px-3">
                             </div>
                             <button type="submit" class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold py-3 shadow-sm transition">
-                                Open free counter &amp; start POS
+                                Open unassigned counter &amp; start POS
                             </button>
                         </form>
                     @endif

@@ -1301,7 +1301,7 @@
                             <div style="font-weight:800;color:var(--ink)" x-text="c.name + ' · opened by you'"></div>
                         </template>
                         <p style="margin:8px 0 0;font-size:11px;color:var(--slate)">
-                            Admin sells only on a free counter after entering opening cash. Busy tills stay with their cashier.
+                            Admin sells only on counters with no staff assigned, after entering opening cash. Assigned tills stay with their cashier (they can open later).
                         </p>
                     </div>
                 @endif
@@ -2287,7 +2287,7 @@ openCheckout() {
             if (this.isAdminPos && !this.hasOpenAdminCounter()) {
                 this.isProcessing = false;
                 this.playBeep(false);
-                this.showToast('Open a free counter with opening cash before billing.', 'error');
+                this.showToast('Open an unassigned counter with opening cash before billing.', 'error');
                 return;
             }
 

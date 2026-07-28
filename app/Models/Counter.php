@@ -10,9 +10,9 @@ class Counter extends Model
     use HasFactory;
 
     protected $fillable = [
-        'shop_id', 
-        'name', 
-        'is_active'
+        'shop_id',
+        'name',
+        'is_active',
     ];
 
     public function shop()
@@ -33,5 +33,18 @@ class Counter extends Model
     public function openSession()
     {
         return $this->hasOne(CounterSession::class)->where('status', 'open')->latestOfMany('opened_at');
+    }
+
+    /**
+     * No staff member is assigned to this till (admin may use these).
+     */
+    public function scopeUnassigned($query)
+    {
+        return $query->whereDoesntHave('users');
+    }
+
+    public function isUnassigned(): bool
+    {
+        return ! $this->users()->exists();
     }
 }
