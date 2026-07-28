@@ -136,7 +136,26 @@ class CounterSessionController extends Controller
         $user = Auth::user();
 
         if ($user->isAdminUser()) {
-            return redirect()->route('counters.sessions.index');
+            $adminSession = $user->adminOpenPosSession();
+            if ($adminSession) {
+                return redirect()->route('pos.index');
+            }
+
+            $freeCounters = Counter::where('shop_id', $user->shop_id)
+                ->where('is_active', true)
+                ->whereDoesntHave('openSession')
+                ->orderBy('name')
+                ->get();
+
+            return view('counters.open-today', [
+                'counter' => $freeCounters->first(),
+                'freeCounters' => $freeCounters,
+                'isAdminOpen' => true,
+                'staleSession' => null,
+                'stats' => null,
+                'expected' => null,
+                'transferLog' => [],
+            ]);
         }
 
         if (! $user->counter_id) {
@@ -157,7 +176,10 @@ class CounterSessionController extends Controller
             $transferLog = $this->transferLogForSession($staleSession);
             $staleSession->load(['counter', 'opener']);
 
-            return view('counters.open-today', compact('counter', 'staleSession', 'stats', 'expected', 'transferLog'));
+            return view('counters.open-today', compact('counter', 'staleSession', 'stats', 'expected', 'transferLog') + [
+                'freeCounters' => collect(),
+                'isAdminOpen' => false,
+            ]);
         }
 
         if ($staleSession && $staleSession->opened_at->isToday()) {
@@ -166,6 +188,8 @@ class CounterSessionController extends Controller
 
         return view('counters.open-today', [
             'counter' => $counter,
+            'freeCounters' => collect(),
+            'isAdminOpen' => false,
             'staleSession' => null,
             'stats' => null,
             'expected' => null,
@@ -177,7 +201,37 @@ class CounterSessionController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->isAdminUser() || ! $user->counter_id) {
+        if ($user->isAdminUser()) {
+            if ($user->adminOpenPosSession()) {
+                return redirect()->route('pos.index');
+            }
+
+            $request->validate([
+                'counter_id' => 'required|exists:counters,id',
+                'opening_cash' => 'required|numeric|min:0',
+                'notes' => 'nullable|string|max:500',
+            ]);
+
+            $counter = Counter::where('shop_id', $user->shop_id)
+                ->where('is_active', true)
+                ->findOrFail($request->counter_id);
+
+            if ($this->sessions->currentOpen($counter)) {
+                return back()->with('error', 'That counter is already in use. Choose a free counter.');
+            }
+
+            try {
+                $this->sessions->openSession($counter, (float) $request->opening_cash, $request->notes);
+            } catch (\Throwable $e) {
+                return back()->with('error', $e->getMessage());
+            }
+
+            return redirect()
+                ->route('pos.index')
+                ->with('success', "{$counter->name} opened with ৳" . number_format((float) $request->opening_cash, 2) . ' starting cash.');
+        }
+
+        if (! $user->counter_id) {
             abort(403);
         }
 
@@ -221,9 +275,17 @@ class CounterSessionController extends Controller
             if (! $user->counter_id || (int) $request->counter_id !== (int) $user->counter_id) {
                 abort(403, 'You can only open your assigned counter.');
             }
+        } else {
+            if ($user->adminOpenPosSession()) {
+                return back()->with('error', 'Close your current POS till before opening another free counter.');
+            }
         }
 
         $counter = Counter::where('shop_id', $user->shop_id)->findOrFail($request->counter_id);
+
+        if ($user->isAdminUser() && $this->sessions->currentOpen($counter)) {
+            return back()->with('error', 'That counter is already in use. Choose a free counter.');
+        }
 
         try {
             $this->sessions->openSession($counter, (float) $request->opening_cash, $request->notes);
@@ -231,7 +293,9 @@ class CounterSessionController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', "{$counter->name} opened with starting cash ৳" . number_format((float) $request->opening_cash, 2));
+        return redirect()
+            ->route($user->isAdminUser() ? 'pos.index' : 'counters.sessions.index')
+            ->with('success', "{$counter->name} opened with ৳" . number_format((float) $request->opening_cash, 2) . '.');
     }
 
     public function closeForm(CounterSession $session)

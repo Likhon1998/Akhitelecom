@@ -163,6 +163,10 @@ class User extends Authenticatable
 
     public function hasOpenCounterSession(): bool
     {
+        if ($this->isAdminUser()) {
+            return $this->adminOpenPosSession() !== null;
+        }
+
         if (! $this->counter_id) {
             return true;
         }
@@ -175,6 +179,12 @@ class User extends Authenticatable
     /** True when this counter has an open session started on today's date. */
     public function hasCalendarDayOpenSession(): bool
     {
+        if ($this->isAdminUser()) {
+            $session = $this->adminOpenPosSession();
+
+            return $session && $session->opened_at && $session->opened_at->isToday();
+        }
+
         if (! $this->counter_id) {
             return true;
         }
@@ -183,6 +193,23 @@ class User extends Authenticatable
             ->where('status', 'open')
             ->whereDate('opened_at', now()->toDateString())
             ->exists();
+    }
+
+    /**
+     * Admin POS till: the open cash session this admin started (not a cashier's till).
+     */
+    public function adminOpenPosSession(): ?\App\Models\CounterSession
+    {
+        if (! $this->isAdminUser()) {
+            return null;
+        }
+
+        return \App\Models\CounterSession::query()
+            ->where('shop_id', $this->shop_id)
+            ->where('opened_by', $this->id)
+            ->where('status', 'open')
+            ->latest('opened_at')
+            ->first();
     }
 
     /**

@@ -1296,15 +1296,12 @@
             <div class="modal-body">
                 @if(Auth::user()->isAdminUser())
                     <div class="mb-3" style="background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.2);border-radius:12px;padding:12px">
-                        <label style="display:block;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--slate);margin-bottom:6px">Bill on counter</label>
-                        <select x-model="selectedCounterId" style="width:100%;border-radius:10px;border:1px solid rgba(148,163,184,.45);padding:10px 12px;background:var(--panel);color:var(--ink);font-weight:700">
-                            <template x-for="c in posCounters" :key="c.id">
-                                <option :value="String(c.id)" :disabled="!c.has_open_session"
-                                        x-text="c.name + (c.has_open_session ? ' · open' : ' · closed')"></option>
-                            </template>
-                        </select>
-                        <p style="margin:8px 0 0;font-size:11px;color:var(--slate)" x-show="!hasOpenAdminCounter()">
-                            Open a cash session on a counter first (Cash Sessions), then select it here.
+                        <label style="display:block;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--slate);margin-bottom:6px">Your open till</label>
+                        <template x-for="c in posCounters" :key="c.id">
+                            <div style="font-weight:800;color:var(--ink)" x-text="c.name + ' · opened by you'"></div>
+                        </template>
+                        <p style="margin:8px 0 0;font-size:11px;color:var(--slate)">
+                            Admin sells only on a free counter after entering opening cash. Busy tills stay with their cashier.
                         </p>
                     </div>
                 @endif
