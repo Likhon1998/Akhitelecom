@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Services\AccountService;
+use App\Services\BakiService;
 use App\Services\OnlineOrderTrackingService;
 use App\Services\StockService;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ class SalesLedgerController extends Controller
         protected AccountService $accounts,
         protected StockService $stock,
         protected OnlineOrderTrackingService $tracking,
+        protected BakiService $baki,
     ) {}
 
     public function index(Request $request)
@@ -67,7 +69,12 @@ class SalesLedgerController extends Controller
             'cod_outstanding' => (float) $onlineOrders
                 ->where('status', 'shipped')
                 ->filter(fn (Order $o) => $o->payment_method === 'cash_on_delivery')
-                ->sum(fn (Order $o) => (float) $o->total_amount - (float) ($o->delivery_charge ?? 0)),
+                ->sum(fn (Order $o) => max(
+                    0,
+                    (float) $o->total_amount
+                        - (float) ($o->discount_amount ?? 0)
+                        - (float) ($o->delivery_charge ?? 0)
+                )),
         ];
 
         return view('sales.index', [
@@ -87,7 +94,11 @@ class SalesLedgerController extends Controller
     {
         $isVoided = in_array($order->status, ['refunded', 'cancelled', 'returned'], true);
         $withinWindow = $order->created_at >= now()->subDays(7);
-        $productRevenue = (float) $order->total_amount - (float) ($order->delivery_charge ?? 0);
+        $gross = (float) $order->total_amount;
+        $discount = (float) ($order->discount_amount ?? 0);
+        $credit = (float) ($order->credit_amount ?? 0);
+        $exchangeCredit = (float) ($order->exchange_credit ?? 0);
+        $netRevenue = $order->netPayable();
         $wasExchangedFrom = Order::where('shop_id', $order->shop_id)
             ->where('exchange_for_order_id', $order->id)
             ->exists();
@@ -98,7 +109,14 @@ class SalesLedgerController extends Controller
             'created_at' => asian_datetime($order->created_at, 'd M y, h:i A'),
             'status' => $order->status,
             'payment_method' => (string) $order->payment_method,
-            'product_revenue' => number_format($productRevenue, 2),
+            'gross_amount' => number_format($gross, 2),
+            'discount_amount' => $discount,
+            'discount_amount_fmt' => number_format($discount, 2),
+            'credit_amount' => $credit,
+            'credit_amount_fmt' => number_format($credit, 2),
+            'is_baki' => (bool) ($order->is_baki ?? false),
+            'exchange_credit' => $exchangeCredit,
+            'product_revenue' => number_format($netRevenue, 2),
             'delivery_charge' => (float) ($order->delivery_charge ?? 0),
             'delivery_charge_fmt' => number_format((float) ($order->delivery_charge ?? 0), 2),
             'is_voided' => $isVoided,
@@ -129,7 +147,13 @@ class SalesLedgerController extends Controller
     {
         $isVoided = in_array($order->status, ['refunded', 'cancelled', 'returned'], true);
         $withinWindow = $order->created_at >= now()->subDays(7);
-        $productRevenue = (float) $order->total_amount - (float) ($order->delivery_charge ?? 0);
+        // Net product total (exclude delivery so the UI can show delivery on its own line).
+        $netRevenue = max(
+            0,
+            (float) $order->total_amount
+                - (float) ($order->discount_amount ?? 0)
+                - (float) ($order->delivery_charge ?? 0)
+        );
         $isCod = $this->isCashOnDelivery($order);
         $moneyCollected = $this->moneyWasCollected($order);
 
@@ -149,7 +173,9 @@ class SalesLedgerController extends Controller
             'payment_method' => str_replace('_', ' ', (string) $order->payment_method),
             'is_cod' => $isCod,
             'money_collected' => $moneyCollected,
-            'product_revenue' => number_format($productRevenue, 2),
+            'product_revenue' => number_format($netRevenue, 2),
+            'discount_amount' => (float) ($order->discount_amount ?? 0),
+            'discount_amount_fmt' => number_format((float) ($order->discount_amount ?? 0), 2),
             'delivery_charge' => (float) ($order->delivery_charge ?? 0),
             'delivery_charge_fmt' => number_format((float) ($order->delivery_charge ?? 0), 2),
             'is_voided' => $isVoided,
@@ -267,6 +293,7 @@ class SalesLedgerController extends Controller
             }
 
             $order->load('items.product', 'counter');
+            $this->baki->reverseSaleCredit($order, Auth::id());
             $this->accounts->postOrderRefund($order);
 
             if ($isOnline) {

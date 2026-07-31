@@ -356,8 +356,13 @@
                 </label>
                 <label class="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                     <input type="checkbox" name="is_new_arrival" value="1" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                           {{ old('is_new_arrival', $isEdit ? ($product?->is_new_arrival ?? false) : true) ? 'checked' : '' }}>
+                           {{ old('is_new_arrival', $product?->is_new_arrival ?? false) ? 'checked' : '' }}>
                     New Arrival
+                </label>
+                <label class="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <input type="checkbox" name="is_best_seller" value="1" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                           {{ old('is_best_seller', $product?->is_best_seller ?? false) ? 'checked' : '' }}>
+                    Trending
                 </label>
                 <label class="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                     <input type="checkbox" name="is_featured" value="1" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
@@ -365,6 +370,7 @@
                     Featured
                 </label>
             </div>
+            <p class="text-[11px] text-slate-400">New Arrival and Trending control which products appear in those homepage sections.</p>
 
             @if(!$isEdit)
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

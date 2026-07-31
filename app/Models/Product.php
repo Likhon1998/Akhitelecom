@@ -86,6 +86,12 @@ class Product extends Model
         return $query->where('is_new_arrival', true);
     }
 
+    /** Products marked as trending (homepage Trending + bestsellers filter). */
+    public function scopeTrending($query)
+    {
+        return $query->where('is_best_seller', true);
+    }
+
     /** Whether the storefront should show a "New" badge. */
     public function showsAsNew(): bool
     {

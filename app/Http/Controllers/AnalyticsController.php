@@ -367,7 +367,7 @@ class AnalyticsController extends Controller
 
     protected function exportDiscounts(int $shopId, $start, $end): array
     {
-        $rows = [['Invoice', 'Date', 'Customer', 'Order Total', 'Discount']];
+        $rows = [['Invoice', 'Date', 'Customer', 'Gross', 'Discount', 'Net']];
 
         $this->analytics->baseOrderQuery($shopId, $start, $end)
             ->where('discount_amount', '>', 0)
@@ -382,6 +382,7 @@ class AnalyticsController extends Controller
                     $order->customer?->name ?? 'Walk-in',
                     number_format((float) $order->total_amount, 2, '.', ''),
                     number_format((float) $order->discount_amount, 2, '.', ''),
+                    number_format($order->netPayable(), 2, '.', ''),
                 ];
             });
 

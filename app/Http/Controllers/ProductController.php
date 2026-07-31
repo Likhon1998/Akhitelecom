@@ -106,6 +106,7 @@ class ProductController extends Controller
             'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:2048',
             'is_published' => 'nullable|boolean',
             'is_new_arrival' => 'nullable|boolean',
+            'is_best_seller' => 'nullable|boolean',
             'is_featured' => 'nullable|boolean',
             'stock_quantity' => 'nullable|integer|min:0',
             'alert_quantity' => 'nullable|integer|min:0',
@@ -135,7 +136,8 @@ class ProductController extends Controller
                     'stock_quantity' => 0,
                     'alert_quantity' => $validated['alert_quantity'] ?? 5,
                     'is_published' => $request->boolean('is_published', true),
-                    'is_new_arrival' => $request->boolean('is_new_arrival', true),
+                    'is_new_arrival' => $request->boolean('is_new_arrival'),
+                    'is_best_seller' => $request->boolean('is_best_seller'),
                     'is_featured' => $request->boolean('is_featured'),
                 ];
 
@@ -223,16 +225,18 @@ class ProductController extends Controller
             'remove_images.*' => 'integer',
             'is_published' => 'nullable|boolean',
             'is_new_arrival' => 'nullable|boolean',
+            'is_best_seller' => 'nullable|boolean',
             'is_featured' => 'nullable|boolean',
         ]);
 
         $data = $request->except([
             'image', 'image_2', 'image_3', 'images', 'remove_images', 'stock_quantity',
             'remove_image', 'remove_image_2', 'remove_image_3',
-            'is_published', 'is_new_arrival', 'is_featured',
+            'is_published', 'is_new_arrival', 'is_best_seller', 'is_featured',
         ]);
         $data['is_published'] = $request->boolean('is_published');
         $data['is_new_arrival'] = $request->boolean('is_new_arrival');
+        $data['is_best_seller'] = $request->boolean('is_best_seller');
         $data['is_featured'] = $request->boolean('is_featured');
         $data['availability'] = $request->input('availability', $product->availability ?? 'in_stock');
         $data = $this->applyBrandData($data);
@@ -244,6 +248,29 @@ class ProductController extends Controller
         $this->syncPrimaryImageFromGallery($product);
 
         return redirect()->route('products.index')->with('success', 'Product updated successfully!');
+    }
+
+    public function toggleHomepageFlag(Request $request, Product $product)
+    {
+        if ($product->shop_id !== Auth::user()->shop_id) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $validated = $request->validate([
+            'flag' => 'required|in:is_new_arrival,is_best_seller',
+            'value' => 'required|boolean',
+        ]);
+
+        $flag = $validated['flag'];
+        $product->update([$flag => $request->boolean('value')]);
+
+        return response()->json([
+            'ok' => true,
+            'flag' => $flag,
+            'value' => (bool) $product->{$flag},
+            'is_new_arrival' => (bool) $product->is_new_arrival,
+            'is_best_seller' => (bool) $product->is_best_seller,
+        ]);
     }
 
     public function destroy(Product $product)
@@ -449,6 +476,7 @@ class ProductController extends Controller
                     ]);
 
                     if ($openingQty > 0) {
+                        $this->stock->ensureDefaultLocations($shopId);
                         $movement = $this->stock->setOpeningStock($product, $openingQty);
                         $this->accounts->postOpeningInventory($movement);
                         $stockSet++;
@@ -603,24 +631,44 @@ class ProductController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
+        $listPrice = (float) $product->selling_price;
+
         $validated = $request->validate([
-            'sale_price' => 'required|numeric|min:0|lt:'.$product->selling_price,
+            'discount_type' => 'required|in:percent,tk',
+            'percent' => 'nullable|numeric|min:0.01|max:99.99|required_if:discount_type,percent',
+            'sale_price' => 'nullable|numeric|min:0|required_if:discount_type,tk|lt:'.$listPrice,
             'sale_starts_at' => 'required|date',
             'sale_ends_at' => 'required|date|after:sale_starts_at',
         ], [
-            'sale_price.lt' => 'Sale price must be lower than the selling price (Tk '.number_format((float) $product->selling_price, 2).').',
+            'sale_price.lt' => 'Sale price must be lower than the selling price (Tk '.number_format($listPrice, 2).').',
+            'sale_price.required_if' => 'Enter the offer price in Tk.',
+            'percent.required_if' => 'Enter the discount percentage.',
             'sale_ends_at.after' => 'Sale end time must be after the start time.',
         ]);
 
+        if ($validated['discount_type'] === 'percent') {
+            $percent = (float) $validated['percent'];
+            $salePrice = round($listPrice * (1 - ($percent / 100)), 2);
+            if ($salePrice <= 0 || $salePrice >= $listPrice) {
+                return back()->withErrors([
+                    'percent' => 'Discount must leave an offer price below Tk '.number_format($listPrice, 2).'.',
+                ])->withInput();
+            }
+            $label = rtrim(rtrim(number_format($percent, 2), '0'), '.').'% off (Tk '.number_format($salePrice, 2).')';
+        } else {
+            $salePrice = (float) $validated['sale_price'];
+            $label = 'Tk '.number_format($salePrice, 2);
+        }
+
         $product->applySale(
-            (float) $validated['sale_price'],
+            $salePrice,
             \Illuminate\Support\Carbon::parse($validated['sale_starts_at']),
             \Illuminate\Support\Carbon::parse($validated['sale_ends_at']),
         );
 
         return redirect()->route('products.index')->with(
             'success',
-            "Sale set on {$product->name}: Tk ".number_format((float) $validated['sale_price'], 2).' until '.$product->fresh()->sale_ends_at->format('d M Y, h:i A').'.'
+            "Sale set on {$product->name}: {$label} until ".$product->fresh()->sale_ends_at->format('d M Y, h:i A').'.'
         );
     }
 
@@ -644,28 +692,25 @@ class ProductController extends Controller
                 'required',
                 Rule::exists('brands', 'id')->where(fn ($q) => $q->where('shop_id', $shopId)),
             ],
-            'percent' => 'required|numeric|min:1|max:90',
+            'discount_type' => 'required|in:percent,tk',
+            'percent' => 'nullable|numeric|min:0.01|max:99.99|required_if:discount_type,percent',
+            'amount' => 'nullable|numeric|min:0.01|required_if:discount_type,tk',
             'sale_starts_at' => 'required|date',
             'sale_ends_at' => 'required|date|after:sale_starts_at',
         ], [
+            'percent.required_if' => 'Enter the discount percentage.',
+            'amount.required_if' => 'Enter the discount amount in Tk.',
             'sale_ends_at.after' => 'Sale end time must be after the start time.',
         ]);
 
         $brand = Brand::where('shop_id', $shopId)->findOrFail($validated['brand_id']);
         $starts = \Illuminate\Support\Carbon::parse($validated['sale_starts_at']);
         $ends = \Illuminate\Support\Carbon::parse($validated['sale_ends_at']);
-        $percent = (float) $validated['percent'];
-        $factor = 1 - ($percent / 100);
+        $isPercent = $validated['discount_type'] === 'percent';
+        $percent = $isPercent ? (float) $validated['percent'] : 0;
+        $amount = ! $isPercent ? (float) $validated['amount'] : 0;
 
-        $products = Product::where('shop_id', $shopId)
-            ->where(function ($q) use ($brand) {
-                $q->where('brand_id', $brand->id)
-                    ->orWhere(function ($qq) use ($brand) {
-                        $qq->whereNull('brand_id')
-                            ->where('brand_name', $brand->name);
-                    });
-            })
-            ->get();
+        $products = $this->productsForBrand($shopId, $brand)->get();
 
         $updated = 0;
         foreach ($products as $product) {
@@ -673,10 +718,15 @@ class ProductController extends Controller
             if ($list <= 0) {
                 continue;
             }
-            $salePrice = round($list * $factor, 2);
-            if ($salePrice >= $list) {
+
+            $salePrice = $isPercent
+                ? round($list * (1 - ($percent / 100)), 2)
+                : round($list - $amount, 2);
+
+            if ($salePrice <= 0 || $salePrice >= $list) {
                 continue;
             }
+
             $product->applySale($salePrice, $starts, $ends);
             $updated++;
         }
@@ -684,14 +734,70 @@ class ProductController extends Controller
         if ($updated === 0) {
             return redirect()->route('products.index')->with(
                 'success',
-                "No products found for brand {$brand->name}."
+                "No products found for brand {$brand->name} that can take this discount."
+            );
+        }
+
+        $label = $isPercent
+            ? rtrim(rtrim(number_format($percent, 2), '0'), '.').'%'
+            : 'Tk '.number_format($amount, 2).' off';
+
+        return redirect()->route('products.index')->with(
+            'success',
+            "{$label} sale applied to {$updated} {$brand->name} product(s) until ".$ends->format('d M Y, h:i A').'.'
+        );
+    }
+
+    public function clearBrandSale(Request $request)
+    {
+        $shopId = Auth::user()->shop_id;
+
+        $validated = $request->validate([
+            'brand_id' => [
+                'required',
+                Rule::exists('brands', 'id')->where(fn ($q) => $q->where('shop_id', $shopId)),
+            ],
+        ]);
+
+        $brand = Brand::where('shop_id', $shopId)->findOrFail($validated['brand_id']);
+
+        $products = $this->productsForBrand($shopId, $brand)
+            ->where(function ($q) {
+                $q->whereNotNull('sale_price')
+                    ->orWhereNotNull('sale_starts_at')
+                    ->orWhereNotNull('sale_ends_at');
+            })
+            ->get();
+
+        $cleared = 0;
+        foreach ($products as $product) {
+            $product->clearSale();
+            $cleared++;
+        }
+
+        if ($cleared === 0) {
+            return redirect()->route('products.index')->with(
+                'success',
+                "No active or scheduled sales found for brand {$brand->name}."
             );
         }
 
         return redirect()->route('products.index')->with(
             'success',
-            "{$percent}% sale applied to {$updated} {$brand->name} product(s) until ".$ends->format('d M Y, h:i A').'.'
+            "Sale ended on {$cleared} {$brand->name} product(s)."
         );
+    }
+
+    private function productsForBrand(int $shopId, Brand $brand)
+    {
+        return Product::where('shop_id', $shopId)
+            ->where(function ($q) use ($brand) {
+                $q->where('brand_id', $brand->id)
+                    ->orWhere(function ($qq) use ($brand) {
+                        $qq->whereNull('brand_id')
+                            ->where('brand_name', $brand->name);
+                    });
+            });
     }
 
     /**

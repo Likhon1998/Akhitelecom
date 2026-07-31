@@ -18,15 +18,29 @@
                 <tbody class="divide-y divide-gray-50">
                     @foreach($products as $i => $product)
                         <tr>
-                            <td class="p-4 font-semibold">{{ $product->name }}<input type="hidden" name="items[{{ $i }}][product_id]" value="{{ $product->id }}"></td>
+                            <td class="p-4 font-semibold">
+                                {{ $product->name }}
+                                <input type="hidden" name="items[{{ $i }}][product_id]" value="{{ $product->id }}">
+                                @if($product->sku || $product->barcode)
+                                    <div class="text-[11px] font-normal text-gray-400 mt-0.5 font-mono">{{ $product->sku ?: $product->barcode }}</div>
+                                @endif
+                            </td>
                             <td class="p-4 text-center">{{ $product->stock_quantity }}</td>
-                            <td class="p-4"><input type="number" name="items[{{ $i }}][quantity]" value="0" min="0" class="w-28 rounded-lg border-gray-200 mx-auto block text-center" required></td>
+                            <td class="p-4">
+                                <input type="number"
+                                       name="items[{{ $i }}][quantity]"
+                                       value="{{ old('items.'.$i.'.quantity') }}"
+                                       min="0"
+                                       step="1"
+                                       placeholder="0"
+                                       class="w-28 rounded-lg border-gray-200 mx-auto block text-center">
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
             <div class="p-4 border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <p class="text-xs text-gray-500">Each product appears here only until opening stock is saved once. This cannot be changed from this page afterward.</p>
+                <p class="text-xs text-gray-500">Enter qty only for products you want to stock now (leave blank to skip). Each product can be opened once — later changes use Stock Adjustment.</p>
                 <button class="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold shrink-0">Save Opening Inventory</button>
             </div>
         </form>

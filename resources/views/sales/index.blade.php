@@ -184,6 +184,12 @@
                                         <div class="text-sm font-black tracking-tight" :class="order.is_voided ? 'text-red-500 line-through opacity-70' : 'text-gray-900'">
                                             <span class="text-gray-400 text-xs mr-0.5">৳</span><span x-text="order.product_revenue"></span>
                                         </div>
+                                        <template x-if="order.discount_amount > 0">
+                                            <div class="text-[9px] text-amber-600 font-bold mt-0.5" x-text="'− ৳' + order.discount_amount_fmt + ' discount'"></div>
+                                        </template>
+                                        <template x-if="order.credit_amount > 0">
+                                            <div class="text-[9px] text-orange-700 font-bold mt-0.5" x-text="'BAKI ৳' + order.credit_amount_fmt + ' due'"></div>
+                                        </template>
                                         <template x-if="order.delivery_charge > 0">
                                             <div class="text-[9px] text-indigo-500 font-bold mt-0.5" x-text="'+ ৳' + order.delivery_charge_fmt + ' Courier'"></div>
                                         </template>
@@ -253,6 +259,9 @@
                                     </td>
                                     <td class="px-4 py-2.5 whitespace-nowrap">
                                         <div class="text-sm font-black" :class="order.is_voided ? 'text-red-500 line-through opacity-70' : 'text-gray-900'" x-text="'৳' + order.product_revenue"></div>
+                                        <template x-if="order.discount_amount > 0">
+                                            <div class="text-[9px] text-amber-600 font-bold mt-0.5" x-text="'− ৳' + order.discount_amount_fmt + ' discount'"></div>
+                                        </template>
                                         <div class="text-[9px] font-bold mt-0.5" :class="order.delivery_charge > 0 ? 'text-indigo-500' : 'text-gray-400'"
                                              x-text="order.delivery_charge > 0 ? ('+ ৳' + order.delivery_charge_fmt + ' delivery') : 'Free delivery'"></div>
                                     </td>

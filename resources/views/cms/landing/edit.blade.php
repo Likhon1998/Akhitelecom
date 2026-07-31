@@ -29,12 +29,58 @@
                     @endif
                 </div>
                 <div>
-                    <label class="text-xs font-bold uppercase text-slate-500">Currency code</label>
-                    <input name="currency_code" value="{{ old('currency_code', $settings->currency_code) }}" class="mt-1 w-full rounded-xl border-slate-200" required>
+                    <label class="text-xs font-bold uppercase text-slate-500">Currency</label>
+                    @php
+                        $code = old('currency_code', $settings->currency_code ?: 'BDT');
+                        $symbol = old('currency_symbol', $settings->currency_symbol ?: '৳');
+                        // Heal phone-code mistakes (880 / +880 / 088) for the form display
+                        if (preg_match('/^\+?\d{2,4}$/', trim((string) $symbol))) {
+                            $symbol = $code === 'USD' ? '$' : '৳';
+                        }
+                        $presets = [
+                            ['code' => 'BDT', 'symbol' => '৳', 'label' => 'Bangladesh Taka (৳)'],
+                            ['code' => 'BDT', 'symbol' => 'Tk', 'label' => 'Bangladesh Taka (Tk)'],
+                            ['code' => 'USD', 'symbol' => '$', 'label' => 'US Dollar ($)'],
+                            ['code' => 'EUR', 'symbol' => '€', 'label' => 'Euro (€)'],
+                            ['code' => 'GBP', 'symbol' => '£', 'label' => 'British Pound (£)'],
+                            ['code' => 'INR', 'symbol' => '₹', 'label' => 'Indian Rupee (₹)'],
+                        ];
+                    @endphp
+                    <div class="mt-1 grid gap-2 sm:grid-cols-2" x-data="{
+                        code: @js($code),
+                        symbol: @js($symbol),
+                        apply(code, symbol) { this.code = code; this.symbol = symbol; }
+                    }">
+                        <div>
+                            <label class="text-[10px] font-semibold text-slate-400">Code</label>
+                            <input name="currency_code" x-model="code" class="mt-0.5 w-full rounded-xl border-slate-200" required maxlength="10">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-semibold text-slate-400">Symbol (shown before prices)</label>
+                            <input name="currency_symbol" x-model="symbol" class="mt-0.5 w-full rounded-xl border-slate-200" required maxlength="10"
+                                   placeholder="৳ — not 880">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <p class="text-[11px] text-slate-500 mb-2">Quick pick — do <span class="font-bold text-rose-600">not</span> use phone codes like 880 / +880.</p>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($presets as $preset)
+                                    <button type="button"
+                                            @click="apply(@js($preset['code']), @js($preset['symbol']))"
+                                            class="rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition"
+                                            :class="code === @js($preset['code']) && symbol === @js($preset['symbol']) ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'">
+                                        {{ $preset['label'] }}
+                                    </button>
+                                @endforeach
+                            </div>
+                            <p class="mt-2 text-[11px] text-slate-500">Preview: <span class="font-bold text-slate-800" x-text="symbol + '1,250.00'"></span></p>
+                        </div>
+                    </div>
+                    @error('currency_symbol')
+                        <p class="mt-1 text-xs font-semibold text-rose-600">{{ $message }}</p>
+                    @enderror
                 </div>
-                <div>
-                    <label class="text-xs font-bold uppercase text-slate-500">Currency symbol</label>
-                    <input name="currency_symbol" value="{{ old('currency_symbol', $settings->currency_symbol) }}" class="mt-1 w-full rounded-xl border-slate-200" required>
+                <div class="hidden">
+                    {{-- keep grid layout: removed duplicate currency fields --}}
                 </div>
                 <div>
                     <label class="text-xs font-bold uppercase text-slate-500">Special offer text</label>

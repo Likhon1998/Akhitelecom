@@ -369,6 +369,12 @@
                         <td class="text-right">- ৳{{ number_format((float) $order->discount_amount, 2) }}</td>
                     </tr>
                 @endif
+                @if(($order->credit_amount ?? 0) > 0)
+                    <tr>
+                        <td class="lbl">Baki (due)</td>
+                        <td class="text-right">৳{{ number_format((float) $order->credit_amount, 2) }}</td>
+                    </tr>
+                @endif
                 <tr class="grand">
                     <td>Net payable</td>
                     <td class="text-right">৳{{ number_format($order->netPayable(), 2) }}</td>
@@ -394,6 +400,16 @@
                     <td>Grand total</td>
                     <td class="text-right">৳{{ number_format($order->netPayable(), 2) }}</td>
                 </tr>
+                @if(($order->credit_amount ?? 0) > 0)
+                    <tr>
+                        <td class="lbl">Paid now</td>
+                        <td class="text-right">৳{{ number_format((float) $order->paid_amount, 2) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">Baki (due)</td>
+                        <td class="text-right" style="font-weight:800">৳{{ number_format((float) $order->credit_amount, 2) }}</td>
+                    </tr>
+                @endif
             @endif
         </table>
 
@@ -401,7 +417,7 @@
             <table>
                 <tr>
                     <td class="lbl">Payment method</td>
-                    <td class="text-right" style="font-weight:700">{{ $paymentLabel }}</td>
+                    <td class="text-right" style="font-weight:700">{{ $paymentLabel }}{{ ($order->is_baki ?? false) ? ' / BAKI' : '' }}</td>
                 </tr>
                 @if(! $isVoid)
                     @php $tenderLines = $order->tenderLines(); @endphp
@@ -420,6 +436,18 @@
                         ৳{{ number_format($isVoid ? 0 : (float) $order->paid_amount, 2) }}
                     </td>
                 </tr>
+                @if(($order->credit_amount ?? 0) > 0 && ! $isVoid)
+                    <tr>
+                        <td class="lbl">Due / Baki</td>
+                        <td class="text-right" style="font-weight:800">৳{{ number_format((float) $order->credit_amount, 2) }}</td>
+                    </tr>
+                @endif
+                @if(($order->customer?->baki_balance ?? 0) > 0 && ! $isVoid)
+                    <tr>
+                        <td class="lbl">Total baki left</td>
+                        <td class="text-right" style="font-weight:800">৳{{ number_format((float) $order->customer->baki_balance, 2) }}</td>
+                    </tr>
+                @endif
                 @if(($order->change_amount ?? 0) > 0 && ! $isVoid)
                     <tr>
                         <td class="lbl">Change due</td>

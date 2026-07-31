@@ -159,29 +159,38 @@ class AnalyticsService
 
     public function topSellingProducts(int $shopId, Carbon $start, Carbon $end, int $limit = 5)
     {
-        return OrderItem::whereHas('order', function ($q) use ($shopId, $start, $end) {
-                $q->where('shop_id', $shopId)
-                    ->whereBetween('created_at', [$start, $end])
-                    ->where('status', 'completed')
-                    ->where(function ($inner) {
-                        $inner->where('is_exchange_receipt', false)
-                            ->orWhereNull('is_exchange_receipt');
-                    });
+        // Allocate order-level discount/exchange credit across lines so product revenue matches net sales.
+        $netShare = 'order_items.subtotal * GREATEST(orders.total_amount - COALESCE(orders.discount_amount, 0) - COALESCE(orders.exchange_credit, 0), 0) / NULLIF(orders.total_amount, 0)';
+
+        return DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->where('orders.shop_id', $shopId)
+            ->whereBetween('orders.created_at', [$start, $end])
+            ->where('orders.status', 'completed')
+            ->where(function ($q) {
+                $q->where('orders.is_exchange_receipt', false)
+                    ->orWhereNull('orders.is_exchange_receipt');
             })
             ->select(
-                'product_id',
-                DB::raw('SUM(quantity) as sold'),
-                DB::raw('SUM(order_items.subtotal) as revenue')
+                'order_items.product_id',
+                DB::raw('SUM(order_items.quantity) as sold'),
+                DB::raw("SUM({$netShare}) as revenue")
             )
-            ->groupBy('product_id')
-            ->with(['product.category'])
+            ->groupBy('order_items.product_id')
             ->orderByDesc('sold')
             ->limit($limit)
-            ->get();
+            ->get()
+            ->map(function ($row) {
+                $row->product = \App\Models\Product::with('category')->find($row->product_id);
+
+                return $row;
+            });
     }
 
     public function salesByCategory(int $shopId, Carbon $start, Carbon $end, int $limit = 6)
     {
+        $netShare = 'order_items.subtotal * GREATEST(orders.total_amount - COALESCE(orders.discount_amount, 0) - COALESCE(orders.exchange_credit, 0), 0) / NULLIF(orders.total_amount, 0)';
+
         return DB::table('order_items')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->join('products', 'order_items.product_id', '=', 'products.id')
@@ -195,7 +204,7 @@ class AnalyticsService
             })
             ->select(
                 DB::raw("COALESCE(categories.name, 'Uncategorized') as category"),
-                DB::raw('SUM(order_items.subtotal) as revenue'),
+                DB::raw("SUM({$netShare}) as revenue"),
                 DB::raw('SUM(order_items.quantity) as sold')
             )
             ->groupBy(DB::raw("COALESCE(categories.name, 'Uncategorized')"))

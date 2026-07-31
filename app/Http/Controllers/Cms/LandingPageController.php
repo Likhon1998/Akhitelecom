@@ -34,7 +34,17 @@ class LandingPageController extends Controller
         $data = $request->validate([
             'store_name' => 'required|string|max:255',
             'currency_code' => 'required|string|max:10',
-            'currency_symbol' => 'required|string|max:10',
+            'currency_symbol' => [
+                'required',
+                'string',
+                'max:10',
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    $v = trim((string) $value);
+                    if ($v === '' || preg_match('/^\+?\d{2,4}$/', $v) || in_array($v, ['880', '+880', '088', '88'], true)) {
+                        $fail('Currency symbol cannot be a phone country code like 880. Use ৳, Tk, or BDT.');
+                    }
+                },
+            ],
             'special_offer_text' => 'nullable|string|max:255',
             'trusted_by_text' => 'nullable|string|max:255',
             'contact_email' => 'nullable|email|max:255',
@@ -60,6 +70,12 @@ class LandingPageController extends Controller
             'banners.*.is_active' => 'nullable|boolean',
             'banners.*.image' => 'nullable|file|mimes:jpeg,jpg,png,webp,gif|max:5120',
         ]);
+
+        $website = app(\App\Services\WebsiteService::class);
+        $data['currency_symbol'] = $website->normalizeCurrencySymbol(
+            $data['currency_symbol'],
+            $data['currency_code']
+        );
 
         $settings = SiteSetting::current();
         if (!$settings->exists) {

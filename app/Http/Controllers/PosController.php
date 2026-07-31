@@ -11,6 +11,7 @@ use App\Models\Counter;
 use App\Models\Customer;
 use App\Models\User;
 use App\Services\AccountService;
+use App\Services\BakiService;
 use App\Services\CounterSessionService;
 use App\Services\StockService;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ class PosController extends Controller
     public function __construct(
         protected AccountService $accounts,
         protected StockService $stock,
+        protected BakiService $baki,
     ) {}
     /**
      * Load the POS Terminal
@@ -173,10 +175,23 @@ class PosController extends Controller
             'cash_paid' => 'nullable|numeric|min:0',
             'card_paid' => 'nullable|numeric|min:0',
             'mobile_paid' => 'nullable|numeric|min:0',
+            'discount_amount' => 'nullable|numeric|min:0',
+            'is_baki' => 'nullable|boolean',
             'customer_phone' => 'nullable|string',
             'customer_name' => 'nullable|string',
             'counter_id' => 'nullable|integer',
         ]);
+
+        $isBaki = $request->boolean('is_baki');
+        if ($isBaki) {
+            $request->validate([
+                'customer_phone' => 'required|string|min:5',
+                'customer_name' => 'required|string|min:2',
+            ], [
+                'customer_phone.required' => 'Mobile number is required for BAKI sales.',
+                'customer_name.required' => 'Customer name is required for BAKI sales.',
+            ]);
+        }
 
         $shopId = $user->shop_id;
 
@@ -202,31 +217,47 @@ class PosController extends Controller
                 throw new \Exception("Exchange Blocked: Cart total must equal or exceed the return credit. No cash refunds allowed.");
             }
 
-            // After exchange credit, before discount
-            $afterCredit = max(0, $totalAmount - $exchangeCredit);
-
-            // Cart/coupon discount from POS; if customer pays under due, remainder = less (discount)
-            $paidAmount = max(0, (float) $request->paid_amount);
+            $paidAmountInput = max(0, (float) $request->paid_amount);
             $requestedDiscount = max(0, (float) ($request->discount_amount ?? 0));
-            $discountAmount = min($afterCredit, $requestedDiscount);
-            $payableAmount = max(0, $afterCredit - $discountAmount);
+            $exchangeForMath = $isExchange ? $exchangeCredit : 0.0;
 
-            if ($paidAmount < $payableAmount) {
-                $discountAmount = min($afterCredit, $afterCredit - $paidAmount);
-                $payableAmount = $paidAmount;
+            $creditAmount = 0.0;
+            $towardPrevious = 0.0;
+            $previousBalance = 0.0;
+            $bakiPool = null;
+
+            if ($isBaki) {
+                // Explicit discount only — shortfall becomes baki, not "Less" discount.
+                $afterCredit = max(0, round((float) $totalAmount - $exchangeForMath, 2));
+                $discountAmount = min($afterCredit, $requestedDiscount);
+                $billPayable = round($afterCredit - $discountAmount, 2);
+                // Customer resolved below before pool; placeholder until then.
+                $payableAmount = $billPayable;
+                $changeAmount = 0.0;
+                $paidAmount = $paidAmountInput;
+            } else {
+                $settlement = Order::resolvePosSettlement(
+                    (float) $totalAmount,
+                    $exchangeForMath,
+                    $requestedDiscount,
+                    $paidAmountInput,
+                );
+                $discountAmount = $settlement['discount'];
+                $payableAmount = $settlement['payable'];
+                $changeAmount = $settlement['change'];
+                $paidAmount = $paidAmountInput;
             }
-
-            $changeAmount = max(0, $paidAmount - $payableAmount);
 
             // 2. Customer Handling (same CRM table as website shoppers — match by phone)
             $customerId = null;
-            if (!empty($request->customer_phone)) {
+            $customer = null;
+            if (! empty($request->customer_phone)) {
                 $phone = Customer::normalizePhone($request->customer_phone);
-                $customer = Customer::where('shop_id', $shopId)->wherePhone($phone)->first();
+                $customer = Customer::where('shop_id', $shopId)->wherePhone($phone)->lockForUpdate()->first();
 
                 if ($customer) {
                     $updates = [];
-                    if (!empty($request->customer_name) && $customer->name !== $request->customer_name) {
+                    if (! empty($request->customer_name) && $customer->name !== $request->customer_name) {
                         $updates['name'] = $request->customer_name;
                     }
                     if ($customer->phone !== $phone) {
@@ -237,21 +268,61 @@ class PosController extends Controller
                     }
                     $customerId = $customer->id;
                 } else {
-                    $newCustomer = Customer::create([
+                    $customer = Customer::create([
                         'shop_id' => $shopId,
                         'phone' => $phone,
                         'name' => $request->customer_name ?? 'Guest User',
+                        'baki_balance' => 0,
                     ]);
-                    $customerId = $newCustomer->id;
+                    $customerId = $customer->id;
                 }
+            }
+
+            if ($isBaki) {
+                if (! $customer) {
+                    throw new \Exception('Customer name and mobile are required for BAKI.');
+                }
+                $previousBalance = round((float) $customer->baki_balance, 2);
+                $bakiPool = $this->baki->resolvePool($previousBalance, $payableAmount, $paidAmountInput);
+                $creditAmount = $bakiPool['credit'];
+                $towardPrevious = $bakiPool['toward_previous'];
+                $paidAmount = $bakiPool['toward_bill']; // amount applied to this invoice
+                $changeAmount = $bakiPool['change'];
+                $payableAmount = $bakiPool['bill'];
             }
 
             // 3. Unique invoice inside the open transaction (locked)
             $invoiceNo = Order::nextPosInvoiceNo($shopId, 'INV');
 
-            $cashPaid = $request->has('cash_paid') ? max(0, (float) $request->cash_paid) : null;
-            $cardPaid = $request->has('card_paid') ? max(0, (float) $request->card_paid) : null;
-            $mobilePaid = $request->has('mobile_paid') ? max(0, (float) $request->mobile_paid) : null;
+            $rawCash = $request->has('cash_paid') ? max(0, (float) $request->cash_paid) : 0.0;
+            $rawCard = $request->has('card_paid') ? max(0, (float) $request->card_paid) : 0.0;
+            $rawMobile = $request->has('mobile_paid') ? max(0, (float) $request->mobile_paid) : 0.0;
+            $hasTenderBreakdown = $request->has('cash_paid') || $request->has('card_paid') || $request->has('mobile_paid');
+
+            $cashPaid = null;
+            $cardPaid = null;
+            $mobilePaid = null;
+            $prevCash = $prevCard = $prevMobile = 0.0;
+
+            if ($isBaki && $hasTenderBreakdown) {
+                $billSplit = $this->baki->splitTenders($paidAmount, $rawCash, $rawCard, $rawMobile);
+                $cashPaid = $billSplit['cash'];
+                $cardPaid = $billSplit['card'];
+                $mobilePaid = $billSplit['mobile'];
+                $prevSplit = $this->baki->splitTenders(
+                    $towardPrevious,
+                    $billSplit['remaining_cash'],
+                    $billSplit['remaining_card'],
+                    $billSplit['remaining_mobile'],
+                );
+                $prevCash = $prevSplit['cash'];
+                $prevCard = $prevSplit['card'];
+                $prevMobile = $prevSplit['mobile'];
+            } elseif ($hasTenderBreakdown) {
+                $cashPaid = $rawCash;
+                $cardPaid = $rawCard;
+                $mobilePaid = $rawMobile;
+            }
 
             $clientUuid = trim((string) $request->input('client_uuid', ''));
             if ($clientUuid !== '') {
@@ -275,13 +346,15 @@ class PosController extends Controller
             // 4. Create the Main Order
             $order = Order::create([
                 'shop_id' => $shopId,
-                'user_id' => $user->id, 
+                'user_id' => $user->id,
                 'counter_id' => $counterId,
-                'customer_id' => $customerId, 
+                'customer_id' => $customerId,
                 'invoice_no' => $invoiceNo,
                 'offline_client_uuid' => $clientUuid !== '' ? $clientUuid : null,
                 'total_amount' => $totalAmount,
                 'discount_amount' => $discountAmount,
+                'credit_amount' => $creditAmount,
+                'is_baki' => $isBaki && ($creditAmount > 0 || $towardPrevious > 0 || $previousBalance > 0),
                 'paid_amount' => $paidAmount,
                 'cash_paid' => $cashPaid,
                 'card_paid' => $cardPaid,
@@ -289,12 +362,10 @@ class PosController extends Controller
                 'change_amount' => $changeAmount,
                 'payment_method' => $request->payment_method,
                 'status' => 'completed',
-                
-                // 🔒 FLAGS: Marks this as an exchange so it cannot be refunded
+
                 'is_exchange_receipt' => $isExchange,
                 'exchange_for_order_id' => $request->exchange_for_order_id,
-                
-                // 🚀 NEW FIELDS: Store exactly what was returned for the receipt
+
                 'return_product_id' => $isExchange ? $request->return_product_id : null,
                 'return_qty' => $isExchange ? $request->return_qty : null,
                 'exchange_credit' => $isExchange ? $exchangeCredit : null,
@@ -339,10 +410,33 @@ class PosController extends Controller
                 }
             }
 
-            $order->load('items.product', 'counter');
+            $order->load('items.product', 'counter', 'customer');
             $this->accounts->postOrderSale($order);
 
+            if ($isBaki && $customer) {
+                if ($creditAmount > 0) {
+                    $this->baki->addSaleCredit($customer, $order, $creditAmount, $user->id);
+                }
+                if ($towardPrevious > 0) {
+                    $method = $request->payment_method ?: 'cash';
+                    $this->baki->collectPayment(
+                        customer: $customer,
+                        amount: $towardPrevious,
+                        method: $method,
+                        note: 'Paid with sale '.$invoiceNo,
+                        order: $order,
+                        userId: $user->id,
+                        counterId: $counterId,
+                        cash: $hasTenderBreakdown ? $prevCash : null,
+                        card: $hasTenderBreakdown ? $prevCard : null,
+                        mobile: $hasTenderBreakdown ? $prevMobile : null,
+                    );
+                }
+            }
+
             DB::commit();
+
+            $customer?->refresh();
 
             return response()->json([
                 'success' => true,
@@ -353,6 +447,8 @@ class PosController extends Controller
                 'paid_amount' => $order->paid_amount,
                 'total_amount' => $order->total_amount,
                 'discount_amount' => $order->discount_amount,
+                'credit_amount' => (float) $order->credit_amount,
+                'baki_balance' => $customer ? (float) $customer->baki_balance : 0,
                 'receipt_url' => route('pos.receipt', $order),
             ]);
 
@@ -407,6 +503,7 @@ class PosController extends Controller
                 'name' => $customer->name,
                 'email' => $customer->email,
                 'phone' => $customer->phone,
+                'baki_balance' => (float) ($customer->baki_balance ?? 0),
             ]);
         }
 
@@ -448,6 +545,11 @@ class PosController extends Controller
             DB::beginTransaction();
 
             foreach ($orders as $offlineOrder) {
+                // BAKI requires live balance locking — never sync offline credit sales.
+                if (! empty($offlineOrder['is_baki'])) {
+                    continue;
+                }
+
                 $clientUuid = isset($offlineOrder['client_uuid'])
                     ? trim((string) $offlineOrder['client_uuid'])
                     : '';
@@ -519,13 +621,16 @@ class PosController extends Controller
                 }
 
                 $paid = max(0, (float) ($offlineOrder['paid_amount'] ?? $lineGross));
-                $requestedDiscount = max(0, (float) ($offlineOrder['discount_amount'] ?? 0));
-                $discount = min($lineGross, $requestedDiscount);
-                $payable = max(0, $lineGross - $discount);
-                if ($paid < $payable) {
-                    $discount = min($lineGross, $lineGross - $paid);
-                    $payable = $paid;
-                }
+                $exchangeCredit = max(0, (float) ($offlineOrder['exchange_credit'] ?? 0));
+                $settlement = Order::resolvePosSettlement(
+                    $lineGross,
+                    $exchangeCredit,
+                    max(0, (float) ($offlineOrder['discount_amount'] ?? 0)),
+                    $paid,
+                );
+                $discount = $settlement['discount'];
+                $payable = $settlement['payable'];
+                $changeAmount = $settlement['change'];
 
                 $cashPaid = array_key_exists('cash_paid', $offlineOrder) ? max(0, (float) $offlineOrder['cash_paid']) : null;
                 $cardPaid = array_key_exists('card_paid', $offlineOrder) ? max(0, (float) $offlineOrder['card_paid']) : null;
@@ -544,9 +649,10 @@ class PosController extends Controller
                     'cash_paid' => $cashPaid,
                     'card_paid' => $cardPaid,
                     'mobile_paid' => $mobilePaid,
-                    'change_amount' => max(0, $paid - $payable),
+                    'change_amount' => $changeAmount,
                     'payment_method' => $offlineOrder['payment_method'] ?? 'cash',
                     'status' => 'completed',
+                    'exchange_credit' => $exchangeCredit > 0 ? $exchangeCredit : null,
                     'created_at' => Carbon::parse($offlineOrder['created_at'] ?? now()),
                     'updated_at' => Carbon::parse($offlineOrder['created_at'] ?? now()),
                 ]);

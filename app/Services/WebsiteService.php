@@ -43,11 +43,26 @@ class WebsiteService
         $site = SiteSetting::current();
         $shop = $this->shop();
 
+        $currencyCode = $site->currency_code ?: 'BDT';
+        $currencySymbol = $this->normalizeCurrencySymbol($site->currency_symbol, $currencyCode);
+
+        // Persist healed symbol if admin accidentally saved a phone code (880 / +880).
+        if ($site->exists && trim((string) $site->currency_symbol) !== $currencySymbol) {
+            try {
+                $site->forceFill([
+                    'currency_code' => $currencyCode,
+                    'currency_symbol' => $currencySymbol,
+                ])->save();
+            } catch (\Throwable) {
+                // Display still uses the normalized symbol.
+            }
+        }
+
         return (object) [
             'store_name' => $site->store_name ?: ($shop?->name ?? config('app.name', 'GAGET STORE')),
             'logo_path' => $site->logo_path,
-            'currency_code' => $site->currency_code ?: 'USD',
-            'currency_symbol' => $site->currency_symbol ?: '$',
+            'currency_code' => $currencyCode,
+            'currency_symbol' => $currencySymbol,
             'special_offer_text' => $site->special_offer_text ?: 'Special Offer!',
             'trusted_by_text' => $site->trusted_by_text ?: 'Trusted by thousands of customers',
             'contact_email' => $site->contact_email ?: $shop?->email,
@@ -136,7 +151,7 @@ class WebsiteService
 
         $trendingProducts = $this->catalogQuery($shopId)
             ->with(['category', 'brand'])
-            ->orderByDesc('is_best_seller')
+            ->trending()
             ->orderByDesc('review_count')
             ->latest()
             ->take(5)
@@ -439,13 +454,40 @@ class WebsiteService
     public function formatPrice(?float $amount, ?object $settings = null): string
     {
         $settings ??= $this->settings();
-        $symbol = $settings->currency_symbol ?? '$';
+        $symbol = $this->normalizeCurrencySymbol(
+            $settings->currency_symbol ?? null,
+            $settings->currency_code ?? 'BDT'
+        );
 
         if ($amount === null) {
-            return $symbol . '0.00';
+            return $symbol.'0.00';
         }
 
-        return $symbol . number_format((float) $amount, 2);
+        return $symbol.number_format((float) $amount, 2);
+    }
+
+    /**
+     * Prevent phone country codes (e.g. 880 / +880 / 088) from being used as currency symbols.
+     */
+    public function normalizeCurrencySymbol(?string $symbol, ?string $code = null): string
+    {
+        $symbol = trim((string) $symbol);
+        $code = strtoupper(trim((string) $code));
+
+        $badExact = ['', '880', '+880', '088', '00880', '88', '0', '00', '000'];
+        $looksLikePhoneCode = (bool) preg_match('/^\+?\d{2,4}$/', $symbol);
+
+        if (in_array($symbol, $badExact, true) || $looksLikePhoneCode) {
+            return match ($code) {
+                'USD' => '$',
+                'EUR' => '€',
+                'GBP' => '£',
+                'INR' => '₹',
+                default => '৳',
+            };
+        }
+
+        return $symbol;
     }
 
     /** Products visible on the public storefront. */

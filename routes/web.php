@@ -8,6 +8,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CounterController;
 use App\Http\Controllers\CounterSessionController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerBakiController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExchangeController;
 use App\Http\Controllers\GlobalSearchController;
@@ -124,6 +125,9 @@ Route::middleware([
     Route::post('/pos/sync-offline', [PosController::class, 'syncOffline'])->name('pos.sync');
 
     Route::resource('customers', CustomerController::class);
+    Route::get('/customers-baki', [CustomerBakiController::class, 'index'])->name('customers.baki.index');
+    Route::get('/customers/{customer}/baki', [CustomerBakiController::class, 'show'])->name('customers.baki.show');
+    Route::post('/customers/{customer}/baki/pay', [CustomerBakiController::class, 'pay'])->name('customers.baki.pay');
 
     Route::middleware('can:manage inventory')->group(function () {
         Route::resource('categories', CategoryController::class)->except(['show']);
@@ -131,7 +135,9 @@ Route::middleware([
         Route::resource('products', ProductController::class)->except(['show']);
         Route::post('/products/{product}/sale', [ProductController::class, 'applySale'])->name('products.sale');
         Route::delete('/products/{product}/sale', [ProductController::class, 'clearSale'])->name('products.sale.clear');
+        Route::patch('/products/{product}/homepage-flags', [ProductController::class, 'toggleHomepageFlag'])->name('products.homepage-flags');
         Route::post('/products-brand-sale', [ProductController::class, 'applyBrandSale'])->name('products.brand-sale');
+        Route::delete('/products-brand-sale', [ProductController::class, 'clearBrandSale'])->name('products.brand-sale.clear');
         Route::get('/products-import/csv', [ProductController::class, 'importForm'])->name('products.import');
         Route::post('/products-import/csv', [ProductController::class, 'importStore'])->name('products.import.store');
         Route::get('/products-barcodes', [ProductController::class, 'barcodes'])->name('products.barcodes');

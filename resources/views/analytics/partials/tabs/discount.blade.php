@@ -28,8 +28,9 @@
                         <th class="px-5 py-3 text-left">Invoice</th>
                         <th class="px-5 py-3 text-left">Date</th>
                         <th class="px-5 py-3 text-left">Customer</th>
-                        <th class="px-5 py-3 text-right">Order Total</th>
+                        <th class="px-5 py-3 text-right">Gross</th>
                         <th class="px-5 py-3 text-right">Discount</th>
+                        <th class="px-5 py-3 text-right">Net</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -40,9 +41,10 @@
                             <td class="px-5 py-3">{{ $order->customer?->name ?? 'Walk-in' }}</td>
                             <td class="px-5 py-3 text-right font-medium">৳{{ number_format($order->total_amount, 2) }}</td>
                             <td class="px-5 py-3 text-right font-bold text-amber-600">৳{{ number_format($order->discount_amount, 2) }}</td>
+                            <td class="px-5 py-3 text-right font-bold text-gray-900">৳{{ number_format($order->netPayable(), 2) }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="px-5 py-10 text-center text-gray-400">No discounts in this period.</td></tr>
+                        <tr><td colspan="6" class="px-5 py-10 text-center text-gray-400">No discounts in this period.</td></tr>
                     @endforelse
                 </tbody>
             </table>

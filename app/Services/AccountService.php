@@ -7,6 +7,8 @@ use App\Models\AccountEntry;
 use App\Models\AccountTransaction;
 use App\Models\Counter;
 use App\Models\CounterSession;
+use App\Models\Customer;
+use App\Models\CustomerBakiEntry;
 use App\Models\Order;
 use App\Models\StockMovement;
 use Carbon\Carbon;
@@ -28,6 +30,7 @@ class AccountService
         ['code' => 'WEB-CASH', 'name' => 'Online Settlement Cash', 'type' => 'asset'],
         ['code' => 'CARD', 'name' => 'Card Payments', 'type' => 'asset'],
         ['code' => 'BKASH', 'name' => 'Mobile Wallet (bKash)', 'type' => 'asset'],
+        ['code' => 'BAKI-AR', 'name' => 'Customer Baki Receivable', 'type' => 'asset'],
         ['code' => 'EXPENSE', 'name' => 'General Expenses', 'type' => 'expense'],
     ];
 
@@ -175,25 +178,17 @@ class AccountService
 
         $revenue = $this->getAccount($order->shop_id, 'REVENUE');
         $cogs = $this->calculateCogs($order);
-        $netAmount = $order->netPayable();
-
-        $cash = max(0, (float) ($order->cash_paid ?? 0));
-        $card = max(0, (float) ($order->card_paid ?? 0));
-        $mobile = max(0, (float) ($order->mobile_paid ?? 0));
-        $hasBreakdown = $order->cash_paid !== null || $order->card_paid !== null || $order->mobile_paid !== null;
+        $tender = $order->settledTenderBreakdown();
+        $netAmount = $tender['net'];
+        $collected = $tender['collected'] ?? max(0, round($netAmount - (float) ($order->credit_amount ?? 0), 2));
+        $creditAmount = max(0, round((float) ($order->credit_amount ?? 0), 2));
 
         $lines = [];
 
-        if ($hasBreakdown) {
-            $allocated = round($cash + $card + $mobile, 2);
-            // If tender breakdown is short/long vs net, keep cash as residual for till accuracy
-            if ($allocated <= 0 && $netAmount > 0) {
-                $cash = $netAmount;
-            } elseif (abs($allocated - $netAmount) > 0.05 && $cash > 0) {
-                $cash = max(0, round($netAmount - $card - $mobile, 2));
-            } elseif (abs($allocated - $netAmount) > 0.05) {
-                $cash = max(0, round($netAmount - $card - $mobile, 2));
-            }
+        if ($tender['has_breakdown']) {
+            $cash = $tender['cash'];
+            $card = $tender['card'];
+            $mobile = $tender['mobile'];
 
             if ($cash > 0) {
                 $cashAccount = $order->counter_id
@@ -209,16 +204,25 @@ class AccountService
             }
 
             $debited = round($cash + $card + $mobile, 2);
-            if ($debited + 0.009 < $netAmount) {
-                $gap = round($netAmount - $debited, 2);
+            if ($debited + 0.009 < $collected) {
+                $gap = round($collected - $debited, 2);
                 $cashAccount = $order->counter_id
                     ? $this->ensureCounterCashAccount($order->counter)
                     : $this->getAccount($order->shop_id, 'WEB-CASH');
                 $lines[] = ['account' => $cashAccount, 'debit' => $gap, 'credit' => 0, 'counter_id' => $order->counter_id];
             }
-        } else {
+        } elseif ($collected > 0) {
             $paymentAccount = $this->resolvePaymentAccount($order);
-            $lines[] = ['account' => $paymentAccount, 'debit' => $netAmount, 'credit' => 0, 'counter_id' => $order->counter_id];
+            $lines[] = ['account' => $paymentAccount, 'debit' => $collected, 'credit' => 0, 'counter_id' => $order->counter_id];
+        }
+
+        if ($creditAmount > 0) {
+            $lines[] = [
+                'account' => $this->getAccount($order->shop_id, 'BAKI-AR'),
+                'debit' => $creditAmount,
+                'credit' => 0,
+                'counter_id' => $order->counter_id,
+            ];
         }
 
         $lines[] = ['account' => $revenue, 'debit' => 0, 'credit' => $netAmount, 'counter_id' => $order->counter_id];
@@ -328,12 +332,26 @@ class AccountService
                 : $this->getAccount($order->shop_id, 'WEB-COD');
             $lines[] = ['account' => $paymentAccount, 'debit' => 0, 'credit' => $netAmount, 'counter_id' => null];
         } else {
-            $cash = max(0, (float) ($order->cash_paid ?? 0));
-            $card = max(0, (float) ($order->card_paid ?? 0));
-            $mobile = max(0, (float) ($order->mobile_paid ?? 0));
-            $hasBreakdown = $order->cash_paid !== null || $order->card_paid !== null || $order->mobile_paid !== null;
+            $tender = $order->settledTenderBreakdown();
+            $cash = $tender['cash'];
+            $card = $tender['card'];
+            $mobile = $tender['mobile'];
+            $collected = $tender['collected'] ?? max(0, round($netAmount - (float) ($order->credit_amount ?? 0), 2));
+            $creditAmount = max(0, round((float) ($order->credit_amount ?? 0), 2));
 
-            if ($hasBreakdown && ($cash + $card + $mobile) > 0) {
+            // Remaining AR after BakiService::reverseSaleCredit (refund entry).
+            $reversed = abs((float) (CustomerBakiEntry::where('order_id', $order->id)
+                ->where('type', 'refund')
+                ->sum('amount') ?? 0));
+            $arCredit = 0.0;
+            if ($creditAmount > 0) {
+                $arCredit = $reversed > 0.009 ? $reversed : $creditAmount;
+            }
+            // Credit already collected via later baki payments must be refunded in cash.
+            $bakiPaidDown = max(0, round($creditAmount - $arCredit, 2));
+            $cashToReturn = round($collected + $bakiPaidDown, 2);
+
+            if ($tender['has_breakdown'] && ($cash + $card + $mobile) > 0) {
                 if ($cash > 0) {
                     $cashAccount = $order->counter_id
                         ? $this->ensureCounterCashAccount($order->counter)
@@ -347,16 +365,25 @@ class AccountService
                     $lines[] = ['account' => $this->getAccount($order->shop_id, 'BKASH'), 'debit' => 0, 'credit' => $mobile, 'counter_id' => $order->counter_id];
                 }
                 $credited = round($cash + $card + $mobile, 2);
-                if ($credited + 0.009 < $netAmount) {
-                    $gap = round($netAmount - $credited, 2);
+                if ($credited + 0.009 < $cashToReturn) {
+                    $gap = round($cashToReturn - $credited, 2);
                     $cashAccount = $order->counter_id
                         ? $this->ensureCounterCashAccount($order->counter)
                         : $this->getAccount($order->shop_id, 'WEB-CASH');
                     $lines[] = ['account' => $cashAccount, 'debit' => 0, 'credit' => $gap, 'counter_id' => $order->counter_id];
                 }
-            } else {
+            } elseif ($cashToReturn > 0) {
                 $paymentAccount = $this->resolvePaymentAccount($order);
-                $lines[] = ['account' => $paymentAccount, 'debit' => 0, 'credit' => $netAmount, 'counter_id' => $order->counter_id];
+                $lines[] = ['account' => $paymentAccount, 'debit' => 0, 'credit' => $cashToReturn, 'counter_id' => $order->counter_id];
+            }
+
+            if ($arCredit > 0.009) {
+                $lines[] = [
+                    'account' => $this->getAccount($order->shop_id, 'BAKI-AR'),
+                    'debit' => 0,
+                    'credit' => $arCredit,
+                    'counter_id' => $order->counter_id,
+                ];
             }
         }
 
@@ -943,6 +970,101 @@ class AccountService
         }
 
         return $this->getAccount($order->shop_id, 'WEB-CASH');
+    }
+
+    /**
+     * Customer pays down baki: Debit cash/card/bkash, Credit BAKI-AR.
+     */
+    public function postBakiPayment(
+        Customer $customer,
+        CustomerBakiEntry $entry,
+        float $amount,
+        string $method = 'cash',
+        ?int $counterId = null,
+        ?float $cash = null,
+        ?float $card = null,
+        ?float $mobile = null,
+        ?int $userId = null,
+    ): void {
+        if ($this->transactionExists($customer->shop_id, 'baki_payment', CustomerBakiEntry::class, $entry->id)) {
+            return;
+        }
+
+        $amount = round($amount, 2);
+        if ($amount <= 0) {
+            return;
+        }
+
+        $this->ensureShopAccounts($customer->shop_id);
+        $ar = $this->getAccount($customer->shop_id, 'BAKI-AR');
+
+        $lines = [];
+        $hasSplit = $cash !== null || $card !== null || $mobile !== null;
+
+        if ($hasSplit) {
+            $cash = max(0, round((float) $cash, 2));
+            $card = max(0, round((float) $card, 2));
+            $mobile = max(0, round((float) $mobile, 2));
+            if ($cash > 0) {
+                $cashAccount = $counterId
+                    ? $this->ensureCounterCashAccount(Counter::findOrFail($counterId))
+                    : $this->getAccount($customer->shop_id, 'WEB-CASH');
+                $lines[] = ['account' => $cashAccount, 'debit' => $cash, 'credit' => 0, 'counter_id' => $counterId];
+            }
+            if ($card > 0) {
+                $lines[] = ['account' => $this->getAccount($customer->shop_id, 'CARD'), 'debit' => $card, 'credit' => 0, 'counter_id' => $counterId];
+            }
+            if ($mobile > 0) {
+                $lines[] = ['account' => $this->getAccount($customer->shop_id, 'BKASH'), 'debit' => $mobile, 'credit' => 0, 'counter_id' => $counterId];
+            }
+            $debited = round($cash + $card + $mobile, 2);
+            if ($debited + 0.009 < $amount) {
+                $gap = round($amount - $debited, 2);
+                $cashAccount = $counterId
+                    ? $this->ensureCounterCashAccount(Counter::findOrFail($counterId))
+                    : $this->getAccount($customer->shop_id, 'WEB-CASH');
+                $lines[] = ['account' => $cashAccount, 'debit' => $gap, 'credit' => 0, 'counter_id' => $counterId];
+            }
+        } else {
+            $method = strtolower($method);
+            $account = match (true) {
+                str_contains($method, 'card') || str_contains($method, 'bank') => $this->getAccount($customer->shop_id, 'CARD'),
+                str_contains($method, 'bkash') || str_contains($method, 'nagad') || str_contains($method, 'mobile') => $this->getAccount($customer->shop_id, 'BKASH'),
+                default => $counterId
+                    ? $this->ensureCounterCashAccount(Counter::findOrFail($counterId))
+                    : $this->getAccount($customer->shop_id, 'WEB-CASH'),
+            };
+            $lines[] = ['account' => $account, 'debit' => $amount, 'credit' => 0, 'counter_id' => $counterId];
+        }
+
+        $lines[] = ['account' => $ar, 'debit' => 0, 'credit' => $amount, 'counter_id' => $counterId];
+
+        $this->createTransaction(
+            shopId: $customer->shop_id,
+            type: 'baki_payment',
+            referenceType: CustomerBakiEntry::class,
+            referenceId: $entry->id,
+            description: 'Baki payment - '.$customer->name.($customer->phone ? ' ('.$customer->phone.')' : ''),
+            date: $entry->created_at ?? now(),
+            lines: $lines,
+            userId: $userId,
+        );
+    }
+
+    /** Reverse AR when a baki sale is refunded (no cash out for the credit portion). */
+    public function postBakiReversal(Order $order, float $amount, ?int $userId = null): void
+    {
+        $amount = round($amount, 2);
+        if ($amount <= 0) {
+            return;
+        }
+
+        // Covered inside the main refund journal when credit_amount is reversed there.
+        // This helper is a no-op placeholder if refund already balanced AR; keep for ledger notes only when needed.
+        if ($this->transactionExists($order->shop_id, 'refund', Order::class, $order->id)
+            || $this->transactionExists($order->shop_id, 'web_refund', Order::class, $order->id)) {
+            return;
+        }
     }
 
     protected function calculateCogs(Order $order): float

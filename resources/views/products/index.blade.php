@@ -24,7 +24,7 @@
                     </span>
                     <h1 class="text-[15px] font-semibold text-slate-900 tracking-tight">Product List</h1>
                 </div>
-                <p class="mt-1 text-[11px] text-slate-500 pl-9">Catalog for POS and the online store. Use Sale for timed offers.</p>
+                <p class="mt-1 text-[11px] text-slate-500 pl-9">Catalog for POS and the online store. Tick New / Trend to show products on those homepage sections.</p>
             </div>
 
             <div class="flex flex-wrap items-center gap-1.5">
@@ -34,6 +34,13 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/>
                     </svg>
                     Brand sale
+                </button>
+                <button type="button" @click="openBrandEndSale()"
+                        class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                    End brand sale
                 </button>
                 <a href="{{ route('supply.opening-inventory.index') }}"
                    class="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-emerald-600 hover:bg-emerald-50 transition">
@@ -211,7 +218,7 @@
             </div>
 
             <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse min-w-[920px]">
+                <table class="w-full text-left border-collapse min-w-[1040px]">
                     <thead>
                         <tr class="bg-[#F8FAFC] border-b border-slate-200 text-slate-500">
                             <th class="pl-3 pr-1 py-2 w-9">
@@ -229,6 +236,8 @@
                             <th class="px-2.5 py-2 text-[10px] font-semibold uppercase tracking-wider">Cost</th>
                             <th class="px-2.5 py-2 text-[10px] font-semibold uppercase tracking-wider">Stock</th>
                             <th class="px-2.5 py-2 text-[10px] font-semibold uppercase tracking-wider">Value</th>
+                            <th class="px-2.5 py-2 text-[10px] font-semibold uppercase tracking-wider text-center" title="Show in homepage New Arrivals">New</th>
+                            <th class="px-2.5 py-2 text-[10px] font-semibold uppercase tracking-wider text-center" title="Show in homepage Trending">Trend</th>
                             <th class="px-2.5 py-2 text-[10px] font-semibold uppercase tracking-wider text-center">Status</th>
                             <th class="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-right">Actions</th>
                         </tr>
@@ -284,9 +293,6 @@
                                                 @elseif($product->sale_price !== null && $product->sale_ends_at && $product->sale_ends_at->isFuture())
                                                     <span class="inline-flex items-center px-1 py-px rounded text-[9px] font-bold uppercase tracking-wide bg-amber-500 text-white">Scheduled</span>
                                                 @endif
-                                                @if($product->is_new_arrival)
-                                                    <span class="inline-flex items-center px-1 py-px rounded text-[9px] font-bold uppercase tracking-wide bg-emerald-50 text-emerald-700 border border-emerald-100">New</span>
-                                                @endif
                                                 @if($product->is_published === false)
                                                     <span class="inline-flex items-center px-1 py-px rounded text-[9px] font-bold uppercase tracking-wide bg-slate-100 text-slate-500">Hidden</span>
                                                 @endif
@@ -309,6 +315,20 @@
                                 <td class="px-2.5 py-2.5 align-middle whitespace-nowrap text-[11px] text-slate-500 tabular-nums">Tk {{ number_format($product->cost_price, 2) }}</td>
                                 <td class="px-2.5 py-2.5 align-middle whitespace-nowrap text-[12px] font-medium text-slate-800 tabular-nums">{{ $product->stock_quantity }}</td>
                                 <td class="px-2.5 py-2.5 align-middle whitespace-nowrap text-[11px] text-slate-700 tabular-nums">Tk {{ number_format($product->cost_price * $product->stock_quantity, 2) }}</td>
+                                <td class="px-2.5 py-2.5 align-middle text-center">
+                                    <input type="checkbox"
+                                           class="h-3.5 w-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                           title="New Arrival on homepage"
+                                           @checked($product->is_new_arrival)
+                                           @change="toggleHomepageFlag({{ $product->id }}, 'is_new_arrival', $event.target.checked, $event.target)">
+                                </td>
+                                <td class="px-2.5 py-2.5 align-middle text-center">
+                                    <input type="checkbox"
+                                           class="h-3.5 w-3.5 rounded border-violet-300 text-violet-600 focus:ring-violet-500 cursor-pointer"
+                                           title="Trending on homepage"
+                                           @checked($product->is_best_seller)
+                                           @change="toggleHomepageFlag({{ $product->id }}, 'is_best_seller', $event.target.checked, $event.target)">
+                                </td>
                                 <td class="px-2.5 py-2.5 align-middle text-center">
                                     @if($isOut)
                                         <span class="inline-flex px-2 py-px text-[10px] font-semibold rounded-full bg-rose-50 text-[var(--pl-sale)] border border-rose-100">Out</span>
@@ -346,7 +366,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="px-4 py-12 text-center">
+                                <td colspan="11" class="px-4 py-12 text-center">
                                     <p class="text-[12px] font-medium text-slate-800">No products found</p>
                                     <p class="text-[11px] text-slate-500 mt-1 mb-2">Try clearing filters or add a new product.</p>
                                     <a href="{{ route('products.create') }}" class="text-[12px] font-medium text-indigo-600 hover:text-indigo-700">Add your first product →</a>
@@ -399,10 +419,38 @@
                 </p>
                 <form method="POST" :action="saleProduct?.sale_url" class="mt-3 space-y-2.5">
                     @csrf
+                    <input type="hidden" name="discount_type" :value="saleForm.discount_type">
                     <div>
+                        <label class="block text-[11px] font-medium text-slate-600 mb-1.5">Discount as</label>
+                        <div class="grid grid-cols-2 gap-1.5 rounded-lg bg-slate-100 p-1">
+                            <button type="button" @click="saleForm.discount_type = 'percent'"
+                                    :class="saleForm.discount_type === 'percent' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                                    class="rounded-md px-2 py-1.5 text-[11px] font-semibold transition">Percentage %</button>
+                            <button type="button" @click="saleForm.discount_type = 'tk'"
+                                    :class="saleForm.discount_type === 'tk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                                    class="rounded-md px-2 py-1.5 text-[11px] font-semibold transition">Offer price (Tk)</button>
+                        </div>
+                    </div>
+                    <div x-show="saleForm.discount_type === 'percent'">
+                        <label class="block text-[11px] font-medium text-slate-600 mb-1">Discount %</label>
+                        <input type="number" step="0.01" min="0.01" max="99.99" name="percent" x-model="saleForm.percent"
+                               :required="saleForm.discount_type === 'percent'"
+                               :disabled="saleForm.discount_type !== 'percent'"
+                               class="block w-full rounded-lg border-slate-200 text-[12px] py-1.5"
+                               placeholder="e.g. 10">
+                        <p class="mt-1 text-[10px] text-slate-400" x-show="saleProduct && saleForm.percent">
+                            Offer ≈
+                            <span class="font-semibold text-slate-700"
+                                  x-text="'Tk ' + Number(Math.max(0, Number(saleProduct.selling_price) * (1 - (Number(saleForm.percent || 0) / 100))).toFixed(2)).toLocaleString(undefined, {minimumFractionDigits: 2})"></span>
+                        </p>
+                    </div>
+                    <div x-show="saleForm.discount_type === 'tk'">
                         <label class="block text-[11px] font-medium text-slate-600 mb-1">Offer price (Tk)</label>
-                        <input type="number" step="0.01" min="0" name="sale_price" required x-model="saleForm.sale_price"
-                               class="block w-full rounded-lg border-slate-200 text-[12px] py-1.5">
+                        <input type="number" step="0.01" min="0" name="sale_price" x-model="saleForm.sale_price"
+                               :required="saleForm.discount_type === 'tk'"
+                               :disabled="saleForm.discount_type !== 'tk'"
+                               class="block w-full rounded-lg border-slate-200 text-[12px] py-1.5"
+                               placeholder="e.g. 4500">
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <div>
@@ -443,12 +491,13 @@
                     <div>
                         <p class="text-[10px] font-bold uppercase tracking-wider text-[var(--pl-sale)] mb-0.5">Brand campaign</p>
                         <h3 class="text-[14px] font-semibold text-slate-900">Brand sale</h3>
-                        <p class="text-[11px] text-slate-500 mt-0.5">% off every product of a brand for a set time.</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Apply % or Tk off to every product of a brand.</p>
                     </div>
                     <button type="button" @click="brandOpen = false" class="p-1 rounded-md text-slate-400 hover:bg-slate-100 text-sm leading-none">&times;</button>
                 </div>
                 <form method="POST" action="{{ route('products.brand-sale') }}" class="mt-3 space-y-2.5">
                     @csrf
+                    <input type="hidden" name="discount_type" :value="brandForm.discount_type">
                     <div>
                         <label class="block text-[11px] font-medium text-slate-600 mb-1">Brand</label>
                         <select name="brand_id" required class="block w-full rounded-lg border-slate-200 text-[12px] py-1.5">
@@ -459,9 +508,32 @@
                         </select>
                     </div>
                     <div>
+                        <label class="block text-[11px] font-medium text-slate-600 mb-1.5">Discount as</label>
+                        <div class="grid grid-cols-2 gap-1.5 rounded-lg bg-slate-100 p-1">
+                            <button type="button" @click="brandForm.discount_type = 'percent'"
+                                    :class="brandForm.discount_type === 'percent' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                                    class="rounded-md px-2 py-1.5 text-[11px] font-semibold transition">Percentage %</button>
+                            <button type="button" @click="brandForm.discount_type = 'tk'"
+                                    :class="brandForm.discount_type === 'tk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                                    class="rounded-md px-2 py-1.5 text-[11px] font-semibold transition">Amount (Tk)</button>
+                        </div>
+                    </div>
+                    <div x-show="brandForm.discount_type === 'percent'">
                         <label class="block text-[11px] font-medium text-slate-600 mb-1">Discount %</label>
-                        <input type="number" name="percent" min="1" max="90" step="0.01" required value="10"
-                               class="block w-full rounded-lg border-slate-200 text-[12px] py-1.5">
+                        <input type="number" name="percent" min="0.01" max="99.99" step="0.01" x-model="brandForm.percent"
+                               :required="brandForm.discount_type === 'percent'"
+                               :disabled="brandForm.discount_type !== 'percent'"
+                               class="block w-full rounded-lg border-slate-200 text-[12px] py-1.5"
+                               placeholder="e.g. 10">
+                    </div>
+                    <div x-show="brandForm.discount_type === 'tk'">
+                        <label class="block text-[11px] font-medium text-slate-600 mb-1">Discount amount (Tk)</label>
+                        <input type="number" name="amount" min="0.01" step="0.01" x-model="brandForm.amount"
+                               :required="brandForm.discount_type === 'tk'"
+                               :disabled="brandForm.discount_type !== 'tk'"
+                               class="block w-full rounded-lg border-slate-200 text-[12px] py-1.5"
+                               placeholder="e.g. 500">
+                        <p class="mt-1 text-[10px] text-slate-400">Same Tk amount is subtracted from each product’s price.</p>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <div>
@@ -478,6 +550,42 @@
                     <div class="flex items-center justify-end gap-1.5 pt-1">
                         <button type="button" @click="brandOpen = false" class="px-2.5 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50 rounded-lg">Cancel</button>
                         <button type="submit" class="px-3 py-1.5 text-[11px] font-semibold text-white bg-[var(--pl-sale)] hover:bg-rose-600 rounded-lg">Apply to brand</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {{-- End brand sale modal --}}
+        <div x-show="brandEndOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" @keydown.escape.window="brandEndOpen = false">
+            <div class="absolute inset-0 bg-slate-900/40" @click="brandEndOpen = false"></div>
+            <div class="relative w-full max-w-sm rounded-xl bg-white shadow-xl border border-slate-200 p-4" @click.stop>
+                <div class="flex items-start justify-between gap-2 mb-1">
+                    <div>
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Brand campaign</p>
+                        <h3 class="text-[14px] font-semibold text-slate-900">End brand sale</h3>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Remove sale pricing from every product of a brand.</p>
+                    </div>
+                    <button type="button" @click="brandEndOpen = false" class="p-1 rounded-md text-slate-400 hover:bg-slate-100 text-sm leading-none">&times;</button>
+                </div>
+                <form method="POST" action="{{ route('products.brand-sale.clear') }}" class="mt-3 space-y-2.5"
+                      data-confirm="End sale on all products of this brand?"
+                      data-confirm-title="End brand sale?"
+                      data-confirm-ok="End sale"
+                      data-confirm-tone="warning">
+                    @csrf
+                    @method('DELETE')
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-600 mb-1">Brand</label>
+                        <select name="brand_id" required class="block w-full rounded-lg border-slate-200 text-[12px] py-1.5">
+                            <option value="">Select brand</option>
+                            @foreach(($brands ?? collect()) as $brand)
+                                <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="flex items-center justify-end gap-1.5 pt-1">
+                        <button type="button" @click="brandEndOpen = false" class="px-2.5 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50 rounded-lg">Cancel</button>
+                        <button type="submit" class="px-3 py-1.5 text-[11px] font-semibold text-white bg-slate-800 hover:bg-slate-900 rounded-lg">End sale</button>
                     </div>
                 </form>
             </div>
@@ -511,9 +619,10 @@
                 filtering: false,
                 saleOpen: false,
                 brandOpen: false,
+                brandEndOpen: false,
                 saleProduct: null,
-                saleForm: { sale_price: '', sale_starts_at: '', sale_ends_at: '' },
-                brandForm: { sale_starts_at: toLocal(now), sale_ends_at: toLocal(week) },
+                saleForm: { discount_type: 'tk', percent: '', sale_price: '', sale_starts_at: '', sale_ends_at: '' },
+                brandForm: { discount_type: 'percent', percent: '10', amount: '', sale_starts_at: toLocal(now), sale_ends_at: toLocal(week) },
                 get allSelected() {
                     return this.pageIds.length > 0 && this.pageIds.every((id) => this.selected.includes(id));
                 },
@@ -631,6 +740,8 @@
                 openSale(product) {
                     this.saleProduct = product;
                     this.saleForm = {
+                        discount_type: 'tk',
+                        percent: '',
                         sale_price: product.sale_price ?? '',
                         sale_starts_at: product.sale_starts_at || toLocal(now),
                         sale_ends_at: product.sale_ends_at || toLocal(week),
@@ -638,8 +749,46 @@
                     this.saleOpen = true;
                 },
                 openBrandSale() {
-                    this.brandForm = { sale_starts_at: toLocal(now), sale_ends_at: toLocal(week) };
+                    this.brandForm = {
+                        discount_type: 'percent',
+                        percent: '10',
+                        amount: '',
+                        sale_starts_at: toLocal(now),
+                        sale_ends_at: toLocal(week),
+                    };
+                    this.brandEndOpen = false;
                     this.brandOpen = true;
+                },
+                openBrandEndSale() {
+                    this.brandOpen = false;
+                    this.brandEndOpen = true;
+                },
+                async toggleHomepageFlag(productId, flag, value, checkbox) {
+                    const previous = !value;
+                    checkbox.disabled = true;
+                    try {
+                        const token = document.querySelector('meta[name="csrf-token"]')?.content;
+                        const url = @js(url('/products'));
+                        const res = await fetch(`${url}/${productId}/homepage-flags`, {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': token || '',
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({ flag, value: value ? 1 : 0 }),
+                        });
+                        if (!res.ok) {
+                            checkbox.checked = previous;
+                            return;
+                        }
+                    } catch (e) {
+                        checkbox.checked = previous;
+                    } finally {
+                        checkbox.disabled = false;
+                    }
                 },
             };
         }

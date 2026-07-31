@@ -215,14 +215,12 @@ class CounterSessionService
         $otherSales = 0.0;
 
         foreach ($sold as $order) {
-            $hasBreakdown = $order->cash_paid !== null || $order->card_paid !== null || $order->mobile_paid !== null;
+            $tender = $order->settledTenderBreakdown();
 
-            if ($hasBreakdown) {
-                // cash_paid is gross tender; subtract change so expected drawer = cash kept.
-                $cashKept = max(0, (float) ($order->cash_paid ?? 0) - (float) ($order->change_amount ?? 0));
-                $cashSales += $cashKept;
-                $cardSales += max(0, (float) ($order->card_paid ?? 0));
-                $mobileSales += max(0, (float) ($order->mobile_paid ?? 0));
+            if ($tender['has_breakdown']) {
+                $cashSales += $tender['cash'];
+                $cardSales += $tender['card'];
+                $mobileSales += $tender['mobile'];
                 continue;
             }
 
@@ -249,8 +247,9 @@ class CounterSessionService
 
         $cashRefunds = 0.0;
         foreach ($refunded as $order) {
-            if ($order->cash_paid !== null) {
-                $cashRefunds += max(0, (float) $order->cash_paid - (float) ($order->change_amount ?? 0));
+            $tender = $order->settledTenderBreakdown();
+            if ($tender['has_breakdown']) {
+                $cashRefunds += $tender['cash'];
                 continue;
             }
             $method = strtolower((string) $order->payment_method);

@@ -16,6 +16,8 @@ class Order extends Model
         'offline_client_uuid',
         'total_amount',
         'discount_amount',
+        'credit_amount',
+        'is_baki',
         'paid_amount',
         'cash_paid',
         'card_paid',
@@ -38,6 +40,8 @@ class Order extends Model
     protected $casts = [
         'total_amount' => 'decimal:2',
         'discount_amount' => 'decimal:2',
+        'credit_amount' => 'decimal:2',
+        'is_baki' => 'boolean',
         'paid_amount' => 'decimal:2',
         'cash_paid' => 'decimal:2',
         'card_paid' => 'decimal:2',
@@ -52,6 +56,91 @@ class Order extends Model
     public function netPayable(): float
     {
         return max(0, (float) $this->total_amount - (float) ($this->discount_amount ?? 0) - (float) ($this->exchange_credit ?? 0));
+    }
+
+    /**
+     * Resolve POS discount / payable / change from gross cart, exchange credit, requested discount, and cash tendered.
+     * Discount applies after exchange credit. Paying under the due amount increases discount ("Less").
+     *
+     * @return array{discount: float, payable: float, change: float}
+     */
+    public static function resolvePosSettlement(
+        float $grossTotal,
+        float $exchangeCredit,
+        float $requestedDiscount,
+        float $paidAmount,
+    ): array {
+        $afterCredit = max(0, round($grossTotal, 2) - max(0, round($exchangeCredit, 2)));
+        $paidAmount = max(0, round($paidAmount, 2));
+        $discount = min($afterCredit, max(0, round($requestedDiscount, 2)));
+        $payable = max(0, round($afterCredit - $discount, 2));
+
+        if ($paidAmount < $payable) {
+            $discount = min($afterCredit, round($afterCredit - $paidAmount, 2));
+            $payable = $paidAmount;
+        }
+
+        return [
+            'discount' => round($discount, 2),
+            'payable' => round($payable, 2),
+            'change' => round(max(0, $paidAmount - $payable), 2),
+        ];
+    }
+
+    /**
+     * Cash/card/mobile amounts that actually settled the net sale (change removed from cash).
+     * Matches what was posted to accounts / kept in the till.
+     *
+     * @return array{cash: float, card: float, mobile: float, has_breakdown: bool, net: float}
+     */
+    public function settledTenderBreakdown(): array
+    {
+        $net = round($this->netPayable(), 2);
+        $credit = max(0, round((float) ($this->credit_amount ?? 0), 2));
+        // Cash actually collected for this invoice (excludes baki receivable).
+        $collected = max(0, round($net - $credit, 2));
+
+        $cash = max(0, (float) ($this->cash_paid ?? 0));
+        $card = max(0, (float) ($this->card_paid ?? 0));
+        $mobile = max(0, (float) ($this->mobile_paid ?? 0));
+        $change = max(0, (float) ($this->change_amount ?? 0));
+        $hasBreakdown = $this->hasTenderBreakdown();
+
+        if (! $hasBreakdown) {
+            return [
+                'cash' => 0.0,
+                'card' => 0.0,
+                'mobile' => 0.0,
+                'has_breakdown' => false,
+                'net' => $net,
+                'collected' => $collected,
+                'credit' => $credit,
+            ];
+        }
+
+        // Change was returned from cash only when tender amounts still include the overpay.
+        // BAKI stores invoice cash only (toward bill) — do not subtract change again.
+        $tenderGross = round($cash + $card + $mobile, 2);
+        if ($change > 0.009 && $tenderGross + 0.05 >= $collected + $change) {
+            $cash = max(0, round($cash - $change, 2));
+        }
+        $allocated = round($cash + $card + $mobile, 2);
+
+        if ($allocated <= 0 && $collected > 0) {
+            $cash = $collected;
+        } elseif (abs($allocated - $collected) > 0.05) {
+            $cash = max(0, round($collected - $card - $mobile, 2));
+        }
+
+        return [
+            'cash' => round($cash, 2),
+            'card' => round($card, 2),
+            'mobile' => round($mobile, 2),
+            'has_breakdown' => true,
+            'net' => $net,
+            'collected' => $collected,
+            'credit' => $credit,
+        ];
     }
 
     // The items on the receipt

@@ -22,6 +22,9 @@
                 'phone' => $c->phone,
                 'address' => $c->address,
                 'points' => (int) ($c->reward_points ?? 0),
+                'baki' => (float) ($c->baki_balance ?? 0),
+                'baki_fmt' => number_format((float) ($c->baki_balance ?? 0), 2),
+                'baki_url' => route('customers.baki.show', $c),
                 'orders' => (int) ($c->orders_count ?? 0),
                 'channel' => $c->user_id ? 'online' : 'offline',
                 'joined' => optional($c->created_at)->format('M j, Y'),
@@ -110,6 +113,7 @@
                                 <th class="px-5 py-3 hidden md:table-cell">Address</th>
                                 <th class="px-5 py-3 text-center">Orders</th>
                                 <th class="px-5 py-3 text-center">Points</th>
+                                <th class="px-5 py-3 text-right">Baki</th>
                                 <th class="px-5 py-3 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -146,6 +150,15 @@
                                         <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 ring-1 ring-amber-100">
                                             ★ <span x-text="c.points"></span>
                                         </span>
+                                    </td>
+                                    <td class="px-5 py-3.5 text-right">
+                                        <template x-if="c.baki > 0">
+                                            <a :href="c.baki_url" class="inline-flex rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-800 ring-1 ring-orange-200 hover:bg-orange-100"
+                                               x-text="'৳' + c.baki_fmt"></a>
+                                        </template>
+                                        <template x-if="c.baki <= 0">
+                                            <span class="text-xs text-slate-300">—</span>
+                                        </template>
                                     </td>
                                     <td class="px-5 py-3.5 text-right">
                                         <div class="inline-flex items-center gap-1.5 opacity-90 group-hover:opacity-100">

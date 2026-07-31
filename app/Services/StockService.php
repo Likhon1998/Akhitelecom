@@ -17,7 +17,10 @@ class StockService
     {
         return StockMovement::where('shop_id', $product->shop_id)
             ->where('product_id', $product->id)
-            ->where('document_type', 'opening_inventory')
+            ->where(function ($q) {
+                $q->where('document_type', 'opening_inventory')
+                    ->orWhere('reason', 'opening_inventory');
+            })
             ->exists();
     }
 

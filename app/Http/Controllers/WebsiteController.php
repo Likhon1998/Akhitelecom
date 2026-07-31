@@ -72,10 +72,7 @@ class WebsiteController extends Controller
         } elseif ($request->filter === 'new') {
             $query->newArrivals();
         } elseif ($request->filter === 'bestsellers') {
-            $query->where(function ($q) {
-                $q->where('is_best_seller', true)
-                    ->orWhere('review_count', '>', 0);
-            })->orderByDesc('is_best_seller')->orderByDesc('review_count');
+            $query->trending()->orderByDesc('review_count');
         }
 
         $sort = $request->query('sort', 'featured');

@@ -1181,10 +1181,11 @@
 
         <div class="cart-extras">
             <div class="extras-body always-open">
-                <div class="field-label">Customer (optional)</div>
+                <div class="field-label" x-text="isBaki ? 'Customer (required for BAKI)' : 'Customer (optional)'"></div>
                 <div class="extras-grid">
                     <div class="cust-phone-wrap">
-                        <input type="text" x-model="customerPhone" @input.debounce.500ms="searchCustomer()" placeholder="Mobile number" class="cust-input">
+                        <input type="text" x-model="customerPhone" @input.debounce.500ms="searchCustomer()" placeholder="Mobile number" class="cust-input"
+                               :style="isBaki && !customerPhone ? 'border-color:#dc2626' : ''">
                         <div x-show="isSearchingCustomer" x-cloak style="position:absolute;right:8px;top:50%;transform:translateY(-50%)">
                             <svg class="animate-spin" style="width:13px;height:13px;color:var(--teal)" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -1192,7 +1193,24 @@
                             </svg>
                         </div>
                     </div>
-                    <input type="text" x-model="customerName" placeholder="Customer name" class="cust-input">
+                    <input type="text" x-model="customerName" placeholder="Customer name" class="cust-input"
+                           :style="isBaki && !customerName ? 'border-color:#dc2626' : ''">
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--soft)">
+                    <div>
+                        <div style="font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ink)">BAKI (pay later)</div>
+                        <div style="font-size:10px;color:var(--slate);margin-top:2px" x-show="!isBaki">Off — shortfall counts as Less</div>
+                        <div style="font-size:10px;color:#b45309;margin-top:2px" x-show="isBaki" x-cloak>On — unpaid amount stays as customer credit</div>
+                    </div>
+                    <button type="button" @click="toggleBaki()"
+                            :style="isBaki ? 'background:#b45309;border-color:#b45309;color:#fff' : 'background:var(--panel);border-color:var(--line);color:var(--slate)'"
+                            style="min-width:52px;padding:6px 10px;border-radius:999px;border:1px solid;font-size:11px;font-weight:800">
+                        <span x-text="isBaki ? 'ON' : 'OFF'"></span>
+                    </button>
+                </div>
+                <div x-show="customerBakiBalance > 0 || isBaki" x-cloak
+                     style="margin-top:6px;font-size:11px;font-weight:700;color:#b45309">
+                    Previous baki: Tk<span x-text="formatNumber(customerBakiBalance)"></span>
                 </div>
 
                 <div class="field-label" style="margin-top:2px">Discount</div>
@@ -1201,7 +1219,7 @@
                         <button type="button" @click="discountType = 'percent'" class="tt-btn" :class="discountType === 'percent' ? 'active' : ''">%</button>
                         <button type="button" @click="discountType = 'flat'" class="tt-btn" :class="discountType === 'flat' ? 'active' : ''">Tk</button>
                     </div>
-                    <input type="number" x-model.number="discountValue" class="discount-input" :placeholder="discountType === 'percent' ? '%' : 'Amount'" min="0" :max="discountType === 'percent' ? 100 : getTotal()">
+                    <input type="number" x-model.number="discountValue" class="discount-input" :placeholder="discountType === 'percent' ? '%' : 'Amount'" min="0" :max="discountType === 'percent' ? 100 : getDiscountBase()">
                     <span x-show="getDiscount() > 0" class="discount-badge" x-cloak>
                         -Tk<span x-text="formatNumber(getDiscount())"></span>
                     </span>
@@ -1316,9 +1334,36 @@
                     <div x-show="isExchangeMode" class="amount-note" style="color:var(--amber)" x-cloak>
                         Exchange credit: -Tk<span x-text="formatNumber(exchangeCredit)"></span>
                     </div>
-                    <div class="amount-note" style="color:var(--slate);margin-top:4px">
+                    <div class="amount-note" style="color:var(--slate);margin-top:4px" x-show="!isBaki">
                         Enter what the customer pays — any shortfall is counted as Less.
                     </div>
+                    <div class="amount-note" style="color:#b45309;margin-top:4px" x-show="isBaki" x-cloak>
+                        BAKI on — Pay now settles this bill first, then previous baki. Shortfall stays as credit.
+                    </div>
+                </div>
+
+                <div x-show="isBaki" x-cloak style="margin-bottom:12px;border:1px solid #fcd34d;background:#fffbeb;border-radius:12px;padding:12px">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+                        <div>
+                            <div style="color:#92400e;font-weight:700;font-size:10px;text-transform:uppercase">Previous baki</div>
+                            <div style="font-weight:800;color:#78350f">Tk<span x-text="formatNumber(customerBakiBalance)"></span></div>
+                        </div>
+                        <div>
+                            <div style="color:#92400e;font-weight:700;font-size:10px;text-transform:uppercase">This bill</div>
+                            <div style="font-weight:800;color:#78350f">Tk<span x-text="formatNumber(getPayableTotal())"></span></div>
+                        </div>
+                        <div>
+                            <div style="color:#92400e;font-weight:700;font-size:10px;text-transform:uppercase">Total due</div>
+                            <div style="font-weight:800;color:#78350f">Tk<span x-text="formatNumber(getBakiTotalDue())"></span></div>
+                        </div>
+                        <div>
+                            <div style="color:#92400e;font-weight:700;font-size:10px;text-transform:uppercase">Baki left</div>
+                            <div style="font-weight:800;color:#b45309">Tk<span x-text="formatNumber(getBakiLeft())"></span></div>
+                        </div>
+                    </div>
+                    <p x-show="!customerName || !customerPhone" style="margin:8px 0 0;font-size:11px;color:#dc2626;font-weight:700" x-cloak>
+                        Name and mobile are required for BAKI.
+                    </p>
                 </div>
 
                 <div x-show="hasLowStockItems()" class="warning-box" x-cloak>
@@ -1330,7 +1375,7 @@
 
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-                        <label class="field-label" style="margin-bottom:0">Customer pays</label>
+                        <label class="field-label" style="margin-bottom:0" x-text="isBaki ? 'Pay now' : 'Customer pays'"></label>
                         <span style="font-size:9px;font-weight:800;color:var(--teal);background:var(--teal-bg);padding:2px 7px;border-radius:100px;border:1px solid var(--teal-border)">Split pay</span>
                     </div>
                     <div class="split-grid">
@@ -1351,15 +1396,15 @@
                         </div>
                     </div>
                     <div class="qc-grid">
-                        <button type="button" @click="payCash = getPayableTotal(); payCard = 0; payBkash = 0;" class="qc-btn exact">Exact</button>
+                        <button type="button" @click="payCash = isBaki ? getBakiTotalDue() : getPayableTotal(); payCard = 0; payBkash = 0;" class="qc-btn exact">Exact</button>
                         <button type="button" @click="payCash = 500"  class="qc-btn">Tk500</button>
                         <button type="button" @click="payCash = 1000" class="qc-btn">Tk1K</button>
                         <button type="button" @click="payCash = 2000" class="qc-btn">Tk2K</button>
                     </div>
                 </div>
 
-                {{-- Paid / less / change summary --}}
-                <div class="pay-summary">
+                {{-- Paid / less / change / baki summary --}}
+                <div class="pay-summary" x-show="!isBaki">
                     <div class="pay-summary-cell due">
                         <div class="ps-label">Bill total</div>
                         <div class="ps-val">Tk<span x-text="formatNumber(getPayableTotal())"></span></div>
@@ -1374,8 +1419,25 @@
                         <div class="ps-val">Tk<span x-text="formatNumber(getLessAmount() > 0 ? getLessAmount() : Math.abs(getChange()))"></span></div>
                     </div>
                 </div>
-                <p x-show="getLessAmount() > 0" class="err-hint" style="color:var(--green);border-color:var(--green)" x-cloak>
+                <div class="pay-summary" x-show="isBaki" x-cloak>
+                    <div class="pay-summary-cell due">
+                        <div class="ps-label">Total due</div>
+                        <div class="ps-val">Tk<span x-text="formatNumber(getBakiTotalDue())"></span></div>
+                    </div>
+                    <div class="pay-summary-cell paid">
+                        <div class="ps-label">Pay now</div>
+                        <div class="ps-val">Tk<span x-text="formatNumber(getPaidAmount())"></span></div>
+                    </div>
+                    <div class="pay-summary-cell change less">
+                        <div class="ps-label">Baki left</div>
+                        <div class="ps-val">Tk<span x-text="formatNumber(getBakiLeft())"></span></div>
+                    </div>
+                </div>
+                <p x-show="!isBaki && getLessAmount() > 0" class="err-hint" style="color:var(--green);border-color:var(--green)" x-cloak>
                     Rest of bill (Tk<span x-text="formatNumber(getLessAmount())"></span>) will be counted as Less / discount.
+                </p>
+                <p x-show="isBaki && getBakiNewCredit() > 0" class="err-hint" style="color:#b45309;border-color:#fcd34d" x-cloak>
+                    This bill adds Tk<span x-text="formatNumber(getBakiNewCredit())"></span> to baki (after paying this invoice first).
                 </p>
             </div>
 
@@ -1423,11 +1485,19 @@
                     <div class="im-label">Customer paid</div>
                     <div class="im-val">Tk<span x-text="formatNumber(lastSale?.paid_amount || 0)"></span></div>
                 </div>
-                <div class="invoice-meta-item change" x-show="(lastSale?.discount_amount || 0) > 0 && (lastSale?.change || 0) <= 0" x-cloak>
+                <div class="invoice-meta-item change" x-show="(lastSale?.credit_amount || 0) > 0" x-cloak>
+                    <div class="im-label">Baki on this bill</div>
+                    <div class="im-val">Tk<span x-text="formatNumber(lastSale?.credit_amount || 0)"></span></div>
+                </div>
+                <div class="invoice-meta-item change" x-show="(lastSale?.baki_balance || 0) > 0" x-cloak>
+                    <div class="im-label">Baki left</div>
+                    <div class="im-val">Tk<span x-text="formatNumber(lastSale?.baki_balance || 0)"></span></div>
+                </div>
+                <div class="invoice-meta-item change" x-show="!(lastSale?.is_baki) && (lastSale?.discount_amount || 0) > 0 && (lastSale?.change || 0) <= 0" x-cloak>
                     <div class="im-label">Less / discount</div>
                     <div class="im-val">Tk<span x-text="formatNumber(lastSale?.discount_amount || 0)"></span></div>
                 </div>
-                <div class="invoice-meta-item change" x-show="(lastSale?.change || 0) > 0 || ((lastSale?.discount_amount || 0) <= 0)" x-cloak>
+                <div class="invoice-meta-item change" x-show="(lastSale?.change || 0) > 0 || (!(lastSale?.is_baki) && (lastSale?.discount_amount || 0) <= 0 && !(lastSale?.credit_amount))" x-cloak>
                     <div class="im-label">Change to return</div>
                     <div class="im-val">Tk<span x-text="formatNumber(lastSale?.change || 0)"></span></div>
                 </div>
@@ -1649,6 +1719,8 @@ function posSystem() {
         customerName: '',
         customerPhone: '',
         isSearchingCustomer: false,
+        customerBakiBalance: 0,
+        isBaki: false,
 
         /* â”€â”€ Discount â”€â”€ */
         discountType: 'percent',
@@ -2007,7 +2079,10 @@ function posSystem() {
         â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         async searchCustomer() {
             if (this.customerPhone.length < 9) {
-                if (!this.customerPhone) this.customerName = '';
+                if (!this.customerPhone) {
+                    this.customerName = '';
+                    this.customerBakiBalance = 0;
+                }
                 return;
             }
             if (!this.isOnline) return;
@@ -2020,11 +2095,24 @@ function posSystem() {
                     const data = await res.json();
                     if (data.found) {
                         this.customerName = data.name;
-                        this.showToast('Customer found: ' + data.name, 'success');
+                        this.customerBakiBalance = Number(data.baki_balance) || 0;
+                        const msg = this.customerBakiBalance > 0
+                            ? ('Customer found: ' + data.name + ' · Baki Tk' + this.formatNumber(this.customerBakiBalance))
+                            : ('Customer found: ' + data.name);
+                        this.showToast(msg, 'success');
+                    } else {
+                        this.customerBakiBalance = 0;
                     }
                 }
             } catch(e) {}
             this.isSearchingCustomer = false;
+        },
+
+        toggleBaki() {
+            this.isBaki = !this.isBaki;
+            if (this.isBaki) {
+                this.showToast('BAKI on — unpaid amount is credit, not Less', 'info');
+            }
         },
 
         /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2108,17 +2196,23 @@ function posSystem() {
         â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         getDiscount() {
             let disc = 0;
+            const base = this.getDiscountBase();
             // Coupon takes priority over manual discount
             if (this.appliedCoupon) {
                 disc = this.appliedCoupon.type === 'percent'
-                    ? (this.getTotal() * this.appliedCoupon.value / 100)
+                    ? (base * this.appliedCoupon.value / 100)
                     : this.appliedCoupon.value;
             } else if (this.discountValue > 0) {
                 disc = this.discountType === 'percent'
-                    ? (this.getTotal() * Math.min(this.discountValue, 100) / 100)
+                    ? (base * Math.min(this.discountValue, 100) / 100)
                     : this.discountValue;
             }
-            return Math.max(0, Math.min(disc, this.getTotal()));
+            return Math.max(0, Math.min(disc, base));
+        },
+
+        /** Amount discount can apply to (after exchange credit). Matches server Order::resolvePosSettlement. */
+        getDiscountBase() {
+            return Math.max(0, this.getTotal() - (Number(this.exchangeCredit) || 0));
         },
 
         applyCoupon() {
@@ -2153,24 +2247,51 @@ function posSystem() {
             return this.cart.reduce((s, i) => s + (i.price * i.qty), 0);
         },
         getPayableTotal() {
-            return Math.max(0, this.getTotal() - this.getDiscount() - this.exchangeCredit);
+            return Math.max(0, this.getDiscountBase() - this.getDiscount());
         },
         getPaidAmount() {
             return (Number(this.payCash) || 0) + (Number(this.payCard) || 0) + (Number(this.payBkash) || 0);
         },
-        /** Shortfall when customer pays less than bill — counted as Less / discount. */
+        /** Shortfall when customer pays less than bill — counted as Less / discount (BAKI off only). */
         getLessAmount() {
+            if (this.isBaki) return 0;
             return Math.max(0, this.getPayableTotal() - this.getPaidAmount());
         },
-        /** Cart discount + pay-less amount. */
+        /** Cart discount + pay-less amount (same figure stored as orders.discount_amount). */
         getTotalDiscountAmount() {
+            if (this.isBaki) return this.getDiscount();
             return this.getDiscount() + this.getLessAmount();
         },
         getChange() {
+            if (this.isBaki) {
+                return Math.max(0, this.getPaidAmount() - this.getBakiTotalDue());
+            }
             return Math.max(0, this.getPaidAmount() - this.getPayableTotal());
+        },
+        getBakiTotalDue() {
+            return Math.max(0, (Number(this.customerBakiBalance) || 0) + this.getPayableTotal());
+        },
+        getBakiAppliedPay() {
+            return Math.min(this.getPaidAmount(), this.getBakiTotalDue());
+        },
+        getBakiTowardBill() {
+            return Math.min(this.getBakiAppliedPay(), this.getPayableTotal());
+        },
+        getBakiNewCredit() {
+            return Math.max(0, this.getPayableTotal() - this.getBakiTowardBill());
+        },
+        getBakiLeft() {
+            return Math.max(0, this.getBakiTotalDue() - this.getBakiAppliedPay());
         },
         canConfirmSale() {
             if (this.cart.length === 0) return false;
+            if (this.isBaki) {
+                const nameOk = (this.customerName || '').trim().length >= 2;
+                const phoneOk = (this.customerPhone || '').trim().length >= 5;
+                if (!nameOk || !phoneOk) return false;
+                // Pay now may be 0 (full baki)
+                return true;
+            }
             // Fully covered by exchange credit — nothing to collect
             if (this.getPayableTotal() <= 0) return true;
             // Must enter what the customer pays (shortfall becomes Less)
@@ -2194,7 +2315,7 @@ function posSystem() {
             if (this.payBkash  > 0) methods.push('bKash');
             if (methods.length > 1) return methods.join(' + ');
             if (methods.length === 1) return methods[0].toLowerCase();
-            return 'cash';
+            return this.isBaki ? 'baki' : 'cash';
         },
 
         /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2215,6 +2336,8 @@ function posSystem() {
             this.cart = [];
             this.customerName = '';
             this.customerPhone = '';
+            this.customerBakiBalance = 0;
+            this.isBaki = false;
             this.showToast('Cart suspended. Ready for next customer.', 'info');
         },
         async resumeHeldCart(index) {
@@ -2231,6 +2354,9 @@ function posSystem() {
             this.cart          = JSON.parse(JSON.stringify(rec.cartData));
             this.customerName  = rec.customerName  || '';
             this.customerPhone = rec.customerPhone || '';
+            this.customerBakiBalance = 0;
+            this.isBaki = false;
+            if (this.customerPhone) this.searchCustomer();
             this.heldCarts.splice(index, 1);
             localStorage.setItem('nexa_held_carts', JSON.stringify(this.heldCarts));
             this.holdCartsModalOpen = false;
@@ -2256,6 +2382,14 @@ openCheckout() {
                 this.showToast('Cart must total Tk' + this.formatNumber(this.exchangeCredit) + ' or more for exchange.', 'error');
                 return;
             }
+            if (this.isBaki) {
+                const nameOk = (this.customerName || '').trim().length >= 2;
+                const phoneOk = (this.customerPhone || '').trim().length >= 5;
+                if (!nameOk || !phoneOk) {
+                    this.showToast('Name and mobile are required for BAKI sales.', 'error');
+                    return;
+                }
+            }
             if (this.hasLowStockItems()) this.showToast('! Some items are at stock limit - check before confirming', 'warning');
             // Leave cash empty so cashier types what the customer pays; Exact fills bill total
             this.payCash  = '';
@@ -2272,6 +2406,13 @@ openCheckout() {
             if (this.isProcessing || !this.canConfirmSale()) return;
             this.isProcessing = true;
 
+            if (this.isBaki && !this.isOnline) {
+                this.isProcessing = false;
+                this.playBeep(false);
+                this.showToast('BAKI sales require an online connection.', 'error');
+                return;
+            }
+
             const payload = {
                 client_uuid:             (window.crypto && crypto.randomUUID)
                     ? crypto.randomUUID()
@@ -2286,6 +2427,7 @@ openCheckout() {
                 cash_paid:               Number(this.payCash) || 0,
                 card_paid:               Number(this.payCard) || 0,
                 mobile_paid:             Number(this.payBkash) || 0,
+                is_baki:                 !!this.isBaki,
                 customer_name:           this.customerName,
                 customer_phone:          this.customerPhone,
                 created_at:              new Date().toISOString(),
@@ -2317,10 +2459,14 @@ openCheckout() {
                         this.playBeep(true);
                         const paidSnap = this.getPaidAmount();
                         const lessSnap = this.getLessAmount();
-                        const changeSnap = data.change ?? Math.max(0, paidSnap - this.getPayableTotal());
+                        const bakiLeftSnap = data.baki_balance ?? this.getBakiLeft();
+                        const creditSnap = data.credit_amount ?? this.getBakiNewCredit();
+                        const changeSnap = data.change ?? (this.isBaki ? this.getChange() : Math.max(0, paidSnap - this.getPayableTotal()));
                         const customerSnap = this.customerName || 'Walk-in Customer';
+                        const wasBaki = this.isBaki;
 
                         this.cart = []; this.customerName = ''; this.customerPhone = '';
+                        this.customerBakiBalance = 0; this.isBaki = false;
                         this.discountValue = 0; this.appliedCoupon = null; this.couponCode = '';
                         this.lastAddedId = null;
                         this.checkoutModalOpen = false;
@@ -2331,6 +2477,9 @@ openCheckout() {
                             paid_amount: data.paid_amount ?? paidSnap,
                             change: changeSnap,
                             discount_amount: data.discount_amount ?? lessSnap,
+                            credit_amount: creditSnap,
+                            baki_balance: bakiLeftSnap,
+                            is_baki: wasBaki,
                             total_amount: data.total_amount ?? 0,
                             customer: customerSnap,
                             receipt_url: data.receipt_url || ('/pos/receipt/' + data.order_id),
@@ -2338,7 +2487,9 @@ openCheckout() {
                             offline: false,
                         };
                         this.invoiceModalOpen = true;
-                        if (lessSnap > 0) {
+                        if (wasBaki) {
+                            this.showToast('Sale complete! Baki left: Tk' + this.formatNumber(bakiLeftSnap), 'success');
+                        } else if (lessSnap > 0) {
                             this.showToast('Sale complete! Less: Tk' + this.formatNumber(lessSnap), 'success');
                         } else {
                             this.showToast('Sale complete! Change to return: Tk' + this.formatNumber(changeSnap), 'success');
@@ -2352,7 +2503,11 @@ openCheckout() {
                     // (avoid duplicate when server committed but response was lost —
                     // client_uuid + unique constraint makes resync safe).
                     this.isOnline = false;
-                    this.saveOfflineSale(payload);
+                    if (payload.is_baki) {
+                        this.showToast('Connection lost. BAKI sale was not saved — retry when online.', 'error');
+                    } else {
+                        this.saveOfflineSale(payload);
+                    }
                 }
             } else {
                 this.saveOfflineSale(payload);
