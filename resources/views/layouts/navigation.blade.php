@@ -287,12 +287,17 @@
                     </div>
 
                     <div class="max-h-[360px] overflow-y-auto">
-                        <template x-if="!loading && items.length === 0">
+                        <template x-if="error && !loading">
+                            <p class="px-4 py-6 text-center text-[12px] text-rose-500" x-text="error"></p>
+                        </template>
+
+                        <template x-if="!loading && !error && items.length === 0">
                             <p class="px-4 py-8 text-center text-[12px] text-slate-400">No online orders yet.</p>
                         </template>
 
                         <template x-for="item in items" :key="item.id">
                             <a :href="item.url"
+                               @click="openItem(item, $event)"
                                class="block border-b border-slate-50 px-3.5 py-2.5 transition last:border-0"
                                :class="item.is_new ? 'bg-indigo-50/80 hover:bg-indigo-50' : 'bg-white hover:bg-slate-50'">
                                 <div class="flex items-start justify-between gap-2">

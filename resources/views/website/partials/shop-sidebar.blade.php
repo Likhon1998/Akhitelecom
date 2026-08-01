@@ -4,8 +4,12 @@
     $minPrice = request()->filled('min_price') ? (float) request('min_price') : $boundMin;
     $maxPrice = request()->filled('max_price') ? (float) request('max_price') : $boundMax;
     $selectedBrands = array_map('intval', (array) request('brands', []));
+    $selectedStorages = array_map('strval', (array) request('storage', []));
+    $selectedRams = array_map('strval', (array) request('ram', []));
     $categories = $categories ?? collect();
     $brands = $brands ?? collect();
+    $storageOptions = $storageOptions ?? collect();
+    $ramOptions = $ramOptions ?? collect();
     $categoryTotal = (int) ($categoryTotal ?? $categories->sum('published_count'));
     $activeCat = request('category')
         ?: (isset($activeCategory) ? ($activeCategory->slug ?: $activeCategory->id) : null);
@@ -14,7 +18,12 @@
 @endphp
 
 <aside class="gs-sidebar">
-    <form method="GET" action="{{ route('website.shop') }}" class="gs-sidebar-card"
+    <form method="GET"
+          action="{{ route('website.shop') }}"
+          class="gs-sidebar-card"
+          data-shop-filters
+          data-no-loader
+          @submit.prevent="$dispatch('shop-refresh')"
           x-data="{
               min: {{ (int) round($minPrice) }},
               max: {{ (int) round($maxPrice) }},
@@ -29,11 +38,11 @@
         @if(request('filter'))
             <input type="hidden" name="filter" value="{{ request('filter') }}">
         @endif
-        @if(request('sort'))
-            <input type="hidden" name="sort" value="{{ request('sort') }}">
-        @endif
         @if(request('search'))
             <input type="hidden" name="search" value="{{ request('search') }}">
+        @endif
+        @if($activeCat)
+            <input type="hidden" name="category" value="{{ $activeCat }}">
         @endif
 
         {{-- Categories --}}
@@ -42,7 +51,9 @@
             <ul class="gs-cat-list">
                 <li>
                     <a href="{{ route('website.shop', request()->except('category', 'page')) }}"
-                       class="gs-cat-link {{ ! $activeCat ? 'is-active' : '' }}">
+                       class="gs-cat-link {{ ! $activeCat ? 'is-active' : '' }}"
+                       data-category=""
+                       data-no-loader>
                         <span>All Categories</span>
                         <span class="gs-cat-count">({{ number_format($categoryTotal) }})</span>
                     </a>
@@ -51,7 +62,9 @@
                     @php $catKey = $cat->slug ?: $cat->id; @endphp
                     <li>
                         <a href="{{ route('website.shop', array_merge(request()->except('page'), ['category' => $catKey])) }}"
-                           class="gs-cat-link {{ (string) $activeCat === (string) $catKey || (string) $activeCat === (string) $cat->id ? 'is-active' : '' }}">
+                           class="gs-cat-link {{ (string) $activeCat === (string) $catKey || (string) $activeCat === (string) $cat->id ? 'is-active' : '' }}"
+                           data-category="{{ $catKey }}"
+                           data-no-loader>
                             <span>{{ $cat->name }}</span>
                             <span class="gs-cat-count">({{ number_format((int) ($cat->published_count ?? 0)) }})</span>
                         </a>
@@ -59,6 +72,44 @@
                 @endforeach
             </ul>
         </div>
+
+        {{-- RAM --}}
+        @if($ramOptions->isNotEmpty())
+            <div class="gs-filter-block">
+                <h3 class="gs-filter-title">RAM</h3>
+                <ul class="gs-brand-list">
+                    @foreach($ramOptions as $ram)
+                        <li>
+                            <label class="gs-check">
+                                <input type="checkbox" name="ram[]" value="{{ $ram }}"
+                                       @checked(in_array((string) $ram, $selectedRams, true))
+                                       @change="$dispatch('shop-refresh')">
+                                <span class="gs-check-label">{{ $ram }}</span>
+                            </label>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+        {{-- ROM / Storage --}}
+        @if($storageOptions->isNotEmpty())
+            <div class="gs-filter-block">
+                <h3 class="gs-filter-title">ROM / Storage</h3>
+                <ul class="gs-brand-list">
+                    @foreach($storageOptions as $storage)
+                        <li>
+                            <label class="gs-check">
+                                <input type="checkbox" name="storage[]" value="{{ $storage }}"
+                                       @checked(in_array((string) $storage, $selectedStorages, true))
+                                       @change="$dispatch('shop-refresh')">
+                                <span class="gs-check-label">{{ $storage }}</span>
+                            </label>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
 
         {{-- Price --}}
         <div class="gs-filter-block">
@@ -88,7 +139,7 @@
                             <label class="gs-check">
                                 <input type="checkbox" name="brands[]" value="{{ $brand->id }}"
                                        @checked(in_array((int) $brand->id, $selectedBrands, true))
-                                       onchange="this.form.submit()">
+                                       @change="$dispatch('shop-refresh')">
                                 <span class="gs-check-label">{{ $brand->name }}</span>
                                 <span class="gs-cat-count">({{ number_format((int) ($brand->published_count ?? 0)) }})</span>
                             </label>

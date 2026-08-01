@@ -216,8 +216,9 @@
                         if (window.GagetLoader) window.GagetLoader.hide();
                         return;
                     }
-                    if (window.GagetLoader) window.GagetLoader.show('Opening your account');
-                    window.location.href = @json(route('website.account'));
+                    // Return to the same page they signed in from
+                    if (window.GagetLoader) window.GagetLoader.show('Welcome back');
+                    window.location.reload();
                 },
                 async submitLogin() {
                     this.authLoading = true;

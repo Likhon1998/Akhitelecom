@@ -36,7 +36,8 @@
                     <select :name="'filter_groups['+gIndex+'][type]'" x-model="group.type" class="rounded-lg border-gray-300 text-sm">
                         <option value="availability">Availability</option>
                         <option value="brand">Brand (from products)</option>
-                        <option value="storage">Storage (from products)</option>
+                        <option value="storage">Storage / ROM (from products)</option>
+                        <option value="ram">RAM (from products)</option>
                         <option value="color">Color (from products)</option>
                         <option value="custom">Custom options</option>
                     </select>
@@ -56,7 +57,7 @@
                     <button type="button" @click="group.options.push({label:'', value:''})" class="text-xs font-bold text-indigo-600 hover:underline">+ Add option</button>
                 </div>
 
-                <p class="text-[11px] text-gray-500" x-show="group.type === 'brand' || group.type === 'storage' || group.type === 'color'">
+                <p class="text-[11px] text-gray-500" x-show="group.type === 'brand' || group.type === 'storage' || group.type === 'ram' || group.type === 'color'">
                     Options are filled automatically from products in this category.
                 </p>
             </div>

@@ -2,13 +2,225 @@
 
 @section('content')
 @php
-    $from = $products->firstItem() ?? 0;
-    $to = $products->lastItem() ?? 0;
-    $total = $products->total();
     $viewMode = request('view', 'grid');
 @endphp
 
-<div class="gs-shop" x-data="{ view: @js($viewMode) }">
+<script>
+window.shopLive = function (config) {
+    return {
+        endpoint: config.endpoint,
+        view: config.view || 'grid',
+        sort: (new URLSearchParams(window.location.search)).get('sort') || 'featured',
+        loading: false,
+        _req: 0,
+
+        buildParams(extra = {}) {
+            const form = this.$root.querySelector('[data-shop-filters]');
+            const params = new URLSearchParams();
+
+            if (form) {
+                const fd = new FormData(form);
+                for (const [key, value] of fd.entries()) {
+                    if (value === '' || value === null) continue;
+                    params.append(key, value);
+                }
+            }
+
+            const urlParams = new URLSearchParams(window.location.search);
+            ['filter', 'search'].forEach((key) => {
+                if (!params.has(key) && urlParams.get(key)) {
+                    params.set(key, urlParams.get(key));
+                }
+            });
+
+            if (this.sort && this.sort !== 'featured') {
+                params.set('sort', this.sort);
+            } else {
+                params.delete('sort');
+            }
+
+            Object.entries(extra).forEach(([key, value]) => {
+                if (value === null || value === undefined || value === '') {
+                    params.delete(key);
+                } else {
+                    params.set(key, value);
+                }
+            });
+
+            params.delete('ajax');
+            if (!Object.prototype.hasOwnProperty.call(extra, 'page')) {
+                params.delete('page');
+            } else if (extra.page) {
+                params.set('page', String(extra.page));
+            } else {
+                params.delete('page');
+            }
+
+            return params;
+        },
+
+        async fetchResults(params, { push = true } = {}) {
+            const req = ++this._req;
+            this.loading = true;
+            const box = this.$root.querySelector('[data-shop-results]');
+            if (box) box.setAttribute('aria-busy', 'true');
+
+            params.set('ajax', '1');
+            const qs = params.toString();
+            const fetchUrl = qs ? `${this.endpoint}?${qs}` : `${this.endpoint}?ajax=1`;
+
+            try {
+                const res = await fetch(fetchUrl, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+                if (!res.ok) throw new Error('Shop filter failed');
+                const data = await res.json();
+                if (req !== this._req) return;
+
+                if (box && data.html) {
+                    const tmp = document.createElement('div');
+                    tmp.innerHTML = data.html;
+
+                    const meta = tmp.querySelector('[data-shop-count]');
+                    const label = this.$root.querySelector('[data-shop-count-label]');
+                    if (label) {
+                        label.textContent = data.count_text || (meta ? meta.textContent.trim() : label.textContent);
+                    }
+                    if (meta) meta.remove();
+
+                    box.innerHTML = tmp.innerHTML;
+
+                    const grid = box.querySelector('[data-shop-grid]');
+                    if (grid && this.view === 'list') {
+                        grid.classList.add('gs-grid--list');
+                    }
+                }
+
+                const titleEl = this.$root.querySelector('[data-shop-title]');
+                if (titleEl && data.title) titleEl.textContent = data.title;
+
+                params.delete('ajax');
+                const cleanQs = params.toString();
+                const nextUrl = cleanQs ? `${this.endpoint}?${cleanQs}` : this.endpoint;
+                if (push) {
+                    history.pushState({ shopLive: true }, '', nextUrl);
+                }
+            } catch (e) {
+                if (req !== this._req) return;
+                console.error(e);
+            } finally {
+                if (req === this._req) {
+                    this.loading = false;
+                    if (box) box.setAttribute('aria-busy', 'false');
+                }
+            }
+        },
+
+        refresh(extra = {}, options = {}) {
+            return this.fetchResults(this.buildParams(extra), options);
+        },
+
+        onSortChange() {
+            this.refresh();
+        },
+
+        setCategory(category) {
+            const form = this.$root.querySelector('[data-shop-filters]');
+            let input = form && form.querySelector('input[name="category"]');
+            if (form && category) {
+                if (!input) {
+                    input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'category';
+                    form.appendChild(input);
+                }
+                input.value = category;
+            } else if (input) {
+                input.remove();
+            }
+
+            this.$root.querySelectorAll('.gs-cat-link').forEach((link) => {
+                const active = category
+                    ? String(link.dataset.category || '') === String(category)
+                    : link.dataset.category === '';
+                link.classList.toggle('is-active', active);
+            });
+
+            this.refresh();
+        },
+
+        onPopState() {
+            const params = new URLSearchParams(window.location.search);
+            this.sort = params.get('sort') || 'featured';
+
+            const form = this.$root.querySelector('[data-shop-filters]');
+            if (form) {
+                form.querySelectorAll('input[type="checkbox"]').forEach((el) => {
+                    const values = params.getAll(el.name);
+                    el.checked = values.includes(el.value);
+                });
+
+                const cat = params.get('category') || '';
+                let catInput = form.querySelector('input[name="category"]');
+                if (cat) {
+                    if (!catInput) {
+                        catInput = document.createElement('input');
+                        catInput.type = 'hidden';
+                        catInput.name = 'category';
+                        form.appendChild(catInput);
+                    }
+                    catInput.value = cat;
+                } else if (catInput) {
+                    catInput.remove();
+                }
+
+                this.$root.querySelectorAll('.gs-cat-link').forEach((link) => {
+                    const active = cat
+                        ? String(link.dataset.category || '') === String(cat)
+                        : link.dataset.category === '';
+                    link.classList.toggle('is-active', active);
+                });
+            }
+
+            this.fetchResults(params, { push: false });
+        },
+    };
+};
+
+document.addEventListener('click', function (event) {
+    const root = event.target.closest('.gs-shop');
+    if (!root || !root._x_dataStack) return;
+
+    const pageLink = event.target.closest('[data-shop-pagination] a.gs-page');
+    if (pageLink) {
+        event.preventDefault();
+        try {
+            const url = new URL(pageLink.href, window.location.origin);
+            const page = url.searchParams.get('page') || '1';
+            root._x_dataStack[0].refresh({ page });
+        } catch (e) {}
+        return;
+    }
+
+    const cat = event.target.closest('a.gs-cat-link');
+    if (cat && root.contains(cat)) {
+        event.preventDefault();
+        root._x_dataStack[0].setCategory(cat.dataset.category || '');
+    }
+}, true);
+</script>
+
+<div class="gs-shop"
+     x-data="shopLive({
+         endpoint: @js(route('website.shop')),
+         view: @js($viewMode),
+         title: @js($pageTitle ?? 'Shop'),
+     })"
+     @shop-refresh="refresh()"
+     @popstate.window="onPopState()">
     <div class="gs-shop-inner">
         @if(!empty($showSidebar) && !empty($sidebarFacets))
             @include('website.partials.category-filters')
@@ -25,8 +237,13 @@
 
             <div class="gs-toolbar">
                 <div class="gs-toolbar-left">
-                    <h1 class="gs-title">{{ $pageTitle ?? 'Shop' }}</h1>
-                    <p class="gs-count">
+                    <h1 class="gs-title" data-shop-title>{{ $pageTitle ?? 'Shop' }}</h1>
+                    <p class="gs-count" data-shop-count-label>
+                        @php
+                            $from = $products->firstItem() ?? 0;
+                            $to = $products->lastItem() ?? 0;
+                            $total = $products->total();
+                        @endphp
                         Showing {{ $from }}–{{ $to }} of {{ number_format($total) }} products
                     </p>
                 </div>
@@ -41,18 +258,9 @@
                         </button>
                     </div>
 
-                    <form method="GET" action="{{ route('website.shop') }}" class="gs-sort">
-                        @foreach(request()->except('sort', 'page') as $key => $value)
-                            @if(is_array($value))
-                                @foreach($value as $v)
-                                    <input type="hidden" name="{{ $key }}[]" value="{{ $v }}">
-                                @endforeach
-                            @else
-                                <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-                            @endif
-                        @endforeach
+                    <div class="gs-sort">
                         <label for="gs-sort">Sort by:</label>
-                        <select id="gs-sort" name="sort" onchange="this.form.submit()">
+                        <select id="gs-sort" x-model="sort" @change="onSortChange()" data-no-loader>
                             <option value="featured" @selected(($sort ?? request('sort', 'featured')) === 'featured')>Featured</option>
                             <option value="latest" @selected(($sort ?? '') === 'latest')>Latest</option>
                             <option value="price_asc" @selected(($sort ?? '') === 'price_asc')>Price: Low to High</option>
@@ -60,26 +268,13 @@
                             <option value="name" @selected(($sort ?? '') === 'name')>Name</option>
                             <option value="bestsellers" @selected(($sort ?? '') === 'bestsellers')>Best Sellers</option>
                         </select>
-                    </form>
-                </div>
-            </div>
-
-            <div class="gs-grid" :class="view === 'list' && 'gs-grid--list'">
-                @forelse($products as $product)
-                    @include('website.partials.product-card', ['product' => $product, 'listMode' => true])
-                @empty
-                    <div class="gs-empty">
-                        <p>No products found.</p>
-                        <a href="{{ route('website.shop') }}">Clear filters</a>
                     </div>
-                @endforelse
+                </div>
             </div>
 
-            @if($products->hasPages())
-                <div class="gs-pagination">
-                    {{ $products->onEachSide(2)->links('website.partials.shop-pagination') }}
-                </div>
-            @endif
+            <div class="gs-results" :class="{ 'is-loading': loading }" data-shop-results aria-busy="false">
+                @include('website.partials.shop-results')
+            </div>
         </div>
     </div>
 </div>

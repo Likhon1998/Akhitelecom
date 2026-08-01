@@ -353,7 +353,7 @@
                                     @forelse($brands ?? [] as $brand)
                                         <a href="{{ route('website.brand', \Illuminate\Support\Str::slug($brand->name)) }}" class="gaget-nav-dropdown-item">
                                             <span>{{ $brand->name }}</span>
-                                            <span class="gaget-nav-dropdown-count">{{ $brand->products_count ?? 0 }}</span>
+                                            <span class="gaget-nav-dropdown-count">{{ $brand->products_count ?? $brand->published_count ?? 0 }}</span>
                                         </a>
                                     @empty
                                         <span class="gaget-nav-dropdown-empty">No brands yet</span>
@@ -399,7 +399,7 @@
                                 @forelse($brands ?? [] as $brand)
                                     <a href="{{ route('website.brand', \Illuminate\Support\Str::slug($brand->name)) }}" class="gaget-nav-dropdown-item">
                                         <span>{{ $brand->name }}</span>
-                                        <span class="gaget-nav-dropdown-count">{{ $brand->products_count ?? 0 }}</span>
+                                        <span class="gaget-nav-dropdown-count">{{ $brand->products_count ?? $brand->published_count ?? 0 }}</span>
                                     </a>
                                 @empty
                                     <span class="gaget-nav-dropdown-empty">No brands yet</span>

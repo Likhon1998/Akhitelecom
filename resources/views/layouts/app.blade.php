@@ -63,6 +63,7 @@
                 loaded: false,
                 unread: 0,
                 items: [],
+                error: '',
                 init() {
                     this.panelOpen = false;
                     this.fetchBadge();
@@ -85,44 +86,68 @@
                     this.panelOpen = false;
                     this.markSeen();
                 },
+                async openItem(item, event) {
+                    if (event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                    // Clear badge before navigating so it does not stick after click-through.
+                    await this.markSeen(true);
+                    window.location.href = item.url;
+                },
                 async fetchBadge() {
                     try {
                         const res = await fetch(listUrl, {
                             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                            credentials: 'same-origin',
                         });
                         if (!res.ok) return;
                         const data = await res.json();
                         this.unread = Number(data.unread || 0);
-                    } catch (e) {}
+                        this.error = '';
+                    } catch (e) {
+                        // Keep last known unread; avoid silently forcing 0 on network blips.
+                    }
                 },
                 async fetchList(force = false) {
                     if (this.loading || (this.loaded && !force)) return;
                     this.loading = true;
+                    this.error = '';
                     try {
                         const res = await fetch(listUrl, {
                             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                            credentials: 'same-origin',
                         });
-                        if (!res.ok) return;
+                        if (!res.ok) {
+                            this.error = 'Could not load notifications.';
+                            return;
+                        }
                         const data = await res.json();
                         this.items = data.items || [];
                         this.unread = Number(data.unread || 0);
                         this.loaded = true;
                     } catch (e) {
+                        this.error = 'Could not load notifications.';
                     } finally {
                         this.loading = false;
                     }
                 },
-                async markSeen() {
-                    if (!this.items.some((item) => item.is_new)) return;
+                async markSeen(force = false) {
+                    if (!force && this.unread <= 0 && !this.items.some((item) => item.is_new)) {
+                        return;
+                    }
                     try {
-                        await fetch(seenUrl, {
+                        const res = await fetch(seenUrl, {
                             method: 'POST',
                             headers: {
                                 'Accept': 'application/json',
                                 'X-Requested-With': 'XMLHttpRequest',
                                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                             },
+                            credentials: 'same-origin',
+                            keepalive: true,
                         });
+                        if (!res.ok) return;
                         this.items = this.items.map((item) => ({ ...item, is_new: false }));
                         this.unread = 0;
                     } catch (e) {}

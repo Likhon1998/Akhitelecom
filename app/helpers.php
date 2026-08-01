@@ -77,3 +77,81 @@ if (! function_exists('asian_date')) {
         return asian_datetime($value, $format);
     }
 }
+
+if (! function_exists('normalize_memory_size')) {
+    /**
+     * Normalize RAM / storage labels: "8GB", "8gb", "8 GB" → "8 GB".
+     */
+    function normalize_memory_size(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        if (preg_match('/^(\d+(?:\.\d+)?)\s*(tb|gb|mb|kb)$/i', $trimmed, $m)) {
+            $number = $m[1];
+            if (str_contains($number, '.')) {
+                $number = rtrim(rtrim($number, '0'), '.');
+            }
+
+            return $number.' '.strtoupper($m[2]);
+        }
+
+        return $trimmed;
+    }
+}
+
+if (! function_exists('memory_size_compact')) {
+    /** Compact form for equality checks: "8 GB" → "8gb". */
+    function memory_size_compact(?string $value): string
+    {
+        $normalized = normalize_memory_size($value);
+
+        return $normalized ? strtolower(str_replace(' ', '', $normalized)) : '';
+    }
+}
+
+if (! function_exists('memory_size_sort_key')) {
+    /** Sort key in megabytes for numeric ordering. */
+    function memory_size_sort_key(?string $value): float
+    {
+        $normalized = normalize_memory_size($value);
+        if (! $normalized || ! preg_match('/^(\d+(?:\.\d+)?)\s*(TB|GB|MB|KB)$/', $normalized, $m)) {
+            return PHP_FLOAT_MAX;
+        }
+
+        $n = (float) $m[1];
+
+        return match ($m[2]) {
+            'TB' => $n * 1024 * 1024,
+            'GB' => $n * 1024,
+            'MB' => $n,
+            'KB' => $n / 1024,
+            default => PHP_FLOAT_MAX,
+        };
+    }
+}
+
+if (! function_exists('unique_memory_sizes')) {
+    /**
+     * Deduplicate and sort memory labels (RAM / ROM).
+     *
+     * @param  iterable<int, mixed>  $values
+     * @return \Illuminate\Support\Collection<int, string>
+     */
+    function unique_memory_sizes(iterable $values): \Illuminate\Support\Collection
+    {
+        return collect($values)
+            ->map(fn ($v) => normalize_memory_size(is_string($v) ? $v : (string) $v))
+            ->filter()
+            ->unique(fn ($v) => memory_size_compact($v))
+            ->sortBy(fn ($v) => memory_size_sort_key($v))
+            ->values();
+    }
+}
+

@@ -13,7 +13,7 @@ class Product extends Model
 
     protected $fillable = [
         'shop_id', 'category_id', 'brand_id', 'name', 'barcode', 'sku',
-        'variant_group', 'color', 'color_hex', 'storage',
+        'variant_group', 'color', 'color_hex', 'storage', 'ram',
         'cost_price', 'selling_price', 'original_price',
         'sale_price', 'sale_starts_at', 'sale_ends_at',
         'stock_quantity', 'availability', 'filter_attributes', 'alert_quantity', 'reorder_quantity',

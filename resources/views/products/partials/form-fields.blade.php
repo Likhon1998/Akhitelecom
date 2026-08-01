@@ -10,6 +10,7 @@
         color: @js(old('color', $product?->color ?? '')),
         colorHex: @js(old('color_hex', $product?->color_hex ?: '#2563eb')),
         storage: @js(old('storage', $product?->storage ?? '')),
+        ram: @js(old('ram', $product?->ram ?? '')),
         variantGroup: @js(old('variant_group', $product?->variant_group ?? '')),
         selling: @js(old('selling_price', $product?->selling_price ?? '')),
         autoGroup: true,
@@ -234,9 +235,9 @@
     {{-- 4. Variants — matches storefront color/storage UI --}}
     <section class="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/80">
-            <h3 class="text-sm font-semibold text-slate-800">4. Color & storage (store variants)</h3>
+            <h3 class="text-sm font-semibold text-slate-800">4. Color, storage & RAM (store variants)</h3>
             <p class="text-xs text-slate-500 mt-0.5">
-                Same <strong>variant group</strong> links products (e.g. Red + Blue S22). Customers pick color circles and storage buttons on the store page.
+                Same <strong>variant group</strong> links products (e.g. Red + Blue S22). Customers pick color, storage, and RAM on the store page.
             </p>
         </div>
         <div class="p-4 space-y-4">
@@ -294,22 +295,42 @@
                 </div>
             </div>
 
-            <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1.5">Storage / size</label>
-                <input type="text" name="storage" x-model="storage" list="storage-presets"
-                       class="block w-full md:max-w-xs rounded-lg border-slate-200 text-sm py-2.5"
-                       placeholder="e.g. 256GB">
-                <datalist id="storage-presets">
-                    <option value="64GB"><option value="128GB"><option value="256GB"><option value="512GB"><option value="1TB">
-                </datalist>
-                <div class="flex flex-wrap gap-1.5 mt-2">
-                    @foreach(['128GB', '256GB', '512GB', '1TB'] as $s)
-                        <button type="button" @click="storage = '{{ $s }}'"
-                                class="px-2.5 py-1 rounded-md border text-xs font-medium transition"
-                                :class="storage === '{{ $s }}' ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-slate-200 text-slate-600 hover:border-slate-300'">
-                            {{ $s }}
-                        </button>
-                    @endforeach
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1.5">Storage / size</label>
+                    <input type="text" name="storage" x-model="storage" list="storage-presets"
+                           class="block w-full rounded-lg border-slate-200 text-sm py-2.5"
+                           placeholder="e.g. 256GB">
+                    <datalist id="storage-presets">
+                        <option value="64GB"><option value="128GB"><option value="256GB"><option value="512GB"><option value="1TB">
+                    </datalist>
+                    <div class="flex flex-wrap gap-1.5 mt-2">
+                        @foreach(['128GB', '256GB', '512GB', '1TB'] as $s)
+                            <button type="button" @click="storage = '{{ $s }}'"
+                                    class="px-2.5 py-1 rounded-md border text-xs font-medium transition"
+                                    :class="storage === '{{ $s }}' ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-slate-200 text-slate-600 hover:border-slate-300'">
+                                {{ $s }}
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1.5">RAM</label>
+                    <input type="text" name="ram" x-model="ram" list="ram-presets"
+                           class="block w-full rounded-lg border-slate-200 text-sm py-2.5"
+                           placeholder="e.g. 8GB">
+                    <datalist id="ram-presets">
+                        <option value="4GB"><option value="6GB"><option value="8GB"><option value="12GB"><option value="16GB"><option value="32GB"><option value="64GB">
+                    </datalist>
+                    <div class="flex flex-wrap gap-1.5 mt-2">
+                        @foreach(['4GB', '8GB', '12GB', '16GB', '32GB'] as $r)
+                            <button type="button" @click="ram = '{{ $r }}'"
+                                    class="px-2.5 py-1 rounded-md border text-xs font-medium transition"
+                                    :class="ram === '{{ $r }}' ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-slate-200 text-slate-600 hover:border-slate-300'">
+                                {{ $r }}
+                            </button>
+                        @endforeach
+                    </div>
                 </div>
             </div>
 
@@ -322,6 +343,9 @@
                 </div>
                 <p class="text-xs text-slate-600 mt-2" x-show="storage">
                     Storage: <span class="font-medium" x-text="storage"></span>
+                </p>
+                <p class="text-xs text-slate-600 mt-1" x-show="ram">
+                    RAM: <span class="font-medium" x-text="ram"></span>
                 </p>
                 <div class="flex items-center gap-2 mt-2" x-show="color || colorHex">
                     <span class="text-xs text-slate-600">Color: <span class="font-medium" x-text="color || '—'"></span></span>

@@ -54,7 +54,7 @@ class CategoryFilterConfig
                 continue;
             }
 
-            $type = in_array($group['type'] ?? '', ['availability', 'brand', 'storage', 'color', 'custom'], true)
+            $type = in_array($group['type'] ?? '', ['availability', 'brand', 'storage', 'ram', 'color', 'custom'], true)
                 ? $group['type']
                 : 'custom';
 
@@ -119,7 +119,9 @@ class CategoryFilterConfig
                 ->sort()
                 ->values()
                 ->map(fn ($name) => ['value' => Str::slug($name, '_'), 'label' => $name]),
-            'storage' => $products->pluck('storage')->filter()->unique()->sort()->values()
+            'storage' => unique_memory_sizes($products->pluck('storage'))
+                ->map(fn ($v) => ['value' => Str::slug((string) $v, '_'), 'label' => (string) $v]),
+            'ram' => unique_memory_sizes($products->pluck('ram'))
                 ->map(fn ($v) => ['value' => Str::slug((string) $v, '_'), 'label' => (string) $v]),
             'color' => $products->map(fn ($p) => $p->displayColor() ?: $p->color)->filter()->unique()->sort()->values()
                 ->map(fn ($v) => ['value' => Str::slug((string) $v, '_'), 'label' => (string) $v]),

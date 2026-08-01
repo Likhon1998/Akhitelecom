@@ -166,13 +166,16 @@ class WebsiteService
             ->get();
 
         $this->linkOrphanProductsToBrands($shopId);
+        $this->mergeDuplicateBrands($shopId);
 
         $brands = Brand::where('shop_id', $shopId)
             ->where('is_active', true)
             ->withCount(['products' => $visibleProducts])
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter(fn (Brand $b) => (int) $b->products_count > 0)
+            ->values();
 
         return [
             'settings' => $settings,
@@ -536,13 +539,13 @@ class WebsiteService
     }
 
     /**
-     * Color & storage pickers for a product detail page.
-     * Returns ['colors' => [...], 'storages' => [...]] with url, label, active, hex.
+     * Color, storage & RAM pickers for a product detail page.
+     * Returns ['colors' => [...], 'storages' => [...], 'rams' => [...]] with url, label, active, hex.
      */
     public function productVariantOptions(Product $product): array
     {
         if (!$product->variant_group) {
-            return ['colors' => [], 'storages' => []];
+            return ['colors' => [], 'storages' => [], 'rams' => []];
         }
 
         $siblings = Product::query()
@@ -562,6 +565,16 @@ class WebsiteService
                 return strtolower($item->color) === strtolower($p->color)
                     && $product->storage
                     && $item->storage
+                    && strtolower($item->storage) === strtolower($product->storage)
+                    && (
+                        ! $product->ram
+                        || ! $item->ram
+                        || strtolower($item->ram) === strtolower($product->ram)
+                    );
+            }) ?? $all->first(function ($item) use ($p, $product) {
+                return strtolower($item->color) === strtolower($p->color)
+                    && $product->storage
+                    && $item->storage
                     && strtolower($item->storage) === strtolower($product->storage);
             }) ?? $all->first(fn ($item) => strtolower($item->color) === strtolower($p->color));
 
@@ -578,17 +591,56 @@ class WebsiteService
             ];
         }
 
-        $storages = [];
         $currentColor = $product->color;
         $colorFiltered = $currentColor
             ? $all->filter(fn ($p) => strtolower($p->color ?? '') === strtolower($currentColor))
             : $all;
 
-        foreach ($colorFiltered->whereNotNull('storage')->unique('storage')->sortBy('storage') as $p) {
+        $storages = [];
+        $seenStorage = [];
+        foreach ($colorFiltered->whereNotNull('storage')->sortBy(fn ($p) => memory_size_sort_key($p->storage)) as $p) {
+            $compact = memory_size_compact($p->storage);
+            if ($compact === '' || isset($seenStorage[$compact])) {
+                continue;
+            }
+            $seenStorage[$compact] = true;
+
+            $match = $colorFiltered->first(function ($item) use ($compact, $product) {
+                return memory_size_compact($item->storage) === $compact
+                    && (
+                        ! $product->ram
+                        || ! $item->ram
+                        || memory_size_compact($item->ram) === memory_size_compact($product->ram)
+                    );
+            }) ?? $p;
+
+            $label = normalize_memory_size($p->storage) ?? $p->storage;
             $storages[] = [
-                'label' => $p->storage,
+                'label' => $label,
+                'url' => route('website.product', $match),
+                'active' => memory_size_compact($match->storage) === memory_size_compact($product->storage),
+                'product_id' => $match->id,
+            ];
+        }
+
+        $rams = [];
+        $seenRam = [];
+        $storageFiltered = $product->storage
+            ? $colorFiltered->filter(fn ($p) => memory_size_compact($p->storage) === memory_size_compact($product->storage))
+            : $colorFiltered;
+
+        foreach ($storageFiltered->whereNotNull('ram')->sortBy(fn ($p) => memory_size_sort_key($p->ram)) as $p) {
+            $compact = memory_size_compact($p->ram);
+            if ($compact === '' || isset($seenRam[$compact])) {
+                continue;
+            }
+            $seenRam[$compact] = true;
+
+            $label = normalize_memory_size($p->ram) ?? $p->ram;
+            $rams[] = [
+                'label' => $label,
                 'url' => route('website.product', $p),
-                'active' => $p->id === $product->id,
+                'active' => memory_size_compact($p->ram) === memory_size_compact($product->ram),
                 'product_id' => $p->id,
             ];
         }
@@ -596,6 +648,7 @@ class WebsiteService
         return [
             'colors' => collect($colors)->unique('label')->values()->all(),
             'storages' => array_values($storages),
+            'rams' => array_values($rams),
         ];
     }
 
@@ -669,6 +722,64 @@ class WebsiteService
                     'brand_name' => $match->name,
                 ]);
             }
+        }
+    }
+
+    /**
+     * Merge brands that share the same slug (e.g. "samsung" + "Samsung") into one row.
+     */
+    public function mergeDuplicateBrands(int $shopId): void
+    {
+        $brands = Brand::where('shop_id', $shopId)->orderBy('id')->get();
+        if ($brands->count() < 2) {
+            return;
+        }
+
+        $groups = $brands->groupBy(fn (Brand $b) => \Illuminate\Support\Str::slug($b->name));
+
+        foreach ($groups as $group) {
+            if ($group->count() < 2) {
+                continue;
+            }
+
+            $counted = $group->map(function (Brand $b) {
+                $b->setAttribute('_product_count', Product::where('brand_id', $b->id)->count());
+
+                return $b;
+            });
+
+            $maxCount = (int) $counted->max('_product_count');
+            $keeper = $counted
+                ->filter(fn (Brand $b) => (int) $b->getAttribute('_product_count') === $maxCount)
+                ->sortByDesc(fn (Brand $b) => (int) preg_match('/[A-Z]/', $b->name))
+                ->sortByDesc(fn (Brand $b) => strlen($b->name))
+                ->first() ?? $group->first();
+
+            foreach ($group as $dup) {
+                if ($dup->id === $keeper->id) {
+                    continue;
+                }
+
+                Product::where('shop_id', $shopId)
+                    ->where(function ($q) use ($dup) {
+                        $q->where('brand_id', $dup->id)
+                            ->orWhereRaw('LOWER(TRIM(COALESCE(brand_name, \'\'))) = ?', [strtolower(trim($dup->name))]);
+                    })
+                    ->update([
+                        'brand_id' => $keeper->id,
+                        'brand_name' => $keeper->name,
+                    ]);
+
+                if (! $keeper->logo_path && $dup->logo_path) {
+                    $keeper->update(['logo_path' => $dup->logo_path]);
+                }
+
+                $dup->delete();
+            }
+
+            Product::where('shop_id', $shopId)
+                ->where('brand_id', $keeper->id)
+                ->update(['brand_name' => $keeper->name]);
         }
     }
 }

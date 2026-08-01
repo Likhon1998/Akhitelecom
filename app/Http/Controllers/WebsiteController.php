@@ -67,6 +67,32 @@ class WebsiteController extends Controller
             $query->where('selling_price', '<=', (float) $request->max_price);
         }
 
+        $storages = array_values(array_filter(array_map('strval', (array) $request->input('storage', []))));
+        if ($storages !== []) {
+            $query->where(function ($q) use ($storages) {
+                foreach ($storages as $value) {
+                    $compact = memory_size_compact($value);
+                    if ($compact === '') {
+                        continue;
+                    }
+                    $q->orWhereRaw("LOWER(REPLACE(COALESCE(storage, ''), ' ', '')) = ?", [$compact]);
+                }
+            });
+        }
+
+        $rams = array_values(array_filter(array_map('strval', (array) $request->input('ram', []))));
+        if ($rams !== []) {
+            $query->where(function ($q) use ($rams) {
+                foreach ($rams as $value) {
+                    $compact = memory_size_compact($value);
+                    if ($compact === '') {
+                        continue;
+                    }
+                    $q->orWhereRaw("LOWER(REPLACE(COALESCE(ram, ''), ' ', '')) = ?", [$compact]);
+                }
+            });
+        }
+
         if ($request->filter === 'deals') {
             $query->onSale();
         } elseif ($request->filter === 'new') {
@@ -89,14 +115,28 @@ class WebsiteController extends Controller
 
         $products = $query->paginate(12)->withQueryString();
 
-        $sidebar = $this->shopSidebarData($shopId);
-
         $pageTitle = match ($request->filter) {
             'deals' => 'Deals',
             'new' => 'New Arrivals',
             'bestsellers' => 'Best Sellers',
             default => 'Shop',
         };
+
+        if ($request->boolean('ajax') || $request->ajax()) {
+            $countFrom = $products->firstItem() ?? 0;
+            $countTo = $products->lastItem() ?? 0;
+            $countTotal = $products->total();
+            $settings = $this->website->settings();
+
+            return response()->json([
+                'html' => view('website.partials.shop-results', compact('products', 'settings'))->render(),
+                'count_text' => "Showing {$countFrom}–{$countTo} of ".number_format($countTotal).' products',
+                'title' => $pageTitle,
+                'url' => $request->fullUrlWithoutQuery(['ajax']),
+            ]);
+        }
+
+        $sidebar = $this->shopSidebarData($shopId);
 
         return view('website.shop', array_merge($this->website->homepageData(), $sidebar, compact(
             'products',
@@ -230,6 +270,7 @@ class WebsiteController extends Controller
     protected function shopSidebarData(int $shopId): array
     {
         $this->website->linkOrphanProductsToBrands($shopId);
+        $this->website->mergeDuplicateBrands($shopId);
 
         $catalog = $this->website->catalogQuery($shopId);
 
@@ -244,23 +285,48 @@ class WebsiteController extends Controller
             }])
             ->get();
 
+        $visibleBrandProducts = function ($q) use ($shopId) {
+            $q->where('shop_id', $shopId)
+                ->where('stock_quantity', '>', 0)
+                ->where(function ($qq) {
+                    $qq->where('is_published', true)->orWhereNull('is_published');
+                });
+        };
+
         $brands = Brand::where('shop_id', $shopId)
             ->where(function ($q) {
                 $q->where('is_active', true)->orWhereNull('is_active');
             })
             ->orderBy('name')
-            ->withCount(['products as published_count' => function ($q) use ($shopId) {
-                $q->where('shop_id', $shopId)
-                    ->where('stock_quantity', '>', 0)
-                    ->where(function ($qq) {
-                        $qq->where('is_published', true)->orWhereNull('is_published');
-                    });
-            }])
-            ->get();
+            ->withCount([
+                'products as published_count' => $visibleBrandProducts,
+                'products as products_count' => $visibleBrandProducts,
+            ])
+            ->get()
+            ->filter(fn (Brand $b) => (int) ($b->products_count ?? $b->published_count ?? 0) > 0)
+            ->values();
+
+        $storageOptions = unique_memory_sizes(
+            (clone $catalog)
+                ->whereNotNull('storage')
+                ->where('storage', '!=', '')
+                ->distinct()
+                ->pluck('storage')
+        );
+
+        $ramOptions = unique_memory_sizes(
+            (clone $catalog)
+                ->whereNotNull('ram')
+                ->where('ram', '!=', '')
+                ->distinct()
+                ->pluck('ram')
+        );
 
         return [
             'categories' => $categories,
             'brands' => $brands,
+            'storageOptions' => $storageOptions,
+            'ramOptions' => $ramOptions,
             'categoryTotal' => (clone $catalog)->count(),
             'priceBounds' => [
                 'min' => (float) ((clone $catalog)->min('selling_price') ?? 0),
@@ -339,9 +405,24 @@ class WebsiteController extends Controller
             if ($type === 'storage') {
                 $query->where(function ($q) use ($selected) {
                     foreach ($selected as $value) {
-                        $label = str_replace('_', ' ', $value);
-                        $q->orWhereRaw('LOWER(REPLACE(COALESCE(storage, \'\'), \' \', \'_\')) = ?', [strtolower($value)])
-                            ->orWhereRaw('LOWER(storage) = ?', [strtolower($label)]);
+                        $compact = memory_size_compact(str_replace('_', ' ', (string) $value));
+                        if ($compact === '') {
+                            continue;
+                        }
+                        $q->orWhereRaw("LOWER(REPLACE(COALESCE(storage, ''), ' ', '')) = ?", [$compact]);
+                    }
+                });
+                continue;
+            }
+
+            if ($type === 'ram') {
+                $query->where(function ($q) use ($selected) {
+                    foreach ($selected as $value) {
+                        $compact = memory_size_compact(str_replace('_', ' ', (string) $value));
+                        if ($compact === '') {
+                            continue;
+                        }
+                        $q->orWhereRaw("LOWER(REPLACE(COALESCE(ram, ''), ' ', '')) = ?", [$compact]);
                     }
                 });
                 continue;
@@ -379,7 +460,7 @@ class WebsiteController extends Controller
             $type = $group['type'] ?? 'custom';
             $options = $group['options'] ?? [];
 
-            if (in_array($type, ['brand', 'storage', 'color', 'custom'], true) && $options === []) {
+            if (in_array($type, ['brand', 'storage', 'ram', 'color', 'custom'], true) && $options === []) {
                 $options = \App\Support\CategoryFilterConfig::facetValues($category, $type, $group['key'] ?? '')
                     ->all();
             }
@@ -405,18 +486,41 @@ class WebsiteController extends Controller
         abort_unless($shopId, 404);
 
         $brand = Brand::where('shop_id', $shopId)
-            ->where('is_active', true)
+            ->where(function ($q) {
+                $q->where('is_active', true)->orWhereNull('is_active');
+            })
+            ->withCount(['products' => function ($q) use ($shopId) {
+                $q->where('shop_id', $shopId)
+                    ->where('stock_quantity', '>', 0)
+                    ->where(function ($qq) {
+                        $qq->where('is_published', true)->orWhereNull('is_published');
+                    });
+            }])
             ->get()
-            ->first(fn ($b) => \Illuminate\Support\Str::slug($b->name) === $slug);
+            ->filter(fn ($b) => \Illuminate\Support\Str::slug($b->name) === $slug)
+            // Prefer the brand row that actually has products (handles samsung / Samsung duplicates).
+            ->sortByDesc('products_count')
+            ->first();
 
         abort_unless($brand, 404);
 
         $this->website->linkOrphanProductsToBrands($shopId);
+        $this->website->mergeDuplicateBrands($shopId);
+
+        // Re-resolve after merge in case the chosen row was absorbed.
+        $brand = Brand::where('shop_id', $shopId)
+            ->where(function ($q) {
+                $q->where('is_active', true)->orWhereNull('is_active');
+            })
+            ->get()
+            ->filter(fn ($b) => \Illuminate\Support\Str::slug($b->name) === $slug)
+            ->sortByDesc(fn ($b) => Product::where('brand_id', $b->id)->count())
+            ->first() ?? $brand;
 
         $products = $this->website->catalogQuery($shopId)
             ->where(function ($q) use ($brand) {
                 $q->where('brand_id', $brand->id)
-                    ->orWhere('brand_name', $brand->name);
+                    ->orWhereRaw('LOWER(TRIM(COALESCE(brand_name, \'\'))) = ?', [strtolower(trim($brand->name))]);
             })
             ->with(['category', 'brand'])
             ->latest()
@@ -431,11 +535,13 @@ class WebsiteController extends Controller
         ]));
     }
 
-    public function product(Product $product)
+    public function product(Request $request, Product $product)
     {
         $shopId = $this->website->shopId();
         $published = $product->is_published !== false;
         abort_unless($shopId && $product->shop_id === $shopId && $product->stock_quantity > 0 && $published, 404);
+
+        $product->loadMissing(['category', 'brand']);
 
         $related = $this->website->catalogQuery($shopId)
             ->where('category_id', $product->category_id)
@@ -455,7 +561,33 @@ class WebsiteController extends Controller
             ->take(8)
             ->get();
 
-        return view('website.product', array_merge($this->website->homepageData(), compact('product', 'related', 'reviews', 'variantOptions')));
+        $home = $this->website->homepageData();
+        $settings = $home['settings'] ?? $this->website->settings();
+
+        if ($request->boolean('ajax') || $request->ajax()) {
+            $displayName = $product->variant_group
+                ? trim(preg_replace('/\s*[—\-–].*$/u', '', $product->name))
+                : $product->name;
+            if ($displayName === '') {
+                $displayName = $product->name;
+            }
+
+            $storeName = data_get($settings, 'store_name', 'Shop');
+
+            return response()->json([
+                'html' => view('website.partials.product-live', compact(
+                    'product',
+                    'related',
+                    'reviews',
+                    'variantOptions',
+                    'settings'
+                ))->render(),
+                'url' => route('website.product', $product),
+                'title' => $displayName.' | '.$storeName,
+            ]);
+        }
+
+        return view('website.product', array_merge($home, compact('product', 'related', 'reviews', 'variantOptions')));
     }
 
     public function page(string $slug)

@@ -90,6 +90,7 @@ class ProductController extends Controller
             'color' => 'nullable|string|max:80',
             'color_hex' => 'nullable|string|max:7',
             'storage' => 'nullable|string|max:40',
+            'ram' => 'nullable|string|max:40',
             'availability' => 'nullable|in:in_stock,pre_order,up_coming,out_of_stock',
             'cost_price' => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',
@@ -127,6 +128,7 @@ class ProductController extends Controller
                     'color' => $validated['color'] ?? null,
                     'color_hex' => $validated['color_hex'] ?? null,
                     'storage' => $validated['storage'] ?? null,
+                    'ram' => $validated['ram'] ?? null,
                     'availability' => $validated['availability'] ?? 'in_stock',
                     'cost_price' => $validated['cost_price'],
                     'selling_price' => $validated['selling_price'],
@@ -213,6 +215,7 @@ class ProductController extends Controller
             'color' => 'nullable|string|max:80',
             'color_hex' => 'nullable|string|max:7',
             'storage' => 'nullable|string|max:40',
+            'ram' => 'nullable|string|max:40',
             'availability' => 'nullable|in:in_stock,pre_order,up_coming,out_of_stock',
             'cost_price' => 'required|numeric',
             'selling_price' => 'required|numeric',
@@ -604,7 +607,7 @@ class ProductController extends Controller
 
     private function normalizeVariantFields(array $data): array
     {
-        foreach (['variant_group', 'color', 'color_hex', 'storage', 'sku', 'short_description'] as $key) {
+        foreach (['variant_group', 'color', 'color_hex', 'storage', 'ram', 'sku', 'short_description'] as $key) {
             if (array_key_exists($key, $data)) {
                 $val = is_string($data[$key]) ? trim($data[$key]) : $data[$key];
                 $data[$key] = ($val === '' || $val === null) ? null : $val;
@@ -616,8 +619,15 @@ class ProductController extends Controller
             $data['variant_group'] = trim($data['variant_group'], '-');
         }
 
-        if (!empty($data['color_hex']) && !preg_match('/^#[0-9A-Fa-f]{6}$/', $data['color_hex'])) {
+        if (! empty($data['color_hex']) && ! preg_match('/^#[0-9A-Fa-f]{6}$/', $data['color_hex'])) {
             $data['color_hex'] = null;
+        }
+
+        if (array_key_exists('storage', $data) && is_string($data['storage'])) {
+            $data['storage'] = normalize_memory_size($data['storage']);
+        }
+        if (array_key_exists('ram', $data) && is_string($data['ram'])) {
+            $data['ram'] = normalize_memory_size($data['ram']);
         }
 
         unset($data['original_price'], $data['sale_price'], $data['sale_starts_at'], $data['sale_ends_at']);

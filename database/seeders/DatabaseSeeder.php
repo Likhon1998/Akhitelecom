@@ -41,6 +41,9 @@ class DatabaseSeeder extends Seeder
         $this->call([
             WebsiteSeeder::class,
             BlogSeeder::class,
+            GadgetCatalogSeeder::class,
+            VariantFamilyCatalogSeeder::class,
+            ProductImageRepairSeeder::class,
         ]);
     }
 }

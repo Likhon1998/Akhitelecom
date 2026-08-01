@@ -127,6 +127,9 @@ class OnlineOrderController extends Controller
         $this->ensureAdmin();
         abort_unless($order->shop_id === Auth::user()->shop_id && $order->isOnlineOrder(), 403);
 
+        // Opening an order from the bell should clear the unread badge.
+        session(['online_orders_seen_at' => now()->toDateTimeString()]);
+
         $order->load([
             'customer:id,name,phone,address,email',
             'items:id,order_id,product_id,quantity,unit_price,subtotal',
@@ -150,6 +153,15 @@ class OnlineOrderController extends Controller
         $shopId = Auth::user()->shop_id;
         $seenAt = session('online_orders_seen_at');
 
+        $unreadQuery = Order::where('shop_id', $shopId)->onlineOrders();
+        if ($seenAt) {
+            $unreadQuery->where('created_at', '>', $seenAt);
+        } else {
+            // First visit: only treat the last 24 hours as unread.
+            $unreadQuery->where('created_at', '>', now()->subDay());
+        }
+        $unread = (int) $unreadQuery->count();
+
         $orders = Order::where('shop_id', $shopId)
             ->onlineOrders()
             ->with('customer:id,name,phone')
@@ -160,7 +172,6 @@ class OnlineOrderController extends Controller
         $labels = $this->tracking->statusLabels();
 
         $items = $orders->map(function (Order $order) use ($seenAt, $labels) {
-            // Unread = unseen by admin (not "still pending").
             $isNew = $seenAt
                 ? $order->created_at->greaterThan($seenAt)
                 : $order->created_at->greaterThan(now()->subDay());
@@ -180,7 +191,7 @@ class OnlineOrderController extends Controller
         });
 
         return response()->json([
-            'unread' => $items->where('is_new', true)->count(),
+            'unread' => $unread,
             'items' => $items->values(),
         ]);
     }
