@@ -39,29 +39,11 @@ class WebsiteSeeder extends Seeder
             'contact_address' => 'Dhaka, Bangladesh',
         ]);
 
-        HeroSlide::create([
-            'shop_id' => $shop->id,
-            'badge_text' => 'NEW ARRIVAL',
-            'title' => 'iPhone 15 Pro Max',
-            'description' => 'Titanium. So strong. So light. So Pro.',
-            'price_from' => 1199.00,
-            'button_text' => 'Shop Now',
-            'button_url' => '/shop',
-            'learn_more_url' => '/shop?filter=new',
-            'sort_order' => 1,
-            'is_active' => true,
-        ]);
+        // Homepage hero posters (5 banners with images).
+        $this->call(HeroSlideSeeder::class);
 
-        $features = [
-            ['icon' => 'truck', 'title' => 'Free Shipping', 'subtitle' => 'On all orders over $50', 'sort_order' => 1],
-            ['icon' => 'return', 'title' => '30-Day Returns', 'subtitle' => 'Hassle-free returns', 'sort_order' => 2],
-            ['icon' => 'lock', 'title' => 'Secure Payments', 'subtitle' => '100% secure payments', 'sort_order' => 3],
-            ['icon' => 'shield', 'title' => '1 Year Warranty', 'subtitle' => 'Product warranty', 'sort_order' => 4],
-            ['icon' => 'support', 'title' => '24/7 Support', 'subtitle' => 'Dedicated support', 'sort_order' => 5],
-        ];
-        foreach ($features as $f) {
-            SiteFeature::create(array_merge($f, ['shop_id' => $shop->id, 'is_active' => true]));
-        }
+        // Homepage trust features (4 items — editable in CMS → Landing Page).
+        $this->call(SiteFeatureSeeder::class);
 
         $promos = [
             ['title' => 'Summer Sale', 'subtitle' => 'Up to 40% Off', 'theme' => 'dark', 'sort_order' => 1],

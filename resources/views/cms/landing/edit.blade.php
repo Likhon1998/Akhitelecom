@@ -27,6 +27,20 @@
                     @if($settings->logo_path)
                         <img src="{{ public_storage_url($settings->logo_path) }}" alt="" class="mt-2 h-10 object-contain">
                     @endif
+                    <p class="mt-1 text-[11px] text-slate-400">Header / footer logo.</p>
+                </div>
+                <div>
+                    <label class="text-xs font-bold uppercase text-slate-500">Browser tab icon (favicon)</label>
+                    <input type="file" name="favicon" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/x-icon,.ico" class="mt-1 w-full rounded-xl border-slate-200 text-sm">
+                    @php
+                        $faviconPreview = $settings->favicon_path
+                            ? public_storage_url($settings->favicon_path)
+                            : ($settings->logo_path ? public_storage_url($settings->logo_path) : asset('favicon.svg'));
+                    @endphp
+                    <div class="mt-2 flex items-center gap-2">
+                        <img src="{{ $faviconPreview }}" alt="" class="h-8 w-8 rounded object-contain border border-slate-200 bg-white p-0.5">
+                        <p class="text-[11px] text-slate-400">Shown in the browser tab. Square PNG/SVG works best. Falls back to logo if empty.</p>
+                    </div>
                 </div>
                 <div>
                     <label class="text-xs font-bold uppercase text-slate-500">Currency</label>
@@ -109,7 +123,7 @@
             <div class="flex items-center justify-between gap-3">
                 <div>
                     <h3 class="text-base font-bold text-slate-900">Homepage features</h3>
-                    <p class="text-sm text-slate-500">Trust bar under the hero (shipping, warranty, support…). Fully CMS-managed — edits show on the storefront.</p>
+                    <p class="text-sm text-slate-500">Trust bar under the hero. Recommended: <strong>4 items</strong>. Fully CMS-managed — edits show on the storefront.</p>
                 </div>
                 <button type="button" @click="addFeature()" class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">+ Feature</button>
             </div>

@@ -7,10 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 class SiteSetting extends Model
 {
     protected $fillable = [
-        'default_shop_id', 'store_name', 'logo_path',
+        'default_shop_id', 'store_name', 'logo_path', 'favicon_path',
         'currency_code', 'currency_symbol', 'special_offer_text',
         'blog_hero_kicker', 'blog_hero_title', 'blog_hero_subtitle', 'blog_hero_image',
         'blog_newsletter_title', 'blog_newsletter_text',
+        'blog_articles_title',
+        'blog_feature_1_title', 'blog_feature_1_text',
+        'blog_feature_2_title', 'blog_feature_2_text',
+        'blog_feature_3_title', 'blog_feature_3_text',
         'faq_hero_title', 'faq_hero_subtitle',
         'faq_help_title', 'faq_help_text', 'faq_help_button',
         'contact_hero_kicker', 'contact_hero_title', 'contact_hero_subtitle',

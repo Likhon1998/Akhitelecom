@@ -34,8 +34,8 @@ class BlogCategoryController extends Controller
 
         foreach ([
             ['name' => 'Product Reviews', 'slug' => 'product-reviews', 'color' => 'blue', 'sort_order' => 1],
-            ['name' => 'Tech News', 'slug' => 'tech-news', 'color' => 'violet', 'sort_order' => 2],
-            ['name' => 'Buying Guides', 'slug' => 'buying-guides', 'color' => 'emerald', 'sort_order' => 3],
+            ['name' => 'Tech News', 'slug' => 'tech-news', 'color' => 'emerald', 'sort_order' => 2],
+            ['name' => 'Buying Guides', 'slug' => 'buying-guides', 'color' => 'violet', 'sort_order' => 3],
             ['name' => 'How-To', 'slug' => 'how-to', 'color' => 'amber', 'sort_order' => 4],
         ] as $row) {
             CmsBlogCategory::create(array_merge($row, [

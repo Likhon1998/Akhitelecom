@@ -61,6 +61,7 @@ class WebsiteService
         return (object) [
             'store_name' => $site->store_name ?: ($shop?->name ?? config('app.name', 'GAGET STORE')),
             'logo_path' => $site->logo_path,
+            'favicon_path' => $site->favicon_path,
             'currency_code' => $currencyCode,
             'currency_symbol' => $currencySymbol,
             'special_offer_text' => $site->special_offer_text ?: 'Special Offer!',
@@ -75,6 +76,13 @@ class WebsiteService
             'blog_hero_image' => $site->blog_hero_image,
             'blog_newsletter_title' => $site->blog_newsletter_title,
             'blog_newsletter_text' => $site->blog_newsletter_text,
+            'blog_articles_title' => $site->blog_articles_title,
+            'blog_feature_1_title' => $site->blog_feature_1_title,
+            'blog_feature_1_text' => $site->blog_feature_1_text,
+            'blog_feature_2_title' => $site->blog_feature_2_title,
+            'blog_feature_2_text' => $site->blog_feature_2_text,
+            'blog_feature_3_title' => $site->blog_feature_3_title,
+            'blog_feature_3_text' => $site->blog_feature_3_text,
             'faq_hero_title' => $site->faq_hero_title,
             'faq_hero_subtitle' => $site->faq_hero_subtitle,
             'faq_help_title' => $site->faq_help_title,
@@ -170,7 +178,7 @@ class WebsiteService
             'settings' => $settings,
             'shop' => $this->shop(),
             'heroSlides' => $this->resolveHeroSlides($shopId),
-            'features' => SiteFeature::where('shop_id', $shopId)->where('is_active', true)->orderBy('sort_order')->orderBy('id')->get(),
+            'features' => SiteFeature::where('shop_id', $shopId)->where('is_active', true)->orderBy('sort_order')->orderBy('id')->take(4)->get(),
             'categories' => $categories,
             'allCategories' => Category::where('shop_id', $shopId)
                 ->withCount(['products' => fn ($q) => $q->where('stock_quantity', '>', 0)])
@@ -423,14 +431,12 @@ class WebsiteService
 
     public function blogPageData(?string $search = null, ?string $categorySlug = null): array
     {
-        $featured = $this->featuredBlog();
-        $blogs = $this->publishedBlogs(6, $search, $categorySlug);
+        $blogs = $this->publishedBlogs(9, $search, $categorySlug);
 
         return array_merge($this->homepageData(), [
-            'featuredPost' => $featured,
             'blogs' => $blogs,
             'blogCategories' => $this->blogCategories(),
-            'popularPosts' => $this->popularBlogs(4),
+            'popularPosts' => $this->popularBlogs(3),
             'blogSearch' => $search,
             'activeBlogCategory' => $categorySlug,
         ]);

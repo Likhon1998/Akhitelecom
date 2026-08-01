@@ -12,7 +12,7 @@ class CmsBlog extends Model
     protected $fillable = [
         'shop_id', 'category_id', 'title', 'slug', 'excerpt', 'body',
         'cover_image', 'author_name', 'is_published', 'is_featured',
-        'views_count', 'published_at',
+        'views_count', 'reading_time', 'published_at',
     ];
 
     protected $casts = [
@@ -71,5 +71,12 @@ class CmsBlog extends Model
         }
 
         return $n.' '.( $n === 1 ? 'View' : 'Views');
+    }
+
+    public function readingTimeLabel(): string
+    {
+        $minutes = (int) ($this->reading_time ?: max(1, (int) ceil(str_word_count(strip_tags((string) $this->body)) / 200)));
+
+        return $minutes.' min read';
     }
 }

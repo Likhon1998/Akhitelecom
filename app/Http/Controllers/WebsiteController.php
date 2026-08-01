@@ -495,7 +495,7 @@ class WebsiteController extends Controller
         return view('website.blog-show', array_merge($this->website->homepageData(), [
             'blog' => $blog,
             'relatedPosts' => $related,
-            'popularPosts' => $this->website->popularBlogs(4),
+            'popularPosts' => $this->website->popularBlogs(3),
             'blogCategories' => $this->website->blogCategories(),
         ]));
     }

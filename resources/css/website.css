@@ -1230,7 +1230,7 @@
    ══════════════════════════════════════════════════════════ */
 .tn-container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
 
-/* Hero — compact banner (1600×400 / 4:1), full width */
+/* Hero — wide banner matching design ratio (3:1 / 1920×640), full width */
 .tn-hero {
     position: relative;
     width: 100%;
@@ -1239,7 +1239,7 @@
     padding: 0;
     background: #0f172a;
     overflow: hidden;
-    aspect-ratio: 1600 / 400;
+    aspect-ratio: 3 / 1;
     line-height: 0;
 }
 .tn-hero-slide {

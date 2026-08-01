@@ -96,8 +96,15 @@ class BlogController extends Controller
             'blog_hero_kicker' => 'nullable|string|max:80',
             'blog_hero_title' => 'nullable|string|max:160',
             'blog_hero_subtitle' => 'nullable|string|max:500',
+            'blog_articles_title' => 'nullable|string|max:120',
             'blog_newsletter_title' => 'nullable|string|max:160',
             'blog_newsletter_text' => 'nullable|string|max:500',
+            'blog_feature_1_title' => 'nullable|string|max:80',
+            'blog_feature_1_text' => 'nullable|string|max:160',
+            'blog_feature_2_title' => 'nullable|string|max:80',
+            'blog_feature_2_text' => 'nullable|string|max:160',
+            'blog_feature_3_title' => 'nullable|string|max:80',
+            'blog_feature_3_text' => 'nullable|string|max:160',
             'blog_hero_image' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:5120',
         ]);
 
@@ -112,7 +119,14 @@ class BlogController extends Controller
 
         $settings->default_shop_id = $settings->default_shop_id ?: $this->shopId();
 
-        foreach (['blog_hero_kicker', 'blog_hero_title', 'blog_hero_subtitle', 'blog_newsletter_title', 'blog_newsletter_text'] as $field) {
+        $textFields = [
+            'blog_hero_kicker', 'blog_hero_title', 'blog_hero_subtitle', 'blog_articles_title',
+            'blog_newsletter_title', 'blog_newsletter_text',
+            'blog_feature_1_title', 'blog_feature_1_text',
+            'blog_feature_2_title', 'blog_feature_2_text',
+            'blog_feature_3_title', 'blog_feature_3_text',
+        ];
+        foreach ($textFields as $field) {
             if (array_key_exists($field, $data)) {
                 $settings->{$field} = $data[$field] !== '' ? $data[$field] : null;
             }
@@ -137,8 +151,8 @@ class BlogController extends Controller
         if (! CmsBlogCategory::where('shop_id', $this->shopId())->exists()) {
             foreach ([
                 ['name' => 'Product Reviews', 'slug' => 'product-reviews', 'color' => 'blue', 'sort_order' => 1],
-                ['name' => 'Tech News', 'slug' => 'tech-news', 'color' => 'violet', 'sort_order' => 2],
-                ['name' => 'Buying Guides', 'slug' => 'buying-guides', 'color' => 'emerald', 'sort_order' => 3],
+                ['name' => 'Tech News', 'slug' => 'tech-news', 'color' => 'emerald', 'sort_order' => 2],
+                ['name' => 'Buying Guides', 'slug' => 'buying-guides', 'color' => 'violet', 'sort_order' => 3],
                 ['name' => 'How-To', 'slug' => 'how-to', 'color' => 'amber', 'sort_order' => 4],
             ] as $row) {
                 CmsBlogCategory::create(array_merge($row, [
@@ -170,6 +184,7 @@ class BlogController extends Controller
             'excerpt' => 'nullable|string|max:500',
             'body' => 'nullable|string',
             'author_name' => 'nullable|string|max:255',
+            'reading_time' => 'nullable|integer|min:1|max:120',
             'published_at' => 'nullable|date',
             'cover' => 'nullable|file|mimes:jpeg,jpg,png,webp,gif|max:5120',
         ]);
@@ -178,6 +193,7 @@ class BlogController extends Controller
         $data['is_published'] = $request->boolean('is_published');
         $data['is_featured'] = $request->boolean('is_featured');
         $data['category_id'] = $data['category_id'] ?? null;
+        $data['reading_time'] = $data['reading_time'] ?? null;
 
         if ($data['is_published']) {
             // Blank publish date = go live now (don't leave a “later today” scheduled time).

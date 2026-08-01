@@ -13,11 +13,11 @@
         <div class="rounded-xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-600 leading-relaxed">
             <p class="font-semibold text-slate-800">Poster size guide</p>
             <ul class="mt-2 list-disc pl-5 space-y-1 text-[13px]">
-                <li><strong>Best size:</strong> <strong>1600 × 400</strong> px (ratio <strong>4:1</strong>)</li>
-                <li><strong>Also good:</strong> 1920×480, 2000×500, 2400×600 (same 4:1 ratio)</li>
+                <li><strong>Best size:</strong> <strong>1920 × 640</strong> px (ratio <strong>3:1</strong>)</li>
+                <li><strong>Also good:</strong> 1536×512, 2400×800 (same 3:1 ratio)</li>
                 <li><strong>Format:</strong> JPG, PNG, or WebP</li>
-                <li>Design text/layout inside the image — the site shows it as a compact full-width banner.</li>
-                <li>Taller images (e.g. 1600×600) get cropped top/bottom to fit.</li>
+                <li>Design text/layout inside the image — the site shows it edge-to-edge with no crop gaps.</li>
+                <li>Other ratios are centered and cover-filled (edges may crop slightly).</li>
             </ul>
         </div>
 

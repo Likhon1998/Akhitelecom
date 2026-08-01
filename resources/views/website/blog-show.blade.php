@@ -26,10 +26,16 @@
                 <span class="text-[10px] font-bold uppercase tracking-wider {{ $colorMap[$blog->category->color ?? 'blue'] ?? $colorMap['blue'] }} px-2 py-0.5 rounded">{{ $blog->category->name }}</span>
             @endif
             <h1 class="mt-2 text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight leading-snug">{{ $blog->title }}</h1>
-            <div class="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400">
+            <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
                 @if($blog->author_name)<span>By {{ $blog->author_name }}</span>@endif
-                <span>{{ optional($blog->published_at)->format('M d, Y') }}</span>
-                <span>{{ $blog->viewsLabel() }}</span>
+                <span class="inline-flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    {{ optional($blog->published_at)->format('M d, Y') }}
+                </span>
+                <span class="inline-flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    {{ $blog->readingTimeLabel() }}
+                </span>
             </div>
 
             <img src="{{ $blog->coverUrl() }}" alt="" class="mt-6 w-full rounded-2xl object-cover max-h-[420px] border border-slate-100">

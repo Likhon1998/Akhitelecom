@@ -14,6 +14,34 @@ if (! function_exists('public_storage_url')) {
     }
 }
 
+if (! function_exists('site_favicon_url')) {
+    /**
+     * Browser tab icon: custom favicon → store logo → branded default SVG.
+     */
+    function site_favicon_url(?object $settings = null): string
+    {
+        if ($settings === null) {
+            try {
+                $settings = \App\Models\SiteSetting::query()->first();
+            } catch (\Throwable) {
+                $settings = null;
+            }
+        }
+
+        $favicon = data_get($settings, 'favicon_path');
+        if (filled($favicon)) {
+            return public_storage_url($favicon);
+        }
+
+        $logo = data_get($settings, 'logo_path');
+        if (filled($logo)) {
+            return public_storage_url($logo);
+        }
+
+        return asset('favicon.svg');
+    }
+}
+
 if (! function_exists('app_timezone')) {
     function app_timezone(): string
     {

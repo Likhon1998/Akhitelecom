@@ -45,6 +45,12 @@
         </div>
 
         <div>
+            <label class="text-xs font-bold uppercase text-slate-500">Reading time (minutes)</label>
+            <input type="number" name="reading_time" min="1" max="120" value="{{ old('reading_time', $blog->reading_time) }}" class="mt-1 w-full max-w-xs rounded-xl border-slate-200 text-sm" placeholder="e.g. 5">
+            <p class="mt-1 text-[11px] text-slate-400">Shown on cards as “5 min read”. Leave blank to auto-estimate from body.</p>
+        </div>
+
+        <div>
             <label class="text-xs font-bold uppercase text-slate-500">Excerpt</label>
             <textarea name="excerpt" rows="2" class="mt-1 w-full rounded-xl border-slate-200 text-sm" placeholder="Short summary shown on cards…">{{ old('excerpt', $blog->excerpt) }}</textarea>
         </div>
@@ -69,7 +75,7 @@
             </label>
             <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
                 <input type="checkbox" name="is_featured" value="1" class="rounded border-slate-300 text-indigo-600" @checked(old('is_featured', $blog->is_featured ?? false))>
-                Featured post (large card on /blog)
+                Featured / popular priority
             </label>
         </div>
 

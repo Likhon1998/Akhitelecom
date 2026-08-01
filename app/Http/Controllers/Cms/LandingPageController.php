@@ -51,6 +51,7 @@ class LandingPageController extends Controller
             'contact_phone' => 'nullable|string|max:50',
             'contact_address' => 'nullable|string|max:500',
             'logo' => 'nullable|file|mimes:jpeg,jpg,png,webp,gif,svg|max:5120',
+            'favicon' => 'nullable|file|mimes:jpeg,jpg,png,webp,gif,svg,ico|max:2048',
             'features' => 'nullable|array',
             'features.*.id' => 'nullable|integer',
             'features.*.icon' => 'nullable|string|max:50',
@@ -99,6 +100,13 @@ class LandingPageController extends Controller
                 Storage::disk('public')->delete($settings->logo_path);
             }
             $settings->logo_path = $request->file('logo')->store('cms/logo', 'public');
+        }
+
+        if ($request->hasFile('favicon')) {
+            if ($settings->favicon_path) {
+                Storage::disk('public')->delete($settings->favicon_path);
+            }
+            $settings->favicon_path = $request->file('favicon')->store('cms/favicon', 'public');
         }
 
         $settings->save();

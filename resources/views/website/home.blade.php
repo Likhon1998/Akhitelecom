@@ -3,7 +3,7 @@
 
 @section('content')
 
-{{-- Hero posters (CMS → Home Posters) — 1600×400 full-design art --}}
+{{-- Hero posters (CMS → Home Posters) — 1920×640 / 3:1 full-design art --}}
 <section class="tn-hero" x-data="{ slide: 0, total: {{ max($heroSlides->count(), 1) }} }"
          @if($heroSlides->count() > 1) x-init="setInterval(()=>{ slide=(slide+1)%total }, 6000)" @endif>
     @if($heroSlides->count() > 1)
@@ -17,6 +17,10 @@
     @forelse($heroSlides as $i => $slide)
         @php
             $posterUrl = $slide->image_path ? public_storage_url($slide->image_path) : null;
+            if ($posterUrl && $slide->image_path) {
+                $full = storage_path('app/public/'.$slide->image_path);
+                $posterUrl .= '?v='.(is_file($full) ? filemtime($full) : time());
+            }
             $link = $slide->button_url ?: route('website.shop');
         @endphp
         <div class="tn-hero-slide" x-show="slide==={{ $i }}" @if($i > 0) x-cloak @endif>
@@ -26,8 +30,8 @@
                         src="{{ $posterUrl }}"
                         alt="{{ $slide->title }}"
                         class="tn-hero-img"
-                        width="1600"
-                        height="400"
+                        width="1920"
+                        height="640"
                         decoding="async"
                         @if($i === 0) fetchpriority="high" @endif
                     >
@@ -72,7 +76,7 @@
 <section class="tn-features">
     <div class="tn-container">
         <div class="tn-features-panel">
-            <div class="tn-features-grid tn-features-grid--{{ min($features->count(), 5) }}">
+            <div class="tn-features-grid tn-features-grid--{{ min(max($features->count(), 1), 4) }}">
                 @foreach($features as $feature)
                     <div class="tn-feature">
                         <div class="tn-feature-icon">@include('website.partials.feature-icon', ['icon' => $feature->icon])</div>
@@ -291,7 +295,7 @@
                         <h3 class="tn-blog-title">{{ $post->title }}</h3>
                         <p class="tn-blog-meta">
                             {{ optional($post->published_at)->format('M d, Y') }}
-                            @if($post->viewsLabel()) &middot; {{ $post->viewsLabel() }} @endif
+                            &middot; {{ $post->readingTimeLabel() }}
                         </p>
                     </div>
                 </a>

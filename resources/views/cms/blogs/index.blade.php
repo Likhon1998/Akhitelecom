@@ -1,13 +1,13 @@
-<x-cms-layout title="Blogs" subtitle="Articles, featured post, and blog page hero / newsletter — all shown on the public /blog page." actionUrl="{{ route('cms.blogs.create') }}" actionLabel="+ New post" previewUrl="{{ route('website.blogs') }}">
+<x-cms-layout title="Blogs" subtitle="Articles, hero highlights, and newsletter — all shown on the public /blog page." actionUrl="{{ route('cms.blogs.create') }}" actionLabel="+ New post" previewUrl="{{ route('website.blogs') }}">
 
     <div class="mb-4 flex flex-wrap gap-2">
         <a href="{{ route('cms.blog-categories.index') }}" class="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Manage categories</a>
     </div>
 
-    {{-- Blog page settings (hero + newsletter) --}}
+    {{-- Blog page settings (hero + features + newsletter) --}}
     <div class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h3 class="text-sm font-bold text-slate-900">Blog page settings</h3>
-        <p class="text-xs text-slate-500 mt-0.5">Controls the hero banner and newsletter box on /blog.</p>
+        <p class="text-xs text-slate-500 mt-0.5">Controls the hero banner, feature highlights, articles heading, and newsletter box on /blog.</p>
         <form method="POST" action="{{ route('cms.blogs.settings') }}" enctype="multipart/form-data" class="mt-4 grid gap-4 md:grid-cols-2">
             @csrf
             <div>
@@ -32,10 +32,33 @@
                 @error('blog_hero_image') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
             </div>
             <div>
+                <label class="text-[11px] font-bold uppercase text-slate-500">Articles section title</label>
+                <input name="blog_articles_title" value="{{ old('blog_articles_title', $settings->blog_articles_title ?? 'Latest Articles') }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm" placeholder="Latest Articles">
+            </div>
+
+            <div class="md:col-span-2 rounded-xl border border-slate-100 bg-slate-50 p-4">
+                <p class="text-[11px] font-bold uppercase text-slate-500 mb-3">Hero feature highlights (3)</p>
+                <div class="grid gap-3 md:grid-cols-3">
+                    <div>
+                        <input name="blog_feature_1_title" value="{{ old('blog_feature_1_title', $settings->blog_feature_1_title ?? 'Expert Reviews') }}" class="w-full rounded-xl border-slate-200 text-sm" placeholder="Expert Reviews">
+                        <input name="blog_feature_1_text" value="{{ old('blog_feature_1_text', $settings->blog_feature_1_text ?? 'In-depth & honest') }}" class="mt-2 w-full rounded-xl border-slate-200 text-sm" placeholder="In-depth & honest">
+                    </div>
+                    <div>
+                        <input name="blog_feature_2_title" value="{{ old('blog_feature_2_title', $settings->blog_feature_2_title ?? 'Buying Guides') }}" class="w-full rounded-xl border-slate-200 text-sm" placeholder="Buying Guides">
+                        <input name="blog_feature_2_text" value="{{ old('blog_feature_2_text', $settings->blog_feature_2_text ?? 'Smart picks for you') }}" class="mt-2 w-full rounded-xl border-slate-200 text-sm" placeholder="Smart picks for you">
+                    </div>
+                    <div>
+                        <input name="blog_feature_3_title" value="{{ old('blog_feature_3_title', $settings->blog_feature_3_title ?? 'Latest Updates') }}" class="w-full rounded-xl border-slate-200 text-sm" placeholder="Latest Updates">
+                        <input name="blog_feature_3_text" value="{{ old('blog_feature_3_text', $settings->blog_feature_3_text ?? 'Tech news, trends & more') }}" class="mt-2 w-full rounded-xl border-slate-200 text-sm" placeholder="Tech news, trends & more">
+                    </div>
+                </div>
+            </div>
+
+            <div>
                 <label class="text-[11px] font-bold uppercase text-slate-500">Newsletter title</label>
                 <input name="blog_newsletter_title" value="{{ old('blog_newsletter_title', $settings->blog_newsletter_title ?? 'Subscribe to Our Newsletter') }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm">
             </div>
-            <div class="md:col-span-2">
+            <div>
                 <label class="text-[11px] font-bold uppercase text-slate-500">Newsletter text</label>
                 <input name="blog_newsletter_text" value="{{ old('blog_newsletter_text', $settings->blog_newsletter_text) }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm" placeholder="Get the latest deals and tech news…">
             </div>

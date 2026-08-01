@@ -49,6 +49,9 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', [WebsiteController::class, 'home'])->name('home');
+Route::get('/favicon.ico', function () {
+    return redirect()->to(site_favicon_url(), 302);
+})->name('favicon');
 Route::redirect('/login', '/admin/login');
 Route::get('/shop', [WebsiteController::class, 'shop'])->name('website.shop');
 Route::get('/search/suggest', [WebsiteController::class, 'searchSuggest'])->name('website.search.suggest');
