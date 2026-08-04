@@ -8,7 +8,9 @@ class PromoBanner extends Model
 {
     protected $fillable = [
         'shop_id', 'title', 'subtitle', 'price_from', 'image_path',
-        'button_text', 'button_url', 'theme', 'sort_order', 'is_active',
+        'button_text', 'button_url', 'theme',
+        'badge_text', 'highlight_text', 'discount_badge',
+        'sort_order', 'is_active',
     ];
 
     protected $casts = [

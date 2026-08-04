@@ -6,9 +6,23 @@
     <form method="POST" action="{{ route('cms.landing.update') }}" enctype="multipart/form-data" class="space-y-6"
           x-data="{
             features: @js($features->map(fn($f)=>['id'=>$f->id,'icon'=>$f->icon,'title'=>$f->title,'subtitle'=>$f->subtitle,'sort_order'=>$f->sort_order,'is_active'=>$f->is_active])->values()),
-            banners: @js($banners->map(fn($b)=>['id'=>$b->id,'title'=>$b->title,'subtitle'=>$b->subtitle,'price_from'=>$b->price_from,'button_text'=>$b->button_text,'button_url'=>$b->button_url,'theme'=>$b->theme,'sort_order'=>$b->sort_order,'is_active'=>$b->is_active,'image_path'=>$b->image_path])->values()),
+            banners: @js($banners->map(fn($b)=>[
+                'id'=>$b->id,
+                'title'=>$b->title,
+                'subtitle'=>$b->subtitle,
+                'badge_text'=>$b->badge_text,
+                'highlight_text'=>$b->highlight_text,
+                'discount_badge'=>$b->discount_badge,
+                'price_from'=>$b->price_from,
+                'button_text'=>$b->button_text,
+                'button_url'=>$b->button_url,
+                'theme'=>$b->theme,
+                'sort_order'=>$b->sort_order,
+                'is_active'=>$b->is_active,
+                'image_path'=>$b->image_path,
+            ])->values()),
             addFeature(){ this.features.push({id:null,icon:'truck',title:'',subtitle:'',sort_order:this.features.length,is_active:true}) },
-            addBanner(){ this.banners.push({id:null,title:'',subtitle:'',price_from:'',button_text:'Shop Now',button_url:'/shop',theme:'dark',sort_order:this.banners.length,is_active:true,image_path:null}) }
+            addBanner(){ this.banners.push({id:null,title:'',subtitle:'',badge_text:'',highlight_text:'',discount_badge:'',price_from:'',button_text:'Shop Now',button_url:'/shop',theme:'dark',sort_order:this.banners.length,is_active:true,image_path:null}) }
           }">
         @csrf
         @method('PUT')
@@ -105,6 +119,22 @@
                     <input name="trusted_by_text" value="{{ old('trusted_by_text', $settings->trusted_by_text) }}" class="mt-1 w-full rounded-xl border-slate-200">
                 </div>
                 <div>
+                    <label class="text-xs font-bold uppercase text-slate-500">Deals kicker</label>
+                    <input name="deals_kicker" value="{{ old('deals_kicker', $settings->deals_kicker) }}" class="mt-1 w-full rounded-xl border-slate-200" placeholder="SPECIAL OFFERS">
+                </div>
+                <div>
+                    <label class="text-xs font-bold uppercase text-slate-500">Deals title</label>
+                    <input name="deals_title" value="{{ old('deals_title', $settings->deals_title) }}" class="mt-1 w-full rounded-xl border-slate-200" placeholder="Deals You'll">
+                </div>
+                <div>
+                    <label class="text-xs font-bold uppercase text-slate-500">Deals accent word</label>
+                    <input name="deals_title_accent" value="{{ old('deals_title_accent', $settings->deals_title_accent) }}" class="mt-1 w-full rounded-xl border-slate-200" placeholder="Love">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-xs font-bold uppercase text-slate-500">Deals subtitle</label>
+                    <input name="deals_subtitle" value="{{ old('deals_subtitle', $settings->deals_subtitle) }}" class="mt-1 w-full rounded-xl border-slate-200" placeholder="Grab the best deals on top-quality gadgets and accessories.">
+                </div>
+                <div>
                     <label class="text-xs font-bold uppercase text-slate-500">Contact email</label>
                     <input type="email" name="contact_email" value="{{ old('contact_email', $settings->contact_email) }}" class="mt-1 w-full rounded-xl border-slate-200">
                 </div>
@@ -158,8 +188,8 @@
         <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div class="flex items-center justify-between gap-3">
                 <div>
-                    <h3 class="text-base font-bold text-slate-900">Promo banners</h3>
-                    <p class="text-sm text-slate-500">Homepage promo cards. Upload an image for each card — images are stored and shown from the database.</p>
+                    <h3 class="text-base font-bold text-slate-900">Promo banners (Deals You’ll Love)</h3>
+                    <p class="text-sm text-slate-500">Homepage deal cards. Use Dark / Light theme. Optional badge, highlight text (e.g. 40%), and discount circle (−40%).</p>
                 </div>
                 <button type="button" @click="addBanner()" class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">+ Banner</button>
             </div>
@@ -168,14 +198,17 @@
                     <div class="rounded-xl border border-slate-100 bg-slate-50/70 p-4 space-y-3">
                         <input type="hidden" :name="'banners['+i+'][id]'" :value="b.id || ''">
                         <div class="grid gap-2 md:grid-cols-2">
-                            <input :name="'banners['+i+'][title]'" x-model="b.title" placeholder="Title" class="rounded-lg border-slate-200 text-sm">
-                            <input :name="'banners['+i+'][subtitle]'" x-model="b.subtitle" placeholder="Subtitle" class="rounded-lg border-slate-200 text-sm">
-                            <input type="number" step="0.01" :name="'banners['+i+'][price_from]'" x-model="b.price_from" placeholder="Price from (optional)" class="rounded-lg border-slate-200 text-sm">
+                            <input :name="'banners['+i+'][title]'" x-model="b.title" placeholder="Title (e.g. SOMOSTEL B2)" class="rounded-lg border-slate-200 text-sm">
+                            <input :name="'banners['+i+'][subtitle]'" x-model="b.subtitle" placeholder="Subtitle (e.g. Up to 40% Off)" class="rounded-lg border-slate-200 text-sm">
+                            <input :name="'banners['+i+'][badge_text]'" x-model="b.badge_text" placeholder="Badge (e.g. BEST SELLER)" class="rounded-lg border-slate-200 text-sm">
+                            <input :name="'banners['+i+'][highlight_text]'" x-model="b.highlight_text" placeholder="Highlight in subtitle (e.g. 40%)" class="rounded-lg border-slate-200 text-sm">
+                            <input :name="'banners['+i+'][discount_badge]'" x-model="b.discount_badge" placeholder="Corner badge (e.g. -40%)" class="rounded-lg border-slate-200 text-sm">
+                            <input type="number" step="0.01" :name="'banners['+i+'][price_from]'" x-model="b.price_from" placeholder="Price from" class="rounded-lg border-slate-200 text-sm">
                             <input :name="'banners['+i+'][button_url]'" x-model="b.button_url" placeholder="Button URL" class="rounded-lg border-slate-200 text-sm">
                             <input :name="'banners['+i+'][button_text]'" x-model="b.button_text" placeholder="Button text" class="rounded-lg border-slate-200 text-sm">
                             <select :name="'banners['+i+'][theme]'" x-model="b.theme" class="rounded-lg border-slate-200 text-sm">
-                                <option value="dark">Dark</option>
-                                <option value="light">Light</option>
+                                <option value="dark">Dark (pink CTA)</option>
+                                <option value="light">Light (blue CTA)</option>
                             </select>
                         </div>
                         <div class="flex flex-wrap items-center gap-3">

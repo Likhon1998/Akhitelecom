@@ -34,6 +34,10 @@ class WebsiteSeeder extends Seeder
             'currency_symbol' => '৳',
             'special_offer_text' => 'Special Offer!',
             'trusted_by_text' => 'Trusted by customers across Bangladesh',
+            'deals_kicker' => 'SPECIAL OFFERS',
+            'deals_title' => "Deals You'll",
+            'deals_title_accent' => 'Love',
+            'deals_subtitle' => 'Grab the best deals on top-quality gadgets and accessories.',
             'contact_email' => 'hello@gagetstore.com',
             'contact_phone' => '+880 1700-000000',
             'contact_address' => 'Dhaka, Bangladesh',
@@ -46,9 +50,26 @@ class WebsiteSeeder extends Seeder
         $this->call(SiteFeatureSeeder::class);
 
         $promos = [
-            ['title' => 'Summer Sale', 'subtitle' => 'Up to 40% Off', 'theme' => 'dark', 'sort_order' => 1],
-            ['title' => 'MacBook Air', 'subtitle' => 'Supercharged by M3', 'price_from' => 1099, 'theme' => 'light', 'sort_order' => 2],
-            ['title' => 'Best Deals', 'subtitle' => 'Smartwatches', 'price_from' => 99, 'theme' => 'dark', 'sort_order' => 3],
+            [
+                'title' => 'SOMOSTEL B2',
+                'subtitle' => 'Up to 40% Off',
+                'badge_text' => 'BEST SELLER',
+                'highlight_text' => '40% Off',
+                'discount_badge' => '-40%',
+                'price_from' => 749.98,
+                'theme' => 'dark',
+                'sort_order' => 1,
+            ],
+            [
+                'title' => 'SOMOSTEL B3',
+                'subtitle' => 'Supercharged by M3',
+                'badge_text' => 'MEGA POWER',
+                'highlight_text' => null,
+                'discount_badge' => null,
+                'price_from' => 749.00,
+                'theme' => 'light',
+                'sort_order' => 2,
+            ],
         ];
         foreach ($promos as $p) {
             PromoBanner::create(array_merge($p, ['shop_id' => $shop->id, 'button_text' => 'Shop Now', 'button_url' => '/shop', 'is_active' => true]));

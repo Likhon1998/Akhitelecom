@@ -250,27 +250,99 @@
 </section>
 @endif
 
-{{-- Promo banners (CMS → Landing Page) --}}
+{{-- Deals You'll Love (CMS → Landing Page promo banners) --}}
 @if($promoBanners->isNotEmpty())
-<section class="tn-section">
+@php
+    $dealsKicker = data_get($settings, 'deals_kicker') ?: 'Special Offers';
+    $dealsTitle = data_get($settings, 'deals_title') ?: "Deals You'll";
+    $dealsAccent = data_get($settings, 'deals_title_accent') ?: 'Love';
+    $dealsSub = data_get($settings, 'deals_subtitle') ?: 'Grab the best deals on top-quality gadgets and accessories.';
+@endphp
+<section class="tn-deals">
     <div class="tn-container">
-        <div class="tn-promo-grid">
+        <div class="tn-deals-head">
+            <div class="tn-deals-kicker">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+                    <circle cx="7" cy="7" r="1.2" fill="currentColor" stroke="none"/>
+                </svg>
+                {{ $dealsKicker }}
+            </div>
+            <h2 class="tn-deals-title">
+                <span class="tn-deals-rays tn-deals-rays--left" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span>{{ $dealsTitle }} <em>{{ $dealsAccent }}</em></span>
+                <span class="tn-deals-rays tn-deals-rays--right" aria-hidden="true"><i></i><i></i><i></i></span>
+            </h2>
+            <p class="tn-deals-sub">{{ $dealsSub }}</p>
+        </div>
+
+        <div class="tn-deals-grid">
             @foreach($promoBanners->take(2) as $banner)
-                <div class="tn-promo {{ $banner->theme === 'light' ? 'tn-promo-light' : 'tn-promo-dark' }}">
-                    <div class="tn-promo-body">
-                        <h3 class="tn-promo-title">{{ $banner->title }}</h3>
-                        @if($banner->subtitle)<p class="tn-promo-sub">{{ $banner->subtitle }}</p>@endif
-                        @if($banner->price_from)
-                            <p class="tn-promo-price">From <strong>{{ $ws->formatPrice($banner->price_from, $settings) }}</strong></p>
-                        @endif
-                        <a href="{{ $banner->button_url ?? route('website.shop') }}" class="tn-btn {{ $banner->theme === 'light' ? 'tn-btn-link' : 'tn-btn-primary tn-btn-sm' }}">
-                            {{ $banner->button_text ?? 'Shop Now' }}
-                        </a>
-                    </div>
-                    @if($banner->image_path)
-                        <img src="{{ public_storage_url($banner->image_path) }}" alt="{{ $banner->title }}" class="tn-promo-img">
+                @php
+                    $isLight = $banner->theme === 'light';
+                    $url = $banner->button_url ?: route('website.shop');
+                    $sub = (string) ($banner->subtitle ?? '');
+                    $hi = trim((string) ($banner->highlight_text ?? ''));
+                    if ($hi !== '' && $sub !== '' && str_contains($sub, $hi)) {
+                        $subHtml = str_replace($hi, '<strong>'.e($hi).'</strong>', e($sub));
+                    } else {
+                        $subHtml = e($sub);
+                    }
+                @endphp
+                <article class="tn-deal {{ $isLight ? 'is-light' : 'is-dark' }}">
+                    @if($banner->discount_badge)
+                        <span class="tn-deal-disc">{{ $banner->discount_badge }}</span>
                     @endif
-                </div>
+
+                    <div class="tn-deal-body">
+                        @if($banner->badge_text)
+                            <span class="tn-deal-badge">
+                                @if($isLight)
+                                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 10-14h-7l1-6z"/></svg>
+                                @else
+                                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.5 2.2c.3-.5 1.1-.3 1.1.3v5.2h4.2c.6 0 .9.7.5 1.1l-8.4 9.7c-.4.5-1.2.2-1.1-.5l.8-5.5H5.5c-.6 0-.9-.7-.5-1.1L12.5 2.2z"/></svg>
+                                @endif
+                                {{ $banner->badge_text }}
+                            </span>
+                        @endif
+
+                        <div class="tn-deal-copy">
+                            <div class="tn-deal-copy-main">
+                                <h3 class="tn-deal-name">{{ $banner->title }}</h3>
+                                @if($sub !== '')
+                                    <p class="tn-deal-offer">{!! $subHtml !!}</p>
+                                @endif
+                            </div>
+                            @if($banner->price_from)
+                                <div class="tn-deal-price">
+                                    <span>From</span>
+                                    <strong>{{ $ws->formatPrice($banner->price_from, $settings) }}</strong>
+                                </div>
+                            @endif
+                        </div>
+
+                        <div class="tn-deal-actions">
+                            <a href="{{ $url }}" class="tn-deal-cta">
+                                @if($isLight)
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l3-8H6.4M7 13L5.4 5M7 13l-2 7h14M10 20a1 1 0 102 0 1 1 0 00-2 0zm8 0a1 1 0 102 0 1 1 0 00-2 0z"/></svg>
+                                @else
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                                @endif
+                                {{ $banner->button_text ?: 'Shop Now' }}
+                            </a>
+                            <a href="{{ $url }}" class="tn-deal-arrow" aria-label="{{ $banner->button_text ?: 'Shop Now' }}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></svg>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="tn-deal-media">
+                        <div class="tn-deal-podium" aria-hidden="true"></div>
+                        @if($banner->image_path)
+                            <img src="{{ public_storage_url($banner->image_path) }}" alt="{{ $banner->title }}" class="tn-deal-img">
+                        @endif
+                    </div>
+                </article>
             @endforeach
         </div>
     </div>

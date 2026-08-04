@@ -66,6 +66,10 @@ class WebsiteService
             'currency_symbol' => $currencySymbol,
             'special_offer_text' => $site->special_offer_text ?: 'Special Offer!',
             'trusted_by_text' => $site->trusted_by_text ?: 'Trusted by thousands of customers',
+            'deals_kicker' => $site->deals_kicker ?: 'Special Offers',
+            'deals_title' => $site->deals_title ?: "Deals You'll",
+            'deals_title_accent' => $site->deals_title_accent ?: 'Love',
+            'deals_subtitle' => $site->deals_subtitle ?: 'Grab the best deals on top-quality gadgets and accessories.',
             'contact_email' => $site->contact_email ?: $shop?->email,
             'contact_phone' => $site->contact_phone ?: $shop?->phone,
             'contact_address' => $site->contact_address ?: $shop?->address,
@@ -492,6 +496,11 @@ class WebsiteService
         $badExact = ['', '880', '+880', '088', '00880', '88', '0', '00', '000'];
         $looksLikePhoneCode = (bool) preg_match('/^\+?\d{2,4}$/', $symbol);
 
+        // Heal common CMS mistakes: BDT amounts saved with a $ symbol.
+        if ($code === 'BDT' && in_array($symbol, ['$', 'USD', 'US$', 'dollar', 'Dollar'], true)) {
+            return '৳';
+        }
+
         if (in_array($symbol, $badExact, true) || $looksLikePhoneCode) {
             return match ($code) {
                 'USD' => '$',
@@ -531,13 +540,22 @@ class WebsiteService
     {
         $urls = [];
         foreach ($product->imagePaths() as $path) {
-            $urls[] = public_storage_url($path);
+            $url = public_storage_url($path);
+            if ($url) {
+                $urls[] = $url;
+            }
         }
 
         if ($urls === []) {
             $fallback = config('website_assets.products.' . $product->barcode)
-                ?? config('website_assets.products.' . \Illuminate\Support\Str::slug($product->name))
-                ?? 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&q=80';
+                ?? config('website_assets.products.' . \Illuminate\Support\Str::slug($product->name));
+
+            // Prefer a stable per-product placeholder so New Arrivals never all look identical.
+            if (! $fallback) {
+                $seed = abs(crc32((string) ($product->barcode ?: $product->sku ?: $product->id ?: $product->name)));
+                $fallback = 'https://picsum.photos/seed/gadget'.$seed.'/500/500';
+            }
+
             $urls[] = $fallback;
         }
 

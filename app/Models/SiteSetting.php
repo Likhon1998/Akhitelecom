@@ -25,7 +25,9 @@ class SiteSetting extends Model
         'contact_form_title', 'contact_form_subtitle',
         'contact_map_embed', 'contact_website_url',
         'contact_newsletter_title', 'contact_newsletter_text',
-        'trusted_by_text', 'contact_email', 'contact_phone',
+        'trusted_by_text',
+        'deals_kicker', 'deals_title', 'deals_title_accent', 'deals_subtitle',
+        'contact_email', 'contact_phone',
         'contact_address', 'social_links',
     ];
 
