@@ -35,6 +35,7 @@ class Order extends Model
         'return_product_id',
         'return_qty',
         'exchange_credit',
+        'includes_sale',
     ];
 
     protected $casts = [
@@ -42,6 +43,7 @@ class Order extends Model
         'discount_amount' => 'decimal:2',
         'credit_amount' => 'decimal:2',
         'is_baki' => 'boolean',
+        'includes_sale' => 'boolean',
         'paid_amount' => 'decimal:2',
         'cash_paid' => 'decimal:2',
         'card_paid' => 'decimal:2',

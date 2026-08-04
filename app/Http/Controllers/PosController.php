@@ -84,6 +84,7 @@ class PosController extends Controller
                     'selling_price' => $product->currentPrice(),
                     'list_price' => (float) $product->selling_price,
                     'on_sale' => $product->isOnSale(),
+                    'sale_percent' => $product->discountPercent(),
                     'stock_quantity' => $product->stock_quantity,
                     'image' => $imagePath,
                     'image_url' => $imageUrl,
@@ -213,26 +214,42 @@ class PosController extends Controller
             DB::beginTransaction();
 
             $totalAmount = 0;
+            $chargeTotal = 0;
+            $includesSale = false;
 
-            // 1. Calculate the exact total from the database
+            // 1. Subtotal at list price; charge uses active sale price when in window
             foreach ($request->cart as $item) {
                 $product = Product::where('shop_id', $shopId)->findOrFail($item['id']);
                 if ($product->stock_quantity < $item['qty']) {
                     throw new \Exception("Not enough stock for {$product->name}");
                 }
-                $totalAmount += $product->currentPrice() * $item['qty'];
+                $qty = (int) $item['qty'];
+                $list = (float) $product->selling_price;
+                $charge = $product->currentPrice();
+                if ($product->isOnSale()) {
+                    $includesSale = true;
+                }
+                $totalAmount += $list * $qty;
+                $chargeTotal += $charge * $qty;
             }
+            $totalAmount = round($totalAmount, 2);
+            $chargeTotal = round($chargeTotal, 2);
+            $autoSaleDiscount = max(0, round($totalAmount - $chargeTotal, 2));
 
             // 🚀 EXCHANGE MATH & SECURITY
             $isExchange = $request->is_exchange ?? false;
             $exchangeCredit = (float) ($request->exchange_credit ?? 0);
 
-            if ($isExchange && $totalAmount < $exchangeCredit) {
+            if ($isExchange && $chargeTotal < $exchangeCredit) {
                 throw new \Exception("Exchange Blocked: Cart total must equal or exceed the return credit. No cash refunds allowed.");
             }
 
             $paidAmountInput = max(0, (float) $request->paid_amount);
             $requestedDiscount = max(0, (float) ($request->discount_amount ?? 0));
+            // Keep timed sale savings in the discount even if client under-reports.
+            if ($autoSaleDiscount > 0) {
+                $requestedDiscount = max($requestedDiscount, $autoSaleDiscount);
+            }
             $exchangeForMath = $isExchange ? $exchangeCredit : 0.0;
 
             $creditAmount = 0.0;
@@ -383,18 +400,20 @@ class PosController extends Controller
                 'return_product_id' => $isExchange ? $request->return_product_id : null,
                 'return_qty' => $isExchange ? $request->return_qty : null,
                 'exchange_credit' => $isExchange ? $exchangeCredit : null,
+                'includes_sale' => $includesSale,
             ]);
 
             // 5. Save Items & Decrease Inventory
             foreach ($request->cart as $item) {
                 $product = Product::where('shop_id', $shopId)->findOrFail($item['id']);
-                $subtotal = $product->currentPrice() * $item['qty'];
+                $list = (float) $product->selling_price;
+                $subtotal = $list * $item['qty'];
 
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $product->id,
                     'quantity' => $item['qty'],
-                    'unit_price' => $product->currentPrice(),
+                    'unit_price' => $list,
                     'subtotal' => $subtotal,
                 ]);
 
@@ -613,8 +632,10 @@ class PosController extends Controller
                 // 2. Unique offline invoice (locked inside outer transaction)
                 $invoiceNo = Order::nextPosInvoiceNo($shopId, 'OFF');
 
-                // 3. Create Order — recompute line totals from DB prices (ignore client gross)
+                // 3. Create Order — list price subtotal + sale discount (same as online POS)
                 $lineGross = 0.0;
+                $chargeGross = 0.0;
+                $includesSale = false;
                 $resolvedItems = [];
                 foreach (($offlineOrder['items'] ?? []) as $item) {
                     $product = Product::where('shop_id', $shopId)->find($item['id'] ?? 0);
@@ -625,21 +646,38 @@ class PosController extends Controller
                     if ($product->stock_quantity < $qty) {
                         throw new \Exception("Insufficient stock for {$product->name} during offline sync.");
                     }
-                    $subtotal = $product->currentPrice() * $qty;
+                    $list = (float) $product->selling_price;
+                    $charge = $product->currentPrice();
+                    if ($product->isOnSale()) {
+                        $includesSale = true;
+                    }
+                    $subtotal = $list * $qty;
                     $lineGross += $subtotal;
-                    $resolvedItems[] = compact('product', 'qty', 'subtotal');
+                    $chargeGross += $charge * $qty;
+                    $resolvedItems[] = [
+                        'product' => $product,
+                        'qty' => $qty,
+                        'subtotal' => $subtotal,
+                        'unit_price' => $list,
+                    ];
                 }
 
                 if ($resolvedItems === []) {
                     throw new \Exception('Offline order has no items.');
                 }
 
-                $paid = max(0, (float) ($offlineOrder['paid_amount'] ?? $lineGross));
+                $lineGross = round($lineGross, 2);
+                $autoSaleDiscount = max(0, round($lineGross - $chargeGross, 2));
+                $paid = max(0, (float) ($offlineOrder['paid_amount'] ?? ($lineGross - $autoSaleDiscount)));
                 $exchangeCredit = max(0, (float) ($offlineOrder['exchange_credit'] ?? 0));
+                $requestedDiscount = max(0, (float) ($offlineOrder['discount_amount'] ?? 0));
+                if ($autoSaleDiscount > 0) {
+                    $requestedDiscount = max($requestedDiscount, $autoSaleDiscount);
+                }
                 $settlement = Order::resolvePosSettlement(
                     $lineGross,
                     $exchangeCredit,
-                    max(0, (float) ($offlineOrder['discount_amount'] ?? 0)),
+                    $requestedDiscount,
                     $paid,
                 );
                 $discount = $settlement['discount'];
@@ -667,6 +705,7 @@ class PosController extends Controller
                     'payment_method' => $offlineOrder['payment_method'] ?? 'cash',
                     'status' => 'completed',
                     'exchange_credit' => $exchangeCredit > 0 ? $exchangeCredit : null,
+                    'includes_sale' => $includesSale,
                     'created_at' => Carbon::parse($offlineOrder['created_at'] ?? now()),
                     'updated_at' => Carbon::parse($offlineOrder['created_at'] ?? now()),
                 ]);
@@ -677,7 +716,7 @@ class PosController extends Controller
                         'order_id' => $order->id,
                         'product_id' => $line['product']->id,
                         'quantity' => $line['qty'],
-                        'unit_price' => $line['product']->currentPrice(),
+                        'unit_price' => $line['unit_price'],
                         'subtotal' => $line['subtotal'],
                     ]);
 

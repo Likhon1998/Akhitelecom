@@ -488,6 +488,43 @@
     border-color: #2563eb;
     box-shadow: 0 0 0 2px rgba(37, 99, 235, .2), 0 8px 20px rgba(37, 99, 235, .1);
 }
+.product-card.is-sale {
+    border-color: #fda4af;
+    background: linear-gradient(180deg, #fff1f2 0%, #fff 48%);
+}
+.product-card.is-sale.in-cart {
+    border-color: #fb7185;
+    box-shadow: 0 0 0 2px rgba(244, 63, 94, .2), 0 8px 20px rgba(244, 63, 94, .1);
+}
+.p-sale-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 3;
+    background: linear-gradient(90deg, #e11d48, #f97316);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 999px;
+    box-shadow: 0 6px 14px rgba(225, 29, 72, .28);
+}
+.p-price-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.p-price-list {
+    font-size: 11px;
+    font-weight: 650;
+    color: #94a3b8;
+    text-decoration: line-through;
+    line-height: 1.1;
+}
+.p-price.is-sale-price { color: #e11d48; }
 .p-selected-badge {
     position: absolute; top: 8px; right: 8px; z-index: 3;
     min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
@@ -879,7 +916,31 @@
 .ci-thumb span { font-size: 10px; font-weight: 800; color: var(--text-3); }
 .ci-index { display: none; }
 .ci-info { min-width: 0; grid-column: 2 / 3; }
-.ci-name { font-size: 12px; font-weight: 700; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.ci-sale-tag {
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    color: #fff;
+    background: #e11d48;
+    border-radius: 999px;
+    padding: 2px 6px;
+}
+.cart-item.is-sale {
+    background: #fff7f7;
+    border-color: #fecdd3;
+}
 .ci-sku { font-size: 10px; color: var(--text-3); margin-top: 1px; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ci-unit { font-size: 10.5px; color: var(--text-3); margin-top: 1px; font-family: var(--mono); }
 .ci-sub { font-family: var(--mono); font-size: 12px; font-weight: 700; text-align: right; color: var(--blue); grid-column: 3 / 4; grid-row: 1 / 2; }
@@ -1472,13 +1533,19 @@
                          class="product-card"
                          :class="{
                             'out-of-stock': product.stock_quantity < 1,
-                            'in-cart': cartQty(product.id) > 0
+                            'in-cart': cartQty(product.id) > 0,
+                            'is-sale': !!product.on_sale
                          }">
 
                         <div class="p-selected-badge"
                              x-show="cartQty(product.id) > 0"
                              x-text="cartQty(product.id)"
                              x-cloak></div>
+
+                        <div class="p-sale-badge"
+                             x-show="product.on_sale"
+                             x-cloak
+                             x-text="(product.sale_percent ? ('-' + product.sale_percent + '%') : 'SALE')"></div>
 
                         <div class="p-img-wrap">
                             <div class="p-img-fallback" x-text="productInitials(product.name)"></div>
@@ -1506,8 +1573,15 @@
                                 <div class="p-sku" x-text="product.sku || product.barcode || '—'"></div>
                             </div>
                             <div class="p-foot">
-                                <div class="p-price">
-                                    <span class="p-price-sym">Tk</span><span x-text="formatNumber(product.selling_price)"></span>
+                                <div class="p-price-wrap">
+                                    <div class="p-price-list"
+                                         x-show="product.on_sale && Number(product.list_price) > Number(product.selling_price)"
+                                         x-cloak>
+                                        Tk<span x-text="formatNumber(product.list_price)"></span>
+                                    </div>
+                                    <div class="p-price" :class="product.on_sale && 'is-sale-price'">
+                                        <span class="p-price-sym">Tk</span><span x-text="formatNumber(product.selling_price)"></span>
+                                    </div>
                                 </div>
                                 <div class="p-stock"
                                      :class="product.stock_quantity < 1 ? 'stock-out' : product.stock_quantity < 5 ? 'stock-low' : 'stock-ok'">
@@ -1579,7 +1653,7 @@
                     </svg>
                     <span x-text="heldCarts.length"></span> Held
                 </button>
-                <button @click="cart = []; lastAddedId = null" x-show="cart.length > 0" class="clear-btn">Clear Cart</button>
+                <button @click="clearCart()" x-show="cart.length > 0" class="clear-btn">Clear Cart</button>
             </div>
         </div>
 
@@ -1603,7 +1677,7 @@
                 </button>
             </div>
             <template x-for="(item, index) in cart" :key="item.id">
-                <div class="cart-item" :class="{ 'at-limit': item.qty >= item.max_stock, 'just-added': lastAddedId === item.id }">
+                <div class="cart-item" :class="{ 'at-limit': item.qty >= item.max_stock, 'just-added': lastAddedId === item.id, 'is-sale': !!item.on_sale }">
                     <div class="ci-thumb">
                         <template x-if="item.image_url">
                             <img :src="item.image_url" :alt="item.name" referrerpolicy="no-referrer"
@@ -1614,11 +1688,22 @@
                         </template>
                     </div>
                     <div class="ci-info">
-                        <div class="ci-name" x-text="item.name" :title="item.name"></div>
+                        <div class="ci-name">
+                            <span x-text="item.name" :title="item.name"></span>
+                            <span class="ci-sale-tag" x-show="item.on_sale" x-cloak>SALE</span>
+                        </div>
                         <div class="ci-sku" x-show="item.sku || item.barcode" x-text="item.sku || item.barcode" x-cloak></div>
-                        <div class="ci-unit">Tk<span x-text="formatNumber(item.price)"></span> each</div>
+                        <div class="ci-unit">
+                            <span x-show="item.on_sale && Number(item.list_price) > Number(item.sale_price)" x-cloak style="text-decoration:line-through;color:var(--text-3);margin-right:6px">
+                                Tk<span x-text="formatNumber(item.list_price)"></span>
+                            </span>
+                            <span>Tk<span x-text="formatNumber(item.on_sale ? item.list_price : item.price)"></span> each</span>
+                            <span x-show="item.on_sale" x-cloak style="color:#e11d48;font-weight:800;margin-left:6px">
+                                → Tk<span x-text="formatNumber(item.sale_price)"></span>
+                            </span>
+                        </div>
                     </div>
-                    <div class="ci-sub">Tk<span x-text="formatNumber(item.price * item.qty)"></span></div>
+                    <div class="ci-sub">Tk<span x-text="formatNumber((item.on_sale ? item.list_price : item.price) * item.qty)"></span></div>
                     <div class="qty-ctrl">
                         <button @click.stop="updateQty(index, -1)" class="qty-btn">-</button>
                         <div class="qty-num" x-text="item.qty"></div>
@@ -1679,22 +1764,32 @@
                     Previous baki: Tk<span x-text="formatNumber(customerBakiBalance)"></span>
                 </div>
 
-                <div class="field-label" style="margin-top:2px">Discount</div>
+                <div class="field-label" style="margin-top:2px" x-text="hasSaleItems() ? 'Discount (SALE — locked)' : 'Discount'"></div>
                 <div class="discount-row">
                     <div class="type-toggle">
-                        <button type="button" @click="discountType = 'percent'" class="tt-btn" :class="discountType === 'percent' ? 'active' : ''">%</button>
-                        <button type="button" @click="discountType = 'flat'" class="tt-btn" :class="discountType === 'flat' ? 'active' : ''">Tk</button>
+                        <button type="button" @click="!hasSaleItems() && (discountType = 'percent')" class="tt-btn" :class="discountType === 'percent' ? 'active' : ''" :disabled="hasSaleItems()">%</button>
+                        <button type="button" @click="!hasSaleItems() && (discountType = 'flat')" class="tt-btn" :class="discountType === 'flat' ? 'active' : ''" :disabled="hasSaleItems()">Tk</button>
                     </div>
-                    <input type="number" x-model.number="discountValue" class="discount-input" :placeholder="discountType === 'percent' ? '%' : 'Amount'" min="0" :max="discountType === 'percent' ? 100 : getDiscountBase()">
-                    <span x-show="getDiscount() > 0" class="discount-badge" x-cloak>
-                        -Tk<span x-text="formatNumber(getDiscount())"></span>
+                    <input type="number"
+                           x-model.number="discountValue"
+                           class="discount-input"
+                           :placeholder="discountType === 'percent' ? '%' : 'Amount'"
+                           min="0"
+                           :max="discountType === 'percent' ? 100 : getDiscountBase()"
+                           :readonly="hasSaleItems()"
+                           :style="hasSaleItems() ? 'opacity:.75;cursor:not-allowed;background:#fff7ed' : ''">
+                    <span x-show="getDiscount() > 0" class="discount-badge" :style="hasSaleItems() ? 'background:#fff1f2;color:#be123c;border-color:#fecdd3' : ''" x-cloak>
+                        <span x-show="hasSaleItems()" x-cloak>SALE </span>-Tk<span x-text="formatNumber(getDiscount())"></span>
                     </span>
                 </div>
-                <div class="coupon-row">
+                <p x-show="hasSaleItems()" x-cloak style="margin:6px 0 0;font-size:11px;font-weight:650;color:#be123c">
+                    Sale discount auto-applied (<span x-text="salePercentLabel()"></span>). Clear sale items to edit discount.
+                </p>
+                <div class="coupon-row" x-show="!hasSaleItems()">
                     <input type="text" x-model="couponCode" @keyup.enter="applyCoupon()" placeholder="Coupon code" class="coupon-input">
                     <button type="button" @click="applyCoupon()" class="coupon-apply-btn">Apply</button>
                 </div>
-                <div x-show="appliedCoupon" x-cloak class="coupon-applied">
+                <div x-show="appliedCoupon && !hasSaleItems()" x-cloak class="coupon-applied">
                     <span>Coupon <strong x-text="appliedCoupon?.code"></strong> applied</span>
                     <button type="button" @click="removeCoupon()" class="coupon-remove">Remove</button>
                 </div>
@@ -1708,7 +1803,7 @@
                     <span class="sum-val">Tk<span x-text="formatNumber(getTotal())"></span></span>
                 </div>
                 <div class="sum-row discount" x-show="getDiscount() > 0">
-                    <span class="sum-label">Discount</span>
+                    <span class="sum-label" x-text="hasSaleItems() ? 'SALE discount' : 'Discount'"></span>
                     <span class="sum-val">-Tk<span x-text="formatNumber(getDiscount())"></span></span>
                 </div>
                 <div class="sum-row exchange" x-show="isExchangeMode && exchangeCredit > 0" style="display:none">
@@ -1795,23 +1890,32 @@
                                     </template>
                                 </div>
                                 <div class="cv-info">
-                                    <div class="cv-name" x-text="item.name" :title="item.name"></div>
+                                    <div class="cv-name">
+                                        <span x-text="item.name" :title="item.name"></span>
+                                        <span class="ci-sale-tag" x-show="item.on_sale" x-cloak>SALE</span>
+                                    </div>
                                     <div class="cv-sku" x-text="item.sku || item.barcode || '—'"></div>
                                     <button type="button" class="cv-reset"
-                                            x-show="item.list_price && Number(item.list_price) !== Number(item.price)"
+                                            x-show="!item.on_sale && item.list_price && Number(item.list_price) !== Number(item.price)"
                                             x-cloak
                                             @click="resetCartPrice(index)">
                                         Reset to list Tk<span x-text="formatNumber(item.list_price)"></span>
                                     </button>
+                                    <div x-show="item.on_sale" x-cloak style="margin-top:4px;font-size:11px;font-weight:700;color:#be123c">
+                                        Sale Tk<span x-text="formatNumber(item.sale_price)"></span>
+                                        <span x-show="item.sale_percent"> · <span x-text="item.sale_percent"></span>% off</span>
+                                    </div>
                                 </div>
                             </div>
 
                             <div class="cv-field cv-price-cell">
-                                <label class="cv-field-label">Unit price</label>
+                                <label class="cv-field-label" x-text="item.on_sale ? 'Actual price' : 'Unit price'"></label>
                                 <div class="cv-price-wrap">
                                     <span class="cv-currency">Tk</span>
                                     <input type="number" class="cv-input" min="0" step="0.01"
                                            :value="item.price"
+                                           :readonly="item.on_sale"
+                                           :style="item.on_sale ? 'opacity:.75;cursor:not-allowed;background:#fff7ed' : ''"
                                            @change="setCartPrice(index, $event.target.value)"
                                            @keydown.enter.prevent="setCartPrice(index, $event.target.value)">
                                 </div>
@@ -1904,8 +2008,8 @@
                     <div class="amount-value">
                         <span class="ccy">Tk</span><span x-text="formatNumber(getPayableTotal())"></span>
                     </div>
-                    <div x-show="getDiscount() > 0" class="amount-note" style="color:var(--green)" x-cloak>
-                         Discount Tk<span x-text="formatNumber(getDiscount())"></span>
+                    <div x-show="getDiscount() > 0" class="amount-note" :style="hasSaleItems() ? 'color:#be123c' : 'color:var(--green)'" x-cloak>
+                         <span x-text="hasSaleItems() ? 'SALE discount' : 'Discount'"></span> Tk<span x-text="formatNumber(getDiscount())"></span>
                     </div>
                     <div x-show="isExchangeMode" class="amount-note" style="color:var(--amber)" x-cloak>
                         Exchange credit: -Tk<span x-text="formatNumber(exchangeCredit)"></span>
@@ -2323,6 +2427,7 @@ function posSystem() {
         /* â”€â”€ Discount â”€â”€ */
         discountType: 'percent',
         discountValue: 0,
+        _saleDiscountActive: false,
         couponCode: '',
         appliedCoupon: null,
 
@@ -2948,6 +3053,9 @@ function posSystem() {
                 this.showToast(product.name + ' is out of stock!', 'error');
                 return;
             }
+            const onSale = !!product.on_sale;
+            const listPrice = Number(product.list_price ?? product.selling_price) || 0;
+            const salePrice = Number(product.selling_price) || 0;
             const existing = this.cart.find(i => i.id === product.id);
             if (existing) {
                 if (existing.qty < product.stock_quantity) {
@@ -2962,8 +3070,12 @@ function posSystem() {
                 this.cart.push({
                     id: product.id,
                     name: product.name,
-                    price: Number(product.selling_price) || 0,
-                    list_price: Number(product.list_price ?? product.selling_price) || 0,
+                    // Cart always shows actual/list price; sale is applied via locked discount.
+                    price: onSale ? listPrice : salePrice,
+                    list_price: listPrice,
+                    sale_price: onSale ? salePrice : salePrice,
+                    on_sale: onSale,
+                    sale_percent: Number(product.sale_percent) || 0,
                     qty: 1,
                     max_stock: product.stock_quantity,
                     image: product.image || null,
@@ -2974,13 +3086,61 @@ function posSystem() {
                 });
                 this.lastAddedId = product.id;
                 this.playBeep(true);
+                if (onSale) {
+                    this.showToast('SALE item added — discount locked at sale price', 'info');
+                }
             }
+            this.syncSaleDiscount();
             this.search = '';
             this.$refs.searchInput.focus();
             this.$nextTick(() => {
                 const box = document.getElementById('pos-cart-items');
                 if (box) box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
             });
+        },
+
+        clearCart() {
+            this.cart = [];
+            this.lastAddedId = null;
+            this.syncSaleDiscount();
+        },
+
+        hasSaleItems() {
+            return this.cart.some(i => i.on_sale);
+        },
+
+        getSaleSavings() {
+            return this.cart.reduce((sum, item) => {
+                if (!item.on_sale) return sum;
+                const list = Number(item.list_price ?? item.price) || 0;
+                const sale = Number(item.sale_price ?? item.price) || 0;
+                return sum + Math.max(0, list - sale) * (Number(item.qty) || 0);
+            }, 0);
+        },
+
+        salePercentLabel() {
+            const saleItems = this.cart.filter(i => i.on_sale);
+            if (!saleItems.length) return '';
+            const percents = [...new Set(saleItems.map(i => Number(i.sale_percent) || 0).filter(p => p > 0))];
+            if (percents.length === 1) return percents[0] + '% off';
+            const savings = this.getSaleSavings();
+            return 'Tk' + this.formatNumber(savings) + ' off';
+        },
+
+        syncSaleDiscount() {
+            if (!this.hasSaleItems()) {
+                if (this._saleDiscountActive) {
+                    this.discountValue = 0;
+                    this.discountType = 'percent';
+                    this._saleDiscountActive = false;
+                }
+                return;
+            }
+            this._saleDiscountActive = true;
+            this.appliedCoupon = null;
+            this.couponCode = '';
+            this.discountType = 'flat';
+            this.discountValue = Math.round(this.getSaleSavings() * 100) / 100;
         },
 
         cartQty(productId) {
@@ -3014,6 +3174,7 @@ function posSystem() {
                 this.playBeep(false);
                 this.showToast('Cannot exceed available stock for ' + item.name, 'warning');
             }
+            this.syncSaleDiscount();
         },
 
         setCartQty(index, value) {
@@ -3028,11 +3189,12 @@ function posSystem() {
             }
             item.qty = qty;
             this.lastAddedId = item.id;
+            this.syncSaleDiscount();
         },
 
         setCartPrice(index, value) {
             const item = this.cart[index];
-            if (!item) return;
+            if (!item || item.on_sale) return;
             let price = Number(value);
             if (!Number.isFinite(price) || price < 0) price = 0;
             item.price = Math.round(price * 100) / 100;
@@ -3040,7 +3202,7 @@ function posSystem() {
 
         resetCartPrice(index) {
             const item = this.cart[index];
-            if (!item) return;
+            if (!item || item.on_sale) return;
             item.price = Number(item.list_price ?? item.price) || 0;
         },
 
@@ -3057,14 +3219,18 @@ function posSystem() {
             this.cart.splice(index, 1);
             if (removed && this.lastAddedId === removed.id) this.lastAddedId = null;
             if (this.cart.length === 0) this.cartViewModalOpen = false;
+            this.syncSaleDiscount();
         },
 
         /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
            DISCOUNT & COUPONS
         â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         getDiscount() {
-            let disc = 0;
             const base = this.getDiscountBase();
+            if (this.hasSaleItems()) {
+                return Math.max(0, Math.min(this.getSaleSavings(), base));
+            }
+            let disc = 0;
             // Coupon takes priority over manual discount
             if (this.appliedCoupon) {
                 disc = this.appliedCoupon.type === 'percent'
@@ -3084,6 +3250,10 @@ function posSystem() {
         },
 
         applyCoupon() {
+            if (this.hasSaleItems()) {
+                this.showToast('Coupons unavailable while sale items are in the cart', 'warning');
+                return;
+            }
             const code = this.couponCode.trim().toUpperCase();
             if (!code) return;
             // Demo coupons - validate server-side in production
@@ -3206,6 +3376,7 @@ function posSystem() {
             this.customerPhone = '';
             this.customerBakiBalance = 0;
             this.isBaki = false;
+            this.syncSaleDiscount();
             this.showToast('Cart suspended. Ready for next customer.', 'info');
         },
         async resumeHeldCart(index) {
@@ -3228,6 +3399,7 @@ function posSystem() {
             this.heldCarts.splice(index, 1);
             localStorage.setItem('nexa_held_carts', JSON.stringify(this.heldCarts));
             this.holdCartsModalOpen = false;
+            this.syncSaleDiscount();
             this.showToast('Cart resumed!', 'success');
         },
         async deleteHeldCart(index) {
@@ -3336,6 +3508,7 @@ openCheckout() {
                         this.cart = []; this.customerName = ''; this.customerPhone = '';
                         this.customerBakiBalance = 0; this.isBaki = false;
                         this.discountValue = 0; this.appliedCoupon = null; this.couponCode = '';
+                        this._saleDiscountActive = false;
                         this.lastAddedId = null;
                         this.checkoutModalOpen = false;
 
@@ -3421,6 +3594,7 @@ openCheckout() {
                 items: cartSnap,
                 total: this.getTotal(),
                 discount: this.getTotalDiscountAmount(),
+                includesSale: this.hasSaleItems(),
                 payable: this.getPayableTotal(),
                 paid: paidSnap,
                 change: changeSnap,
@@ -3431,6 +3605,7 @@ openCheckout() {
             this.playBeep(true);
             this.cart = []; this.customerName = ''; this.customerPhone = '';
             this.discountValue = 0; this.appliedCoupon = null; this.couponCode = '';
+            this._saleDiscountActive = false;
             this.lastAddedId = null;
             this.checkoutModalOpen = false;
 
@@ -3500,6 +3675,7 @@ table.items td{padding:5px 0;border-bottom:1px dotted #e2e8f0;vertical-align:top
 </style></head><body>
 <div class="sheet">
 <div class="brand"><div class="doc">Sales Invoice / POS Receipt</div><h1>${esc(this.shopName)}</h1></div>
+${data.includesSale ? '<div class="badge" style="border-color:#e11d48;color:#be123c">*** SALE ***</div>' : ''}
 <div class="badge">*** OFFLINE BILL ***</div>
 <table class="meta">
 <tr><td class="lbl">Invoice No</td><td class="val">${esc(data.invoiceNo)}</td></tr>
@@ -3517,7 +3693,7 @@ ${data.phone ? `<p>Phone: ${esc(data.phone)}</p>` : ''}</div>
 </table>
 <table class="totals">
 <tr><td class="lbl">Subtotal</td><td class="text-right">৳${money(data.total)}</td></tr>
-${(data.discount || 0) > 0 ? `<tr><td class="lbl">Discount</td><td class="text-right">- ৳${money(data.discount)}</td></tr>` : ''}
+${(data.discount || 0) > 0 ? `<tr><td class="lbl">${data.includesSale ? 'SALE discount' : 'Discount'}</td><td class="text-right">- ৳${money(data.discount)}</td></tr>` : ''}
 <tr class="grand"><td>Grand total</td><td class="text-right">৳${money(data.payable)}</td></tr>
 </table>
 <div class="pay"><table>

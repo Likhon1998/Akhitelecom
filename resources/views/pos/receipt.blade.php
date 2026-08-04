@@ -124,6 +124,11 @@
             padding: 6px;
             margin: 0 0 10px;
         }
+        .badge.sale {
+            border-color: #e11d48;
+            color: #be123c;
+            background: #fff1f2;
+        }
         .badge.void { color: #b91c1c; border-color: #b91c1c; }
         .badge.exchange { color: #1d4ed8; border-color: #1d4ed8; }
         .section-label {
@@ -304,6 +309,10 @@
             </section>
         @endif
 
+        @if($order->includes_sale)
+            <div class="badge sale">*** SALE ***</div>
+        @endif
+
         @if($isVoid)
             <div class="badge void">*** VOID / {{ strtoupper($order->status) }} ***</div>
         @endif
@@ -365,7 +374,7 @@
                 </tr>
                 @if(($order->discount_amount ?? 0) > 0)
                     <tr>
-                        <td class="lbl">Discount</td>
+                        <td class="lbl">{{ $order->includes_sale ? 'SALE discount' : 'Discount' }}</td>
                         <td class="text-right">- ৳{{ number_format((float) $order->discount_amount, 2) }}</td>
                     </tr>
                 @endif
@@ -392,7 +401,7 @@
                 @endif
                 @if(($order->discount_amount ?? 0) > 0)
                     <tr>
-                        <td class="lbl">Discount</td>
+                        <td class="lbl">{{ $order->includes_sale ? 'SALE discount' : 'Discount' }}</td>
                         <td class="text-right">- ৳{{ number_format((float) $order->discount_amount, 2) }}</td>
                     </tr>
                 @endif
