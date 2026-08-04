@@ -49,13 +49,13 @@ class GadgetCatalogSeeder extends Seeder
             ['name' => 'Laptops', 'icon' => 'laptop', 'description' => 'Ultrabooks, MacBooks, and gaming laptops', 'featured' => true],
             ['name' => 'Tablets', 'icon' => 'tablet', 'description' => 'iPad and Android tablets', 'featured' => true],
             ['name' => 'Headphones', 'icon' => 'headphones', 'description' => 'Over-ear and wireless headphones', 'featured' => true],
-            ['name' => 'Earbuds', 'icon' => 'headphones', 'description' => 'True wireless earbuds', 'featured' => false],
+            ['name' => 'Earbuds', 'icon' => 'earbuds', 'description' => 'True wireless earbuds', 'featured' => false],
             ['name' => 'Smartwatches', 'icon' => 'watch', 'description' => 'Fitness and premium smartwatches', 'featured' => true],
             ['name' => 'Cameras', 'icon' => 'camera', 'description' => 'Mirrorless, DSLR, and action cams', 'featured' => false],
             ['name' => 'Gaming', 'icon' => 'game', 'description' => 'Consoles, controllers, and gear', 'featured' => true],
             ['name' => 'Speakers', 'icon' => 'speaker', 'description' => 'Portable and smart speakers', 'featured' => false],
-            ['name' => 'Chargers & Cables', 'icon' => 'charger', 'description' => 'Fast chargers, power banks, and cables', 'featured' => false],
-            ['name' => 'Accessories', 'icon' => 'accessory', 'description' => 'Cases, stands, and everyday gadget extras', 'featured' => false],
+            ['name' => 'Chargers & Cables', 'icon' => 'plug', 'description' => 'Fast chargers, power banks, and cables', 'featured' => false],
+            ['name' => 'Accessories', 'icon' => 'mouse', 'description' => 'Cases, stands, and everyday gadget extras', 'featured' => false],
             ['name' => 'Monitors', 'icon' => 'monitor', 'description' => 'Gaming and productivity displays', 'featured' => false],
         ];
 

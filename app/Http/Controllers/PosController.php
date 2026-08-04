@@ -46,7 +46,7 @@ class PosController extends Controller
         }
 
         $shopId = $user->shop_id;
-        $categories = Category::where('shop_id', $shopId)->orderBy('name')->get();
+        $categories = Category::where('shop_id', $shopId)->orderBy('name')->get(['id', 'name', 'icon']);
         $brands = Brand::where('shop_id', $shopId)
             ->where('is_active', true)
             ->orderBy('sort_order')
@@ -56,12 +56,25 @@ class PosController extends Controller
         $brandById = $brands->keyBy('id');
         $brandsSortedByNameLength = $brands->sortByDesc(fn (Brand $b) => mb_strlen($b->name))->values();
 
+        $website = app(\App\Services\WebsiteService::class);
+
         $products = Product::where('shop_id', $shopId)
-            ->with(['category:id,name', 'brand:id,name'])
+            ->with(['category:id,name', 'brand:id,name', 'galleryImages'])
             ->orderBy('name')
             ->get()
-            ->map(function (Product $product) use ($brandById, $brandsSortedByNameLength) {
+            ->map(function (Product $product) use ($brandById, $brandsSortedByNameLength, $website) {
                 [$brandId, $brandName] = $this->resolvePosBrand($product, $brandById, $brandsSortedByNameLength);
+
+                $imagePath = $product->image ?: ($product->imagePaths()[0] ?? null);
+                $imageUrl = $website->productImageUrl($product);
+
+                // Prefer a verified local file URL; otherwise keep WebsiteService fallback (CDN).
+                if ($imagePath) {
+                    $diskPath = storage_path('app/public/'.ltrim(str_replace('\\', '/', $imagePath), '/'));
+                    if (is_file($diskPath)) {
+                        $imageUrl = public_storage_url($imagePath);
+                    }
+                }
 
                 return [
                     'id' => $product->id,
@@ -72,7 +85,8 @@ class PosController extends Controller
                     'list_price' => (float) $product->selling_price,
                     'on_sale' => $product->isOnSale(),
                     'stock_quantity' => $product->stock_quantity,
-                    'image' => $product->image,
+                    'image' => $imagePath,
+                    'image_url' => $imageUrl,
                     'category_id' => $product->category_id,
                     'brand_id' => $brandId,
                     'category_name' => $product->category?->name,

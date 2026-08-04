@@ -2,7 +2,8 @@
 
 if (! function_exists('public_storage_url')) {
     /**
-     * Public disk files live under storage/app/public and are served from /storage/...
+     * Public disk files live under storage/app/public and are served from {base}/storage/...
+     * Uses the current request base path so subdirectory installs (XAMPP) work.
      */
     function public_storage_url(?string $path): ?string
     {
@@ -10,7 +11,23 @@ if (! function_exists('public_storage_url')) {
             return null;
         }
 
-        return '/storage/' . ltrim($path, '/');
+        if (preg_match('#^(https?:)?//#i', $path)) {
+            return $path;
+        }
+
+        $path = ltrim(str_replace('\\', '/', $path), '/');
+        if (str_starts_with($path, 'storage/')) {
+            $path = substr($path, strlen('storage/'));
+        }
+
+        try {
+            $base = rtrim(request()->getBasePath(), '/');
+
+            // Prefer path-only URLs so the browser always loads from the current host/port.
+            return $base.'/storage/'.$path;
+        } catch (\Throwable) {
+            return '/storage/'.$path;
+        }
     }
 }
 

@@ -174,8 +174,14 @@ class WebsiteService
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get()
-            ->filter(fn (Brand $b) => (int) $b->products_count > 0)
             ->values();
+
+        // Prefer brands that already have products, but still show newly added active brands.
+        if ($brands->contains(fn (Brand $b) => (int) $b->products_count > 0)) {
+            $withProducts = $brands->filter(fn (Brand $b) => (int) $b->products_count > 0);
+            $newWithoutProducts = $brands->filter(fn (Brand $b) => (int) $b->products_count === 0);
+            $brands = $withProducts->concat($newWithoutProducts)->values();
+        }
 
         return [
             'settings' => $settings,

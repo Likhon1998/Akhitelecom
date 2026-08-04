@@ -17,7 +17,7 @@
                     <div class="mt-4">
                         <x-input-label for="logo" :value="__('Brand Logo (optional)')" />
                         <input id="logo" name="logo" type="file" accept=".png,.jpg,.jpeg,.webp,.gif,.svg,image/png,image/jpeg,image/webp" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                        <p class="mt-1 text-xs text-gray-500">PNG, JPG, WEBP, GIF or SVG — max 5MB</p>
+                        <p class="mt-1 text-xs text-gray-500">PNG, JPG, WEBP, GIF or SVG — max 5MB. If you skip this, we’ll try to fetch the brand logo automatically for the storefront.</p>
                         <x-input-error class="mt-2" :messages="$errors->get('logo')" />
                     </div>
 

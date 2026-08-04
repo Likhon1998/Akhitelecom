@@ -50,6 +50,11 @@ class BrandController extends Controller
 
         $brand = Brand::create($data);
 
+        if (empty($brand->logo_path)) {
+            app(\App\Services\BrandLogoService::class)->ensureStored($brand->fresh());
+            $brand->refresh();
+        }
+
         app(\App\Services\WebsiteService::class)->linkOrphanProductsToBrands((int) $brand->shop_id);
 
         if ($request->wantsJson() || $request->ajax()) {
@@ -58,6 +63,7 @@ class BrandController extends Controller
                 'brand' => [
                     'id' => $brand->id,
                     'name' => $brand->name,
+                    'logo_url' => $brand->logo_url,
                 ],
             ]);
         }
@@ -105,6 +111,10 @@ class BrandController extends Controller
         }
 
         $brand->update($data);
+
+        if (empty($brand->fresh()->logo_path)) {
+            app(\App\Services\BrandLogoService::class)->ensureStored($brand->fresh());
+        }
 
         $brand->products()->update(['brand_name' => $brand->name]);
 

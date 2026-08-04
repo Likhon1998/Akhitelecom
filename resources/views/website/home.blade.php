@@ -196,17 +196,55 @@
 </section>
 @endif
 
-{{-- Brands --}}
+{{-- Trusted brands — mockup-identical panel, dynamic brand logos --}}
 @if($brands->isNotEmpty())
 <section class="tn-brands">
     <div class="tn-container">
-        <p class="tn-brands-label">{{ $settings->trusted_by_text ?? 'Trusted by leading brands worldwide' }}</p>
-        <div class="tn-brands-row">
-            @foreach($brands as $brand)
-                <a href="{{ route('website.brand', \Illuminate\Support\Str::slug($brand->name)) }}" class="tn-brand-item">
-                    {{ $brand->name }}
-                </a>
-            @endforeach
+        <div class="tn-brands-panel">
+            <div class="tn-brands-head">
+                <div class="tn-brands-eyebrow">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                        <path d="M9.5 12.2l1.8 1.8 3.4-3.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Trusted by
+                </div>
+                <h2 class="tn-brands-title">Gadget Lovers Across <em>Bangladesh</em></h2>
+                <p class="tn-brands-sub">We partner with the world's leading brands to bring you 100% authentic products and the best tech experience.</p>
+            </div>
+
+            <div class="tn-brands-grid">
+                @foreach($brands as $brand)
+                    @php
+                        $brandSlug = \Illuminate\Support\Str::slug($brand->name);
+                        $logoUrl = $brand->logo_url;
+                    @endphp
+                    <a href="{{ route('website.brand', $brandSlug) }}"
+                       class="tn-brand-card"
+                       title="Shop {{ $brand->name }}">
+                        @if($logoUrl)
+                            <img src="{{ $logoUrl }}"
+                                 alt="{{ $brand->name }}"
+                                 class="tn-brand-logo"
+                                 loading="lazy"
+                                 decoding="async"
+                                 onerror="this.classList.add('is-broken'); this.nextElementSibling?.classList.add('is-visible');">
+                            <span class="tn-brand-fallback">{{ $brand->name }}</span>
+                        @else
+                            <span class="tn-brand-fallback is-visible">{{ $brand->name }}</span>
+                        @endif
+                    </a>
+                @endforeach
+            </div>
+
+            <div class="tn-brands-foot">
+                <span class="tn-brands-foot-line" aria-hidden="true"></span>
+                <span class="tn-brands-foot-text">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-6.7-4.35-9.33-8.1C.8 10.2 1.5 6.9 4.4 5.55 6.3 4.65 8.55 5.1 10 6.55L12 8.6l2-2.05c1.45-1.45 3.7-1.9 5.6-1 2.9 1.35 3.6 4.65 1.73 7.35C18.7 16.65 12 21 12 21z"/></svg>
+                    Thank you for choosing us
+                </span>
+                <span class="tn-brands-foot-line" aria-hidden="true"></span>
+            </div>
         </div>
     </div>
 </section>

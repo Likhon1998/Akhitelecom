@@ -168,41 +168,23 @@
 .status-badge.offline { background: rgba(239,68,68,.15); color: #fca5a5; border-color: rgba(239,68,68,.25); }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
-/* ── Body: rail + workspace ── */
+/* ── Body: full-width workspace (no left rail) ── */
 .pos-body {
     flex: 1 1 0; min-height: 0;
     display: grid;
-    grid-template-columns: 84px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     overflow: hidden;
 }
-.pos-rail {
-    background: #eef2f7;
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column; align-items: center;
-    padding: 12px 8px; gap: 4px; min-height: 0;
+.pos-home-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 34px; padding: 0 12px; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.08); color: #e2e8f0;
+    text-decoration: none; font-size: 12px; font-weight: 700;
+    font-family: var(--font); white-space: nowrap;
 }
-.pos-rail a, .pos-rail button {
-    width: 100%;
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-    padding: 10px 4px; border-radius: 12px;
-    text-decoration: none; color: var(--text-2);
-    font-size: 10px; font-weight: 650; border: none; background: transparent;
-    cursor: pointer; font-family: var(--font);
-}
-.pos-rail a:hover, .pos-rail button:hover { background: #fff; color: var(--text-1); }
-.pos-rail a.active {
-    background: var(--blue); color: #fff;
-    box-shadow: 0 8px 18px rgba(37,99,235,.28);
-}
-.pos-rail svg { width: 18px; height: 18px; }
-.pos-rail-foot {
-    margin-top: auto; width: 100%;
-    padding-top: 8px; border-top: 1px solid var(--border);
-}
-.pos-rail-online {
-    font-size: 9px; font-weight: 700; color: var(--green);
-    display: flex; align-items: center; justify-content: center; gap: 4px;
-}
+.pos-home-btn:hover { background: rgba(255,255,255,.14); color: #fff; }
+.pos-home-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
 
 .pos-root {
     flex: 1 1 0; min-height: 0; min-width: 0;
@@ -223,18 +205,17 @@
 }
 .panel-left { overflow: visible; }
 .panel-right {
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     scrollbar-width: thin;
 }
 
 .panel-top {
-    padding: 12px 14px 10px;
+    padding: 8px 12px 8px;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0; background: var(--surface);
     overflow: visible;
     position: relative;
-    z-index: 25;
+    z-index: 80;
 }
 .top-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .icon-btn {
@@ -246,150 +227,411 @@
 .icon-btn:hover { color: var(--text-1); background: #eef2f7; }
 .icon-btn svg { width: 16px; height: 16px; }
 
+.filter-label-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin-bottom: 6px;
+}
 .filter-label {
     font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
-    color: var(--text-3); margin-bottom: 6px;
+    color: var(--text-3); margin-bottom: 0;
 }
-.cat-bar {
-    display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start;
+.cat-scroll-wrap { position: relative; z-index: 90; overflow: visible; }
+.cat-scroll {
+    display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 4px;
+    scrollbar-width: thin;
 }
-.cat-item {
-    position: relative; z-index: 1;
+.cat-scroll::-webkit-scrollbar { height: 3px; }
+.cat-card-wrap {
+    position: relative; flex: 0 0 auto; z-index: 1;
 }
-.cat-item.open { z-index: 40; }
-.cat-btn {
-    display: inline-flex; align-items: center; gap: 7px;
-    padding: 7px 11px; border-radius: 10px; cursor: pointer;
-    border: 1px solid var(--border); background: var(--surface-2);
-    font-family: var(--font); font-size: 12.5px; font-weight: 700; color: var(--text-2);
-    white-space: nowrap;
+.cat-card-wrap.open { z-index: 100; }
+.cat-card {
+    min-width: 78px; max-width: 96px; width: 88px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 8px 6px 7px; border-radius: 12px; cursor: pointer;
+    border: 1.5px solid var(--border); background: var(--surface);
+    font-family: var(--font); text-align: center;
+    transition: border-color .15s, box-shadow .15s, background .15s, color .15s;
+    position: relative;
 }
-.cat-btn:hover, .cat-item.open .cat-btn {
-    border-color: #93c5fd; background: #eff6ff; color: #1d4ed8;
+.cat-card:hover { border-color: #93c5fd; box-shadow: 0 4px 12px rgba(37,99,235,.08); }
+.cat-card.active {
+    background: #fff; border-color: var(--blue); color: var(--blue);
+    box-shadow: 0 0 0 2px rgba(37,99,235,.12);
 }
-.cat-btn.active {
-    background: var(--blue); border-color: var(--blue); color: #fff;
+.cat-card-icon {
+    width: 26px; height: 26px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    background: #f8fafc; color: #475569;
+    border: 1px solid #e2e8f0;
 }
-.cat-btn.active .cat-btn-count {
-    background: rgba(255,255,255,.2); border-color: transparent; color: #fff;
+.cat-card.active .cat-card-icon {
+    background: #eff6ff; color: var(--blue); border-color: #bfdbfe;
 }
-.cat-btn-count {
-    font-family: var(--mono); font-size: 10.5px; font-weight: 700;
-    color: var(--text-3); background: #fff; border: 1px solid var(--border);
-    border-radius: 999px; padding: 1px 6px; min-width: 22px; text-align: center;
+.cat-card-icon svg { width: 15px; height: 15px; }
+.cat-card-name {
+    font-size: 10.5px; font-weight: 750; color: var(--text-1); line-height: 1.15;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
-.cat-btn-chevron {
-    width: 12px; height: 12px; opacity: .7; transition: transform .15s;
+.cat-card.active .cat-card-name { color: var(--blue); }
+.cat-card-count {
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    color: var(--text-3);
 }
-.cat-item.open .cat-btn-chevron { transform: rotate(180deg); }
+.cat-card.active .cat-card-count { color: #3b82f6; }
+.cat-card-caret {
+    position: absolute; top: 4px; right: 4px;
+    width: 16px; height: 16px; border-radius: 5px; border: 0;
+    background: var(--surface-2); color: var(--text-3);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 2;
+}
+.cat-card-caret:hover, .cat-card-wrap.open .cat-card-caret {
+    background: var(--blue-soft); color: var(--blue);
+}
+.cat-card-caret svg { width: 10px; height: 10px; transition: transform .15s; }
+.cat-card-wrap.open .cat-card-caret svg { transform: rotate(180deg); }
 .cat-brand-menu {
-    position: absolute; top: calc(100% + 4px); left: 0; min-width: 200px;
+    position: fixed;
+    min-width: 190px; max-width: 240px;
     background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-    box-shadow: 0 12px 28px rgba(15,23,42,.14); padding: 4px 0; z-index: 50;
+    box-shadow: 0 18px 40px rgba(15,23,42,.2); z-index: 9999;
+    padding: 6px; max-height: 260px; overflow-y: auto;
 }
 .cat-brand-menu-title {
-    padding: 6px 12px 4px; font-size: 10px; font-weight: 800; letter-spacing: .06em;
-    text-transform: uppercase; color: var(--text-3);
+    font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--text-3); padding: 6px 8px 4px;
 }
 .cat-brand-item {
     width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 8px 12px; border: none; background: transparent; cursor: pointer;
-    font-family: var(--font); font-size: 12.5px; font-weight: 650; color: var(--text-1); text-align: left;
+    padding: 8px 10px; border: 0; border-radius: 8px; background: transparent;
+    font: inherit; font-size: 12.5px; font-weight: 650; color: var(--text-1);
+    cursor: pointer; text-align: left;
 }
-.cat-brand-item:hover { background: #f1f5f9; }
-.cat-brand-item.active { background: #f0fdfa; color: #0f766e; }
-.p-brand-tag {
-    font-size: 10px; font-weight: 700; color: var(--text-3);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.cat-brand-item:hover { background: var(--blue-soft); color: var(--blue); }
+.cat-brand-item.active { background: var(--blue); color: #fff; }
+.cat-brand-item span:last-child {
+    font-family: var(--mono); font-size: 11px; opacity: .75;
 }
 
+.pos-toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    margin-top: 8px;
+}
+.pos-toolbar-search {
+    flex: 1 1 180px; min-width: 160px; position: relative;
+}
+.pos-toolbar-search svg {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px; color: var(--text-3); pointer-events: none;
+}
+.pos-toolbar-search input {
+    width: 100%; padding: 9px 12px 9px 34px;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface-2); color: var(--text-1);
+    font: inherit; font-size: 12.5px; outline: none;
+}
+.pos-toolbar-search input:focus {
+    border-color: #93c5fd; background: #fff; box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+.pos-toolbar-select {
+    padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface-2); color: var(--text-1);
+    font: inherit; font-size: 12.5px; font-weight: 650; outline: none; cursor: pointer;
+}
+.pos-toolbar-select:focus { border-color: #93c5fd; }
+.pos-view-toggle {
+    display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    background: var(--surface-2);
+}
+.pos-view-btn {
+    width: 36px; height: 34px; border: 0; background: transparent; color: var(--text-3);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.pos-view-btn + .pos-view-btn { border-left: 1px solid var(--border); }
+.pos-view-btn.active { background: #fff; color: var(--blue); }
+.pos-view-btn svg { width: 15px; height: 15px; }
+
+.product-stage {
+    flex: 1 1 0; min-height: 0;
+    display: flex; flex-direction: column;
+    background: #eef2f7;
+    overflow: hidden;
+    border-radius: 0 0 16px 16px;
+    position: relative;
+    z-index: 1;
+}
 .product-list {
     flex: 1 1 0; min-height: 0; overflow-y: auto;
     padding: 12px;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
-    gap: 8px;
-    background: var(--bg);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
     align-content: start;
-    scrollbar-width: none;
+    align-items: stretch;
+    scrollbar-width: thin;
+    position: relative;
+    z-index: 1;
 }
-.product-list::-webkit-scrollbar { display: none; }
+.product-list::-webkit-scrollbar { width: 8px; }
+.product-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1; border-radius: 999px;
+}
+.product-list.is-list {
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: none;
+    gap: 8px;
+}
+.product-list.is-list .product-card {
+    flex-direction: row;
+    align-items: center;
+    min-height: 76px !important;
+    height: 76px;
+    max-height: 76px;
+    border-radius: 12px;
+    overflow: hidden;
+}
+.product-list.is-list .product-card:hover {
+    transform: none;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, .12);
+}
+.product-list.is-list .product-card:active { transform: none; }
+.product-list.is-list .p-selected-badge {
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+}
+.product-list.is-list .p-img-wrap {
+    width: 76px !important;
+    height: 76px !important;
+    min-height: 76px !important;
+    max-width: 76px;
+    flex: 0 0 76px !important;
+    border-bottom: 0;
+    border-right: 1px solid #eef2f7;
+    background: #f8fafc;
+}
+.product-list.is-list .p-img-wrap img {
+    padding: 10px;
+}
+.product-list.is-list .p-img-fallback {
+    font-size: 14px;
+}
+.product-list.is-list .p-view-btn {
+    display: none;
+}
+.product-list.is-list .p-body {
+    flex: 1 1 auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 48px 10px 14px;
+    min-height: 0 !important;
+    height: 100%;
+}
+.product-list.is-list .p-meta {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 2px;
+}
+.product-list.is-list .p-name {
+    min-height: 0 !important;
+    -webkit-line-clamp: 1;
+    font-size: 13px;
+}
+.product-list.is-list .p-sku {
+    font-size: 11px;
+}
+.product-list.is-list .p-foot {
+    margin-top: 0;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding-top: 0;
+}
+.product-list.is-list .p-price {
+    font-size: 15px;
+}
+.product-list.is-list .p-stock {
+    font-size: 10px;
+}
 
 .product-card {
     position: relative;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
     padding: 0;
     cursor: pointer;
-    display: flex; flex-direction: column; overflow: hidden;
-    transition: border-color .15s, box-shadow .15s, transform .1s;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+    min-height: 248px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    transition: border-color .15s, box-shadow .15s, transform .12s;
 }
 .product-card:hover {
-    border-color: #bfdbfe;
-    box-shadow: 0 8px 24px rgba(37,99,235,.08);
-    transform: translateY(-1px);
+    border-color: #93c5fd;
+    box-shadow: 0 12px 28px rgba(37, 99, 235, .12);
+    transform: translateY(-2px);
 }
 .product-card:active { transform: scale(.985); }
-.product-card.out-of-stock { opacity: .45; cursor: not-allowed; pointer-events: none; filter: grayscale(.3); }
+.product-card.out-of-stock {
+    opacity: .6; cursor: not-allowed; pointer-events: none; filter: grayscale(.2);
+}
 .product-card.in-cart {
-    border-color: var(--blue);
-    background: linear-gradient(180deg, #eff6ff 0%, #fff 55%);
-    box-shadow: 0 0 0 2px rgba(37,99,235,.28), 0 8px 20px rgba(37,99,235,.1);
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, .2), 0 8px 20px rgba(37, 99, 235, .1);
 }
-.product-card.in-cart .p-img-wrap {
-    background: #dbeafe;
-    border-bottom-color: #bfdbfe;
-}
-.product-card.in-cart .p-name { color: #1e3a8a; }
 .p-selected-badge {
-    position: absolute; top: 6px; right: 6px; z-index: 2;
+    position: absolute; top: 8px; right: 8px; z-index: 3;
     min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
-    background: var(--blue); color: #fff;
+    background: #2563eb; color: #fff;
     font-family: var(--mono); font-size: 11px; font-weight: 700;
     display: inline-flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 10px rgba(37,99,235,.4);
-}
-.p-in-cart-tag {
-    position: absolute; top: 6px; left: 6px; z-index: 2;
-    font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
-    color: #1d4ed8; background: #fff; border: 1px solid #93c5fd;
-    border-radius: 999px; padding: 2px 6px;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, .4);
 }
 .p-img-wrap {
-    width: 100%; height: 72px;
-    background: var(--surface-2);
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: center; overflow: hidden;
+    width: 100%;
+    height: 118px;
+    min-height: 118px;
+    flex: 0 0 118px;
+    background: linear-gradient(180deg, #fff 0%, #f1f5f9 100%);
+    border-bottom: 1px solid #eef2f7;
+    position: relative;
+    overflow: hidden;
 }
-.p-img-wrap img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
-.p-avatar {
-    width: 100%; height: 100%;
+.p-img-wrap img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 12px;
+    display: block;
+    z-index: 1;
+}
+.p-img-fallback {
+    position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 20px; font-weight: 700; color: var(--text-3);
-    background: linear-gradient(180deg, #f8fafc, #eef2f7);
+    font-size: 20px; font-weight: 800; color: #94a3b8;
+    background: linear-gradient(180deg, #f8fafc, #e2e8f0);
+    z-index: 0;
 }
-.p-body { padding: 8px 9px 10px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.p-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 11px 11px;
+    background: #fff;
+    min-height: 118px;
+}
+.p-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1 1 auto;
+}
 .p-name {
-    font-size: 12px; font-weight: 650; color: var(--text-1); line-height: 1.3;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.4em;
+    margin: 0;
+    font-size: 12.5px;
+    font-weight: 750;
+    color: #0f172a;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+    min-height: 2.7em;
 }
-.p-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; margin-top: auto; }
-.p-price { font-size: 13px; font-weight: 700; color: var(--text-1); }
-.p-price-sym { font-size: 10px; color: var(--text-3); margin-right: 2px; font-weight: 650; }
+.p-sku {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: #94a3b8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.p-foot {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: auto;
+    padding-top: 2px;
+}
+.p-price {
+    font-size: 14px;
+    font-weight: 800;
+    color: #2563eb;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+.p-price-sym {
+    font-size: 11px;
+    color: #64748b;
+    margin-right: 2px;
+    font-weight: 700;
+}
+.p-stock,
 .stock-chip {
-    font-size: 10.5px; font-weight: 650; padding: 3px 8px;
-    border-radius: 999px; border: 1px solid; white-space: nowrap;
+    width: fit-content;
+    max-width: 100%;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid #a7f3d0;
+    background: #ecfdf5;
+    color: #15803d;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
 }
-.stock-ok  { background: var(--green-bg); color: var(--green); border-color: var(--green-border); }
-.stock-low { background: var(--amber-bg); color: var(--amber); border-color: var(--amber-border); }
-.stock-out { background: var(--red-bg); color: var(--red); border-color: var(--red-border); }
+.p-stock .stock-dot,
+.stock-chip .stock-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor; flex-shrink: 0;
+}
+.p-stock.stock-ok,
+.stock-chip.stock-ok { background: #ecfdf5; color: #15803d; border-color: #a7f3d0; }
+.p-stock.stock-low,
+.stock-chip.stock-low { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+.p-stock.stock-out,
+.stock-chip.stock-out { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+
+.pos-pager {
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    padding: 10px 14px; border-top: 1px solid var(--border); background: var(--surface);
+}
+.pos-pager-meta { font-size: 12px; color: var(--text-2); font-weight: 650; }
+.pos-pager-pages { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.pos-page-btn {
+    min-width: 32px; height: 32px; padding: 0 10px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); color: var(--text-2);
+    font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.pos-page-btn:hover:not(:disabled) { border-color: #93c5fd; color: var(--blue); background: #eff6ff; }
+.pos-page-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+.pos-page-btn:disabled { opacity: .4; cursor: not-allowed; }
 
 /* Cart */
 .cart-head {
     padding: 10px 12px; border-bottom: 1px solid var(--border);
     display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
-    position: sticky; top: 0; z-index: 3; background: var(--surface);
+    z-index: 3; background: var(--surface);
 }
 .cart-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
 .cart-badge-icon {
@@ -405,7 +647,7 @@
     display: inline-flex; align-items: center; justify-content: center;
 }
 .cart-head-actions { display: flex; align-items: center; gap: 6px; }
-.held-btn, .clear-btn {
+.held-btn, .clear-btn, .view-cart-btn {
     padding: 5px 8px; border-radius: 8px; font-size: 11px; font-weight: 650;
     cursor: pointer; font-family: var(--font); border: 1px solid transparent;
 }
@@ -416,6 +658,173 @@
 .held-btn svg { width: 12px; height: 12px; }
 .clear-btn { background: transparent; color: var(--red); }
 .clear-btn:hover { background: var(--red-bg); border-color: var(--red-border); }
+.view-cart-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--blue-soft); color: var(--blue); border-color: var(--teal-border);
+}
+.view-cart-btn:hover { background: #dbeafe; }
+.view-cart-btn svg { width: 12px; height: 12px; }
+.p-view-btn {
+    position: absolute; left: 6px; bottom: 6px; z-index: 3;
+    height: 24px; padding: 0 8px; border-radius: 7px; border: 0;
+    background: rgba(15, 23, 42, .78); color: #fff;
+    font: inherit; font-size: 10px; font-weight: 750; letter-spacing: .02em;
+    display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+    backdrop-filter: blur(4px);
+}
+.p-view-btn:hover { background: #2563eb; }
+.p-view-btn svg { width: 11px; height: 11px; }
+
+.cart-view-modal {
+    width: min(860px, calc(100vw - 20px)) !important;
+    max-width: none !important;
+    max-height: min(90vh, 780px);
+    display: flex;
+    flex-direction: column;
+}
+.cart-view-modal .modal-head {
+    padding: 16px 18px;
+    background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+}
+.cart-view-modal .modal-title { font-size: 16px; }
+.cart-view-modal .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: #f1f5f9;
+    padding: 14px 16px;
+    gap: 0;
+}
+.cart-view-modal .modal-foot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px 16px 16px;
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+}
+.cart-view-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.cart-view-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) 150px 158px 118px 40px;
+    gap: 14px;
+    align-items: center;
+    padding: 14px 16px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+}
+.cv-product {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+.cv-thumb {
+    width: 56px; height: 56px; border-radius: 12px; overflow: hidden;
+    background: linear-gradient(180deg, #fff, #f1f5f9);
+    border: 1px solid #e8edf5;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.cv-thumb img { width: 100%; height: 100%; object-fit: contain; padding: 5px; }
+.cv-info { min-width: 0; flex: 1; }
+.cv-name {
+    font-size: 13.5px; font-weight: 750; color: #0f172a; line-height: 1.35;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cv-sku {
+    margin-top: 3px;
+    font-size: 11px; color: #94a3b8; font-family: var(--mono); font-weight: 600;
+}
+.cv-reset {
+    margin-top: 4px; border: 0; background: none; padding: 0;
+    color: #2563eb; font-size: 11px; font-weight: 750; cursor: pointer;
+}
+.cv-reset:hover { text-decoration: underline; }
+.cv-field { min-width: 0; }
+.cv-field-label {
+    display: block;
+    font-size: 10px; font-weight: 800; letter-spacing: .04em;
+    text-transform: uppercase; color: #94a3b8; margin-bottom: 6px;
+}
+.cv-price-wrap {
+    display: flex; align-items: center;
+    border: 1px solid #e2e8f0; border-radius: 11px; overflow: hidden;
+    background: #f8fafc;
+}
+.cv-price-wrap:focus-within {
+    border-color: #93c5fd; background: #fff;
+    box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+.cv-currency {
+    padding-left: 10px;
+    font-size: 11px; font-weight: 800; color: #64748b; flex-shrink: 0;
+}
+.cv-input {
+    width: 100%; min-width: 0; padding: 10px 10px 10px 6px;
+    border: 0; background: transparent; color: #0f172a;
+    font: inherit; font-size: 14px; font-weight: 750; font-family: var(--mono);
+    outline: none;
+}
+.cv-qty-wrap {
+    display: inline-flex; align-items: center;
+    border: 1px solid #e2e8f0; border-radius: 11px; overflow: hidden; background: #fff;
+    width: 100%;
+}
+.cv-qty-wrap .qty-btn {
+    width: 36px; height: 40px; flex-shrink: 0;
+    font-size: 16px; color: #475569; border: 0; background: transparent; cursor: pointer;
+}
+.cv-qty-wrap .qty-btn:hover { background: #f1f5f9; color: #2563eb; }
+.cv-qty-wrap input {
+    flex: 1; min-width: 0; width: 100%; height: 40px; border: 0; text-align: center;
+    font-family: var(--mono); font-weight: 750; font-size: 14px; outline: none; background: transparent;
+}
+.cv-total-box { min-width: 0; }
+.cv-line {
+    font-family: var(--mono); font-weight: 800; font-size: 15px; color: #2563eb;
+    white-space: nowrap;
+}
+.cv-remove {
+    width: 36px; height: 36px; border: 0; border-radius: 10px; background: #f8fafc;
+    color: #94a3b8; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    justify-self: end;
+}
+.cv-remove:hover { background: #fef2f2; color: #dc2626; }
+.cv-summary {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    margin: 0; padding: 12px 14px; border-radius: 12px;
+    background: #eff6ff; border: 1px solid #bfdbfe;
+}
+.cv-summary-label {
+    font-size: 11px; font-weight: 800; letter-spacing: .04em;
+    text-transform: uppercase; color: #1d4ed8;
+}
+.cv-summary-meta { font-size: 12px; color: #64748b; margin-top: 2px; }
+.cv-summary strong { color: #2563eb; font-size: 20px; font-family: var(--mono); }
+.cv-foot-actions { display: flex; gap: 8px; }
+.cv-foot-actions .modal-cancel,
+.cv-foot-actions .modal-confirm { flex: 1; }
+@media (max-width: 720px) {
+    .cart-view-item {
+        grid-template-columns: 1fr 1fr auto;
+        grid-template-areas:
+            "product product remove"
+            "price qty total";
+        gap: 12px;
+    }
+    .cv-product { grid-area: product; }
+    .cv-price-cell { grid-area: price; }
+    .cv-qty-cell { grid-area: qty; }
+    .cv-total-box { grid-area: total; align-self: end; padding-bottom: 8px; }
+    .cv-remove { grid-area: remove; }
+}
 
 .exchange-banner {
     padding: 7px 12px; flex-shrink: 0;
@@ -425,9 +834,10 @@
 }
 
 .cart-items {
-    flex: 0 0 auto; min-height: 110px;
+    flex: 1 1 0; min-height: 110px; overflow-y: auto;
     padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
     background: #f8fafc;
+    scrollbar-width: thin;
 }
 .cart-items-label {
     display: flex; align-items: center; justify-content: space-between;
@@ -470,6 +880,7 @@
 .ci-index { display: none; }
 .ci-info { min-width: 0; grid-column: 2 / 3; }
 .ci-name { font-size: 12px; font-weight: 700; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-sku { font-size: 10px; color: var(--text-3); margin-top: 1px; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ci-unit { font-size: 10.5px; color: var(--text-3); margin-top: 1px; font-family: var(--mono); }
 .ci-sub { font-family: var(--mono); font-size: 12px; font-weight: 700; text-align: right; color: var(--blue); grid-column: 3 / 4; grid-row: 1 / 2; }
 .qty-ctrl {
@@ -569,7 +980,7 @@
 .cart-foot {
     flex-shrink: 0; padding: 10px 12px 12px;
     border-top: 1px solid var(--border); background: var(--surface);
-    position: sticky; bottom: 0; z-index: 3;
+    z-index: 3;
     box-shadow: 0 -6px 16px rgba(15,23,42,.04);
 }
 .summary-rows { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
@@ -813,6 +1224,12 @@
 .toast.warning .toast-bar { background: var(--amber); }
 .toast.info .toast-bar { background: var(--blue); }
 
+@media (max-width: 1400px) {
+    .product-list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+@media (max-width: 1180px) {
+    .product-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 /* Counter tills: keep side-by-side on large screens; stack earlier for tablets/phones. */
 @media (max-width: 960px) {
     .pos-root {
@@ -822,24 +1239,29 @@
     }
     .pos-chrome-search { max-width: 420px; }
     .pos-tool-btn span.pos-tool-label { display: none; }
+    .product-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .product-card { min-height: 230px; }
+    .product-list.is-list .product-card { min-height: 76px !important; }
 }
 @media (max-width: 768px) {
-    .pos-rail { width: 64px; }
-    .pos-rail a span, .pos-rail button span { font-size: 9px; }
-    .pos-body { grid-template-columns: 64px minmax(0, 1fr); }
+    .pos-body { grid-template-columns: minmax(0, 1fr); }
     .pos-root {
         grid-template-columns: 1fr;
         grid-template-rows: minmax(40vh, 1fr) minmax(46vh, 1.05fr);
         gap: 6px;
     }
     .pos-user-meta, .pos-brand span:not(.pos-brand-mark) { display: none; }
-    .product-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .p-img-wrap { height: 84px; }
+    .pos-home-btn { padding: 0 10px; font-size: 0; gap: 0; }
+    .pos-home-btn svg { width: 16px; height: 16px; }
+    .product-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .p-img-wrap { height: 96px; min-height: 96px; flex: 0 0 96px; }
+    .product-card { min-height: 220px; }
+    .product-list.is-list .product-card { min-height: 76px !important; }
+    .p-body { min-height: 100px; }
     .cart-actions { grid-template-columns: 1fr; }
     .modal { width: min(100vw - 16px, 480px) !important; max-height: min(92vh, 720px); }
 }
 @media (max-width: 480px) {
-    .pos-rail { display: none; }
     .pos-body { grid-template-columns: 1fr; }
     .pos-root {
         grid-template-columns: 1fr;
@@ -847,6 +1269,8 @@
         padding: 6px;
     }
     .product-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    .product-card { min-height: 210px; }
+    .product-list.is-list .product-card { min-height: 76px !important; }
 }
 </style>
 
@@ -868,14 +1292,18 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
             <input type="text" x-model="search" x-ref="searchInput" autofocus
-                   placeholder="Scan barcode or search name / SKU..."
+                   placeholder="Search by product name, barcode / SKU..."
                    class="search-input"
                    @input="onSearchInput()"
                    @keydown.enter.prevent="onSearchEnter()">
-            <span class="kbd">Scan</span>
+            <span class="kbd">Ctrl K</span>
         </div>
 
         <div class="pos-chrome-right">
+            <a href="{{ route('dashboard') }}" class="pos-home-btn" title="Home / Dashboard">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                Home
+            </a>
             <button type="button" class="pos-tool-btn" @click="$refs.searchInput.focus()" title="Focus barcode / search">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6.5 0a5.5 5.5 0 11-11 0 5.5 5.5 0 0111 0zM4 8V6a2 2 0 012-2h2m8 0h2a2 2 0 012 2v2"/></svg>
                 <span class="pos-tool-label">Scan</span>
@@ -940,154 +1368,178 @@
     </div>
 
     <div class="pos-body">
-        <aside class="pos-rail">
-            <a href="{{ route('pos.index') }}" class="active" title="POS">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                POS
-            </a>
-            <a href="{{ route('dashboard') }}" title="Dashboard">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-                Home
-            </a>
-            @can('manage inventory')
-            <a href="{{ route('products.index') }}" title="Products">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-                Products
-            </a>
-            @endcan
-            @can('view sales ledger')
-            <a href="{{ route('sales.index') }}" title="Orders">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                Orders
-            </a>
-            <a href="{{ route('customers.index') }}" title="Customers">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                Customers
-            </a>
-            @endcan
-            <div class="pos-rail-foot">
-                <div class="pos-rail-online"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span> Online</div>
-            </div>
-        </aside>
-
         <div class="pos-root">
-    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-         LEFT PANEL - Products
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <!-- LEFT PANEL - Products -->
     <div class="panel-left">
         <div class="panel-top">
-            <div class="filter-label">Category</div>
-            <div class="cat-bar" @keydown.escape.window="openCatId = null">
-                {{-- All products --}}
-                <div class="cat-item">
-                    <button type="button"
-                            class="cat-btn"
-                            :class="selectedCategory === 'all' ? 'active' : ''"
-                            @click="pickAllProducts()">
-                        All
-                        <span class="cat-btn-count" x-text="products.length"></span>
-                    </button>
+            <div class="filter-label-row">
+                <div class="filter-label">Categories</div>
+            </div>
+            <div class="cat-scroll-wrap" @click.outside="openCatId = null">
+                <div class="cat-scroll">
+                    <div class="cat-card-wrap">
+                        <button type="button" class="cat-card" :class="selectedCategory === 'all' && selectedBrand === 'all' ? 'active' : ''" @click="pickAllProducts()">
+                            <div class="cat-card-icon" x-html="categoryIconSvg({ icon: 'all', name: 'All' })"></div>
+                            <div class="cat-card-name">All</div>
+                            <div class="cat-card-count" x-text="products.length"></div>
+                        </button>
+                    </div>
+
+                    <template x-for="cat in categories" :key="'cat-card-' + cat.id">
+                        <div class="cat-card-wrap" :class="openCatId === String(cat.id) && 'open'">
+                            <button type="button" class="cat-card"
+                                    :class="selectedCategory == String(cat.id) ? 'active' : ''"
+                                    @click="pickCategory(cat.id)">
+                                <div class="cat-card-icon" x-html="categoryIconSvg(cat)"></div>
+                                <div class="cat-card-name" x-text="cat.name" :title="cat.name"></div>
+                                <div class="cat-card-count" x-text="categoryProductCount(cat.id)"></div>
+                            </button>
+                            <button type="button" class="cat-card-caret"
+                                    title="Show brands"
+                                    @click.stop="toggleCatMenu(cat.id, $event)">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                            </button>
+                            <div class="cat-brand-menu"
+                                 x-show="openCatId === String(cat.id)"
+                                 x-cloak
+                                 @click.stop
+                                 :style="catMenuStyle">
+                                <div class="cat-brand-menu-title" x-text="'Brands · ' + brandsForCategory(cat.id).length"></div>
+                                <button type="button" class="cat-brand-item"
+                                        :class="selectedCategory == String(cat.id) && selectedBrand === 'all' && 'active'"
+                                        @click="pickBrand(cat.id, 'all')">
+                                    <span>All brands</span>
+                                    <span x-text="categoryProductCount(cat.id)"></span>
+                                </button>
+                                <template x-for="brand in brandsForCategory(cat.id)" :key="'cat-brand-' + cat.id + '-' + brand.id">
+                                    <button type="button" class="cat-brand-item"
+                                            :class="selectedCategory == String(cat.id) && selectedBrand == String(brand.id) && 'active'"
+                                            @click="pickBrand(cat.id, brand.id)">
+                                        <span x-text="brand.name"></span>
+                                        <span x-text="brandProductCount(cat.id, brand.id)"></span>
+                                    </button>
+                                </template>
+                                <button type="button" class="cat-brand-item"
+                                        x-show="unbrandedCount(cat.id) > 0"
+                                        :class="selectedCategory == String(cat.id) && selectedBrand === 'none' && 'active'"
+                                        @click="pickBrand(cat.id, 'none')">
+                                    <span>No brand</span>
+                                    <span x-text="unbrandedCount(cat.id)"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <div class="pos-toolbar">
+                <div class="pos-toolbar-search">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z"/></svg>
+                    <input type="text" x-model="catalogQuery" @input="page = 1" placeholder="Search products...">
                 </div>
 
-                {{-- Every category = its own brand dropdown --}}
-                <template x-for="cat in categories" :key="'cat-btn-' + cat.id">
-                    <div class="cat-item"
-                         :class="openCatId == String(cat.id) ? 'open' : ''"
-                         @mouseenter="openCatId = String(cat.id)"
-                         @mouseleave="openCatId = null">
-                        <button type="button"
-                                class="cat-btn"
-                                :class="selectedCategory == String(cat.id) ? 'active' : ''"
-                                @click="toggleCatMenu(cat.id)">
-                            <span x-text="cat.name"></span>
-                            <span class="cat-btn-count" x-text="categoryProductCount(cat.id)"></span>
-                            <svg class="cat-btn-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
-                            </svg>
-                        </button>
+                <select class="pos-toolbar-select" x-model="selectedBrand" @change="page = 1">
+                    <option value="all">All Brands</option>
+                    <template x-for="brand in brandsForCurrentView()" :key="'tb-brand-' + brand.id">
+                        <option :value="String(brand.id)" x-text="brand.name"></option>
+                    </template>
+                    <option value="none" x-show="unbrandedCount(selectedCategory === 'all' ? null : selectedCategory) > 0">No brand</option>
+                </select>
 
-                        <div class="cat-brand-menu" x-show="openCatId == String(cat.id)" x-cloak>
-                            <div class="cat-brand-menu-title">Brands</div>
-                            <button type="button" class="cat-brand-item"
-                                    :class="selectedCategory == String(cat.id) && selectedBrand === 'all' ? 'active' : ''"
-                                    @click="pickCategory(cat.id)">
-                                <span>All brands</span>
-                                <span class="cat-btn-count" x-text="categoryProductCount(cat.id)"></span>
-                            </button>
-                            <template x-for="brand in brandsForCategory(cat.id)" :key="'brand-' + cat.id + '-' + brand.id">
-                                <button type="button" class="cat-brand-item"
-                                        :class="selectedCategory == String(cat.id) && selectedBrand == String(brand.id) ? 'active' : ''"
-                                        @click="pickBrand(cat.id, brand.id)">
-                                    <span x-text="brand.name"></span>
-                                    <span class="cat-btn-count" x-text="brandProductCount(cat.id, brand.id)"></span>
-                                </button>
-                            </template>
-                            <button type="button" class="cat-brand-item"
-                                    x-show="unbrandedCount(cat.id) > 0"
-                                    :class="selectedCategory == String(cat.id) && selectedBrand === 'none' ? 'active' : ''"
-                                    @click="pickBrand(cat.id, 'none')">
-                                <span>No brand</span>
-                                <span class="cat-btn-count" x-text="unbrandedCount(cat.id)"></span>
-                            </button>
-                            <div x-show="brandsForCategory(cat.id).length === 0 && unbrandedCount(cat.id) === 0"
-                                 style="padding:8px 12px;font-size:12px;color:var(--text-3)">No products</div>
-                        </div>
-                    </div>
-                </template>
+                <select class="pos-toolbar-select" x-model="sortBy" @change="page = 1">
+                    <option value="name">Sort by: Name A-Z</option>
+                    <option value="name_desc">Sort by: Name Z-A</option>
+                    <option value="price_asc">Sort by: Price Low-High</option>
+                    <option value="price_desc">Sort by: Price High-Low</option>
+                    <option value="stock">Sort by: Stock</option>
+                </select>
+
+                <div class="pos-view-toggle" role="group" aria-label="View mode">
+                    <button type="button" class="pos-view-btn" :class="viewMode === 'grid' && 'active'" @click="setViewMode('grid')" title="Grid view">
+                        <svg fill="currentColor" viewBox="0 0 24 24"><path d="M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 0h7v7h-7v-7z"/></svg>
+                    </button>
+                    <button type="button" class="pos-view-btn" :class="viewMode === 'list' && 'active'" @click="setViewMode('list')" title="List view">
+                        <svg fill="currentColor" viewBox="0 0 24 24"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>
+                    </button>
+                </div>
             </div>
         </div>
 
-        <!-- Product grid with pictures (always visible) -->
-        <div class="product-list">
-            <template x-for="product in filteredProducts()" :key="product.id">
-                <div @click="addToCart(product)"
-                     class="product-card"
-                     :class="{
-                        'out-of-stock': product.stock_quantity < 1,
-                        'in-cart': cartQty(product.id) > 0
-                     }">
+        <div class="product-stage">
+            <div class="product-list" :class="viewMode === 'list' && 'is-list'">
+                <template x-for="product in paginatedProducts()" :key="product.id">
+                    <div @click="addToCart(product)"
+                         class="product-card"
+                         :class="{
+                            'out-of-stock': product.stock_quantity < 1,
+                            'in-cart': cartQty(product.id) > 0
+                         }">
 
-                    <div class="p-in-cart-tag" x-show="cartQty(product.id) > 0" x-cloak>In cart</div>
-                    <div class="p-selected-badge"
-                         x-show="cartQty(product.id) > 0"
-                         x-text="cartQty(product.id)"
-                         x-cloak></div>
+                        <div class="p-selected-badge"
+                             x-show="cartQty(product.id) > 0"
+                             x-text="cartQty(product.id)"
+                             x-cloak></div>
 
-                    <div class="p-img-wrap">
-                        <template x-if="product.image">
-                            <img :src="'/storage/' + product.image" :alt="product.name" loading="lazy">
-                        </template>
-                        <template x-if="!product.image">
-                            <div class="p-avatar" x-text="productInitials(product.name)"></div>
-                        </template>
-                    </div>
-
-                    <div class="p-body">
-                        <div class="p-name" x-text="product.name" :title="product.name"></div>
-                        <div class="p-meta">
-                            <div class="p-brand-tag"
-                                 x-show="product.brand_name || product.category_name"
-                                 x-text="[product.brand_name, product.category_name].filter(Boolean).join(' · ')"
-                                 x-cloak></div>
-                            <div class="p-barcode" x-text="product.barcode || '—'"></div>
+                        <div class="p-img-wrap">
+                            <div class="p-img-fallback" x-text="productInitials(product.name)"></div>
+                            <img :src="product.image_url"
+                                 :alt="product.name"
+                                 width="200"
+                                 height="200"
+                                 loading="eager"
+                                 decoding="async"
+                                 x-on:error="recoverProductImage($event, product)">
+                            <button type="button"
+                                    class="p-view-btn"
+                                    x-show="cartQty(product.id) > 0"
+                                    x-cloak
+                                    @click.stop="openCartView()"
+                                    title="View selected cart items">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                View
+                            </button>
                         </div>
-                        <div class="p-foot">
-                            <div class="p-price">
-                                <span class="p-price-sym">Tk</span><span x-text="formatNumber(product.selling_price)"></span>
+
+                        <div class="p-body">
+                            <div class="p-meta">
+                                <div class="p-name" x-text="product.name" :title="product.name"></div>
+                                <div class="p-sku" x-text="product.sku || product.barcode || '—'"></div>
                             </div>
-                            <div class="stock-chip"
-                                 :class="product.stock_quantity < 1 ? 'stock-out' : product.stock_quantity < 5 ? 'stock-low' : 'stock-ok'"
-                                 x-text="product.stock_quantity < 1 ? 'Out of stock' : ('In Stock (' + product.stock_quantity + ')')">
+                            <div class="p-foot">
+                                <div class="p-price">
+                                    <span class="p-price-sym">Tk</span><span x-text="formatNumber(product.selling_price)"></span>
+                                </div>
+                                <div class="p-stock"
+                                     :class="product.stock_quantity < 1 ? 'stock-out' : product.stock_quantity < 5 ? 'stock-low' : 'stock-ok'">
+                                    <span class="stock-dot"></span>
+                                    <span x-text="product.stock_quantity < 1 ? 'Out of stock' : ('Stock: ' + product.stock_quantity)"></span>
+                                </div>
                             </div>
                         </div>
                     </div>
+                </template>
+
+                <div x-show="filteredProducts().length === 0"
+                     style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 16px;color:var(--text-3);text-align:center">
+                    <p style="font-size:14px;font-weight:650;color:var(--text-2)">No products found</p>
+                    <p style="font-size:12.5px;margin-top:4px">Try another category, brand, or search.</p>
                 </div>
-            </template>
+            </div>
 
-            <div x-show="filteredProducts().length === 0"
-                 style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 16px;color:var(--text-3);text-align:center">
-                <p style="font-size:14px;font-weight:650;color:var(--text-2)">No products found</p>
-                <p style="font-size:12.5px;margin-top:4px">Try another category/brand, or clear search.</p>
+            <div class="pos-pager" x-show="filteredProducts().length > 0" x-cloak>
+                <div class="pos-pager-meta"
+                     x-text="'Showing ' + pageFrom() + ' to ' + pageTo() + ' of ' + filteredProducts().length + ' products'"></div>
+                <div class="pos-pager-pages">
+                    <button type="button" class="pos-page-btn" :disabled="currentPage() <= 1" @click="goPage(currentPage() - 1)">Prev</button>
+                    <template x-for="p in pageNumbers()" :key="'page-' + p">
+                        <button type="button" class="pos-page-btn"
+                                :class="p === currentPage() && 'active'"
+                                x-text="p === '…' ? '…' : p"
+                                :disabled="p === '…'"
+                                @click="p !== '…' && goPage(p)"></button>
+                    </template>
+                    <button type="button" class="pos-page-btn" :disabled="currentPage() >= totalPages()" @click="goPage(currentPage() + 1)">Next</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1109,6 +1561,15 @@
                 <span class="cart-count" x-show="cartUnitCount() > 0" x-text="cartUnitCount()" x-cloak></span>
             </div>
             <div class="cart-head-actions">
+                <button type="button"
+                        @click="openCartView()"
+                        x-show="cart.length > 0"
+                        x-cloak
+                        class="view-cart-btn"
+                        title="View all selected items">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    View
+                </button>
                 <button @click="holdCartsModalOpen = true"
                     x-show="heldCarts.length > 0"
                     x-cloak
@@ -1136,20 +1597,25 @@
         <div class="cart-items" id="pos-cart-items">
             <div class="cart-items-label" x-show="cart.length > 0" x-cloak>
                 <span>Selected items</span>
-                <strong x-text="cart.length + ' line · ' + cartUnitCount() + ' qty'"></strong>
+                <button type="button" @click="openCartView()"
+                        style="border:0;background:none;color:var(--blue);font-size:11px;font-weight:800;cursor:pointer;text-transform:none;letter-spacing:0">
+                    View all →
+                </button>
             </div>
             <template x-for="(item, index) in cart" :key="item.id">
                 <div class="cart-item" :class="{ 'at-limit': item.qty >= item.max_stock, 'just-added': lastAddedId === item.id }">
                     <div class="ci-thumb">
-                        <template x-if="item.image">
-                            <img :src="'/storage/' + item.image" :alt="item.name">
+                        <template x-if="item.image_url">
+                            <img :src="item.image_url" :alt="item.name" referrerpolicy="no-referrer"
+                                 x-on:error="recoverCartImage($event, item)">
                         </template>
-                        <template x-if="!item.image">
+                        <template x-if="!item.image_url">
                             <span x-text="productInitials(item.name)"></span>
                         </template>
                     </div>
                     <div class="ci-info">
                         <div class="ci-name" x-text="item.name" :title="item.name"></div>
+                        <div class="ci-sku" x-show="item.sku || item.barcode" x-text="item.sku || item.barcode" x-cloak></div>
                         <div class="ci-unit">Tk<span x-text="formatNumber(item.price)"></span> each</div>
                     </div>
                     <div class="ci-sub">Tk<span x-text="formatNumber(item.price * item.qty)"></span></div>
@@ -1238,7 +1704,7 @@
         <div class="cart-foot">
             <div class="summary-rows">
                 <div class="sum-row">
-                    <span class="sum-label">Subtotal</span>
+                    <span class="sum-label">Subtotal (<span x-text="cartUnitCount()"></span> items)</span>
                     <span class="sum-val">Tk<span x-text="formatNumber(getTotal())"></span></span>
                 </div>
                 <div class="sum-row discount" x-show="getDiscount() > 0">
@@ -1284,6 +1750,116 @@
             </div>
         </div>
     </div>
+        </div>
+    </div>
+
+    <!-- CART VIEW MODAL — edit qty & price for all selected items -->
+    <div x-show="cartViewModalOpen" style="display:none" class="modal-overlay"
+         x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div class="modal-bg" @click="cartViewModalOpen = false"></div>
+        <div class="modal cart-view-modal"
+             x-show="cartViewModalOpen"
+             @click.stop
+             x-transition:enter="ease-out duration-250" x-transition:enter-start="opacity-0 scale-95 translate-y-3" x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+             x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95">
+            <div class="modal-head">
+                <div>
+                    <div class="modal-title">Edit cart items</div>
+                    <div class="modal-subtitle" x-text="cart.length + ' selected · change price or quantity'"></div>
+                </div>
+                <button type="button" @click="cartViewModalOpen = false" class="modal-close" aria-label="Close">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <template x-if="cart.length === 0">
+                    <div style="text-align:center;padding:48px 12px;color:var(--text-3)">
+                        <div style="font-weight:750;color:var(--text-2)">No items in cart</div>
+                        <div style="font-size:12.5px;margin-top:4px">Tap products on the left to add them.</div>
+                    </div>
+                </template>
+
+                <div class="cart-view-list" x-show="cart.length > 0">
+                    <template x-for="(item, index) in cart" :key="'cv-' + item.id">
+                        <div class="cart-view-item">
+                            <div class="cv-product">
+                                <div class="cv-thumb">
+                                    <template x-if="item.image_url">
+                                        <img :src="item.image_url" :alt="item.name">
+                                    </template>
+                                    <template x-if="!item.image_url">
+                                        <span x-text="productInitials(item.name)" style="font-size:12px;font-weight:800;color:#94a3b8"></span>
+                                    </template>
+                                </div>
+                                <div class="cv-info">
+                                    <div class="cv-name" x-text="item.name" :title="item.name"></div>
+                                    <div class="cv-sku" x-text="item.sku || item.barcode || '—'"></div>
+                                    <button type="button" class="cv-reset"
+                                            x-show="item.list_price && Number(item.list_price) !== Number(item.price)"
+                                            x-cloak
+                                            @click="resetCartPrice(index)">
+                                        Reset to list Tk<span x-text="formatNumber(item.list_price)"></span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="cv-field cv-price-cell">
+                                <label class="cv-field-label">Unit price</label>
+                                <div class="cv-price-wrap">
+                                    <span class="cv-currency">Tk</span>
+                                    <input type="number" class="cv-input" min="0" step="0.01"
+                                           :value="item.price"
+                                           @change="setCartPrice(index, $event.target.value)"
+                                           @keydown.enter.prevent="setCartPrice(index, $event.target.value)">
+                                </div>
+                            </div>
+
+                            <div class="cv-field cv-qty-cell">
+                                <label class="cv-field-label">Qty <span style="font-weight:650;text-transform:none;letter-spacing:0" x-text="'(max ' + item.max_stock + ')'"></span></label>
+                                <div class="cv-qty-wrap">
+                                    <button type="button" class="qty-btn" @click="updateQty(index, -1)">−</button>
+                                    <input type="number" min="1" :max="item.max_stock"
+                                           :value="item.qty"
+                                           @change="setCartQty(index, $event.target.value)"
+                                           @keydown.enter.prevent="setCartQty(index, $event.target.value)">
+                                    <button type="button" class="qty-btn" @click="updateQty(index, 1)">+</button>
+                                </div>
+                            </div>
+
+                            <div class="cv-total-box">
+                                <div class="cv-field-label">Line total</div>
+                                <div class="cv-line">Tk<span x-text="formatNumber(item.price * item.qty)"></span></div>
+                            </div>
+
+                            <button type="button" class="cv-remove" @click="removeItem(index)" title="Remove">
+                                <svg style="width:16px;height:16px" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <div class="cv-summary" x-show="cart.length > 0" x-cloak>
+                    <div>
+                        <div class="cv-summary-label">Cart subtotal</div>
+                        <div class="cv-summary-meta" x-text="cart.length + ' lines · ' + cartUnitCount() + ' items'"></div>
+                    </div>
+                    <strong>Tk<span x-text="formatNumber(getTotal())"></span></strong>
+                </div>
+                <div class="cv-foot-actions">
+                    <button type="button" @click="cartViewModalOpen = false" class="modal-cancel">Done</button>
+                    <button type="button" class="modal-confirm" style="background:var(--blue);box-shadow:0 4px 12px rgba(37,99,235,.25)"
+                            @click="cartViewModalOpen = false; openCheckout()"
+                            :disabled="!canProceedToCheckout()">
+                        Pay now
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1706,10 +2282,32 @@ function posSystem() {
         offlinePendingTick: 0, // forces UI refresh of pending count
 
         search: '',
+        catalogQuery: '',
         selectedCategory: 'all',
         selectedBrand: 'all',
         openCatId: null,
-        categories: @json($categories->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])->values()),
+        catMenuStyle: { top: '0px', left: '0px' },
+        sortBy: 'name',
+        viewMode: localStorage.getItem('nexa_pos_view') || 'grid',
+        page: 1,
+        perPage: 15,
+        brokenImages: {},
+        imageFallbacks: {
+            phone: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&q=80',
+            laptop: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600&q=80',
+            tablet: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=600&q=80',
+            headphones: 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=600&q=80',
+            earbuds: 'https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=600&q=80',
+            watch: 'https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?w=600&q=80',
+            camera: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&q=80',
+            game: 'https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=600&q=80',
+            speaker: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=600&q=80',
+            charger: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=600&q=80',
+            accessory: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&q=80',
+            monitor: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=600&q=80',
+            default: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&q=80',
+        },
+        categories: @json($categories->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'icon' => $c->icon])->values()),
         brands: @json($brands),
         products: @json($products),
         cart: [],
@@ -1731,6 +2329,7 @@ function posSystem() {
         /* â”€â”€ Checkout â”€â”€ */
         checkoutModalOpen: false,
         invoiceModalOpen: false,
+        cartViewModalOpen: false,
         lastSale: null,
         isProcessing: false,
         payCash: 0,
@@ -1757,6 +2356,14 @@ function posSystem() {
            INIT
         â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         init() {
+            // Guarantee every product has a displayable image URL before first paint
+            this.products = (this.products || []).map((p) => {
+                let url = this.normalizeImageUrl(p.image_url || p.image);
+                if (!url) url = this.fallbackImageFor(p);
+                if (!url) url = this.placeholderDataUri(p.name);
+                return { ...p, image_url: url };
+            });
+
             window.addEventListener('online', () => {
                 this.isOnline = true;
                 this.showToast('Network is back', 'success');
@@ -1893,6 +2500,14 @@ function posSystem() {
                 }
                 return;
             }
+            // Cart view modal — Esc closes
+            if (this.cartViewModalOpen) {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    this.cartViewModalOpen = false;
+                }
+                return;
+            }
             // Shortcut overlay open
             if (this.kbOpen) {
                 if (e.key === 'Escape') { this.kbOpen = false; }
@@ -1902,6 +2517,11 @@ function posSystem() {
             if (e.key === 'F2')    { e.preventDefault(); if (this.canProceedToCheckout()) this.openCheckout(); }
             if (e.key === 'F11')   { e.preventDefault(); this.toggleFullscreen(); }
             if (e.key === 'Escape'){ this.search = ''; this.$refs.searchInput.focus(); }
+            if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                this.$refs.searchInput?.focus();
+                this.$refs.searchInput?.select();
+            }
             if (e.key === '?')     { e.preventDefault(); this.kbOpen = true; }
             if ((e.key === 'd' || e.key === 'D') && document.activeElement.tagName !== 'INPUT') this.toggleDark();
             if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey && document.activeElement.tagName !== 'INPUT') {
@@ -1912,28 +2532,128 @@ function posSystem() {
         },
 
         /* ───────────────────────────────
-           EACH CATEGORY HAS BRAND DROPDOWN
+           CATEGORY / BRAND / CATALOG FILTERS
         ─────────────────────────────── */
-        toggleCatMenu(id) {
-            const key = String(id);
-            this.openCatId = this.openCatId === key ? null : key;
-        },
         pickAllProducts() {
             this.selectedCategory = 'all';
             this.selectedBrand = 'all';
             this.openCatId = null;
+            this.page = 1;
         },
         pickCategory(id) {
             this.selectedCategory = String(id);
             this.selectedBrand = 'all';
             this.openCatId = null;
+            this.page = 1;
         },
         pickBrand(categoryId, brandId) {
             this.selectedCategory = String(categoryId);
             this.selectedBrand = String(brandId);
             this.openCatId = null;
+            this.page = 1;
+        },
+        toggleCatMenu(id, event) {
+            const key = String(id);
+            if (this.openCatId === key) {
+                this.openCatId = null;
+                return;
+            }
+            this.openCatId = key;
+            const el = event?.currentTarget || event?.target;
+            const rect = el?.getBoundingClientRect?.();
+            if (rect) {
+                const left = Math.min(rect.left, window.innerWidth - 220);
+                this.catMenuStyle = {
+                    top: Math.round(rect.bottom + 6) + 'px',
+                    left: Math.round(Math.max(8, left)) + 'px',
+                };
+            }
+        },
+        setViewMode(mode) {
+            this.viewMode = mode === 'list' ? 'list' : 'grid';
+            localStorage.setItem('nexa_pos_view', this.viewMode);
+        },
+        normalizeImageUrl(raw) {
+            let value = String(raw || '').replace(/\\/g, '/').trim();
+            if (!value) return '';
+            if (value.startsWith('data:')) return value;
+            // Force same-origin for /storage assets (fixes localhost vs 127.0.0.1:8000)
+            try {
+                if (/^(https?:)?\/\//i.test(value) || value.startsWith('/')) {
+                    const u = new URL(value, window.location.origin);
+                    if (u.pathname.includes('/storage/')) {
+                        return u.pathname + u.search;
+                    }
+                    if (/^(https?:)?\/\//i.test(value)) return value;
+                }
+            } catch (e) {}
+            if (value.startsWith('/storage/')) return value;
+            if (value.startsWith('storage/')) return '/' + value;
+            const base = document.querySelector('meta[name="app-base"]')?.content || '';
+            return base + '/storage/' + value.replace(/^\/+/, '');
+        },
+        productImageSrc(product) {
+            if (!product) return '';
+            return this.normalizeImageUrl(product.image_url || product.image || '');
+        },
+        fallbackImageFor(product) {
+            const key = String(product?.category_name || product?.category || '').toLowerCase();
+            const map = this.imageFallbacks;
+            if (key.includes('phone') || key.includes('mobile')) return map.phone;
+            if (key.includes('laptop')) return map.laptop;
+            if (key.includes('tablet') || key.includes('ipad')) return map.tablet;
+            if (key.includes('earbud')) return map.earbuds;
+            if (key.includes('headphone') || key.includes('audio')) return map.headphones;
+            if (key.includes('watch')) return map.watch;
+            if (key.includes('camera')) return map.camera;
+            if (key.includes('game')) return map.game;
+            if (key.includes('speaker')) return map.speaker;
+            if (key.includes('charg') || key.includes('cable')) return map.charger;
+            if (key.includes('monitor') || key.includes('display')) return map.monitor;
+            if (key.includes('accessor')) return map.accessory;
+            return map.default;
+        },
+        recoverProductImage(event, product) {
+            const img = event?.target;
+            if (!img || !product) return;
+            const tried = img.dataset.fallbackTried === '1';
+            const fallback = this.fallbackImageFor(product);
+            if (!tried && fallback && !String(img.src || '').includes(fallback.split('?')[0])) {
+                img.dataset.fallbackTried = '1';
+                product.image_url = fallback;
+                img.src = fallback;
+                return;
+            }
+            // Final local SVG placeholder — always paints something
+            const initials = this.productInitials(product.name || '?');
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f8fafc"/><stop offset="1" stop-color="#e2e8f0"/></linearGradient></defs><rect width="240" height="240" fill="url(#g)"/><text x="120" y="128" text-anchor="middle" fill="#64748b" font-size="42" font-family="Segoe UI,Arial,sans-serif" font-weight="700">${initials}</text></svg>`;
+            img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+            product.image_url = img.src;
+        },
+        placeholderDataUri(name) {
+            const initials = this.productInitials(name || '?');
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240"><rect width="240" height="240" fill="#f1f5f9"/><text x="120" y="128" text-anchor="middle" fill="#94a3b8" font-size="42" font-family="Segoe UI,Arial,sans-serif" font-weight="700">${initials}</text></svg>`;
+            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+        },
+        recoverCartImage(event, item) {
+            const img = event?.target;
+            if (!img || !item) return;
+            const fallback = this.fallbackImageFor(item);
+            if (fallback && img.src !== fallback) {
+                item.image_url = fallback;
+                img.src = fallback;
+                return;
+            }
+            img.style.display = 'none';
+        },
+        cartItemImage(item) {
+            if (!item) return '';
+            return this.normalizeImageUrl(item.image_url || item.image || '');
         },
         productsInCategory(categoryId) {
+            if (categoryId === null || categoryId === undefined || categoryId === 'all') {
+                return this.products;
+            }
             return this.products.filter(p => String(p.category_id) === String(categoryId));
         },
         categoryProductCount(categoryId) {
@@ -1952,12 +2672,51 @@ function posSystem() {
                 }
             });
             const fromCatalog = (this.brands || []).filter(b => ids.has(String(b.id)));
-            const synthetic = Array.from(looseNames.entries()).map(([key, name], i) => ({
+            const synthetic = Array.from(looseNames.entries()).map(([key, name]) => ({
                 id: 'name:' + key,
                 name,
                 _synthetic: true,
             }));
             return [...fromCatalog, ...synthetic];
+        },
+        brandsForCurrentView() {
+            return this.brandsForCategory(this.selectedCategory === 'all' ? null : this.selectedCategory)
+                .filter(b => !String(b.id).startsWith('name:'));
+        },
+        categoryIconSvg(cat) {
+            const key = String(cat?.icon || cat?.name || '').toLowerCase();
+            // Decorative stroke icons matching the Nexa mockup style
+            const icons = {
+                all: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+                phone: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+                smartphone: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+                laptop: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/><path d="M8 20h8"/>',
+                tablet: '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/>',
+                headphones: '<path d="M4 13a8 8 0 0 1 16 0"/><path d="M4 13v5a2 2 0 0 0 2 2h1v-7H4zm16 0v5a2 2 0 0 1-2 2h-1v-7h3z"/>',
+                earbuds: '<path d="M7 10a3 3 0 1 0 0 6h1v-6H7zm9 0h1a3 3 0 1 1 0 6h-1v-6z"/><path d="M8 13h8"/>',
+                watch: '<circle cx="12" cy="12" r="7"/><path d="M12 9v3l2 1"/><path d="M9 3h6M9 21h6"/>',
+                smartwatch: '<circle cx="12" cy="12" r="7"/><path d="M12 9v3l2 1"/><path d="M9 3h6M9 21h6"/>',
+                camera: '<path d="M4 8h3l2-2h6l2 2h3v11H4V8z"/><circle cx="12" cy="13" r="3.5"/>',
+                game: '<rect x="2" y="8" width="20" height="10" rx="4"/><path d="M8 12h.01M10 12h.01M9 11v2M15 11.5h.01M17 13.5h.01"/>',
+                gaming: '<rect x="2" y="8" width="20" height="10" rx="4"/><path d="M8 12h.01M10 12h.01M9 11v2M15 11.5h.01M17 13.5h.01"/>',
+                speaker: '<path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18 6a8 8 0 0 1 0 12"/>',
+                charger: '<path d="M9 2v4M15 2v4"/><rect x="7" y="6" width="10" height="11" rx="2"/><path d="M11 17v5M13 17v5"/><path d="M10 10h4"/>',
+                plug: '<path d="M9 2v4M15 2v4"/><rect x="7" y="6" width="10" height="11" rx="2"/><path d="M11 17v5M13 17v5"/>',
+                accessory: '<rect x="5" y="10" width="14" height="9" rx="2"/><path d="M8 10V8a4 4 0 0 1 8 0v2"/><circle cx="9" cy="14" r="1"/><path d="M12 17h5"/>',
+                mouse: '<rect x="8" y="3" width="8" height="14" rx="4"/><path d="M12 3v5"/>',
+                monitor: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+            };
+            let body = icons.accessory;
+            const order = ['all','smartphone','phone','laptop','tablet','earbuds','headphones','smartwatch','watch','camera','gaming','game','speaker','charger','plug','mouse','accessory','monitor'];
+            for (const k of order) {
+                if (key === k || key.includes(k)) { body = icons[k]; break; }
+            }
+            if (key.includes('mobile')) body = icons.phone;
+            if (key.includes('earbud') || key.includes('earphone')) body = icons.earbuds;
+            if (key.includes('audio') && !key.includes('speaker')) body = icons.headphones;
+            if (key.includes('cable') || key.includes('power') || key.includes('charg')) body = icons.charger;
+            if (key.includes('accessor')) body = icons.mouse;
+            return `<svg fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">${body}</svg>`;
         },
         resolveBrand(product) {
             if (product.brand_id) {
@@ -2013,8 +2772,8 @@ function posSystem() {
             return this.selectedCategory === 'all' || String(product.category_id) === String(this.selectedCategory);
         },
         filteredProducts() {
-            const q = (this.search || '').trim().toLowerCase();
-            return this.products.filter(p => {
+            const q = (this.catalogQuery || '').trim().toLowerCase();
+            let list = this.products.filter(p => {
                 if (!this.matchesCategory(p) || !this.matchesBrand(p)) return false;
                 if (!q) return true;
                 const name = (p.name || '').toLowerCase();
@@ -2024,6 +2783,65 @@ function posSystem() {
                 const category = String(p.category_name || '').toLowerCase();
                 return name.includes(q) || barcode.includes(q) || sku.includes(q) || brand.includes(q) || category.includes(q);
             });
+
+            const sort = this.sortBy;
+            list = list.slice().sort((a, b) => {
+                if (sort === 'price_asc') return Number(a.selling_price) - Number(b.selling_price);
+                if (sort === 'price_desc') return Number(b.selling_price) - Number(a.selling_price);
+                if (sort === 'stock') return Number(b.stock_quantity) - Number(a.stock_quantity);
+                if (sort === 'name_desc') return String(b.name || '').localeCompare(String(a.name || ''));
+                return String(a.name || '').localeCompare(String(b.name || ''));
+            });
+            return list;
+        },
+        headerSearchMatches() {
+            const q = (this.search || '').trim().toLowerCase();
+            if (!q) return [];
+            return this.products.filter(p => {
+                const name = (p.name || '').toLowerCase();
+                const barcode = String(p.barcode || '').toLowerCase();
+                const sku = String(p.sku || '').toLowerCase();
+                const brand = String(p.brand_name || '').toLowerCase();
+                return name.includes(q) || barcode.includes(q) || sku.includes(q) || brand.includes(q);
+            });
+        },
+        totalPages() {
+            return Math.max(1, Math.ceil(this.filteredProducts().length / this.perPage));
+        },
+        currentPage() {
+            return Math.min(Math.max(1, this.page), this.totalPages());
+        },
+        pageFrom() {
+            if (this.filteredProducts().length === 0) return 0;
+            return ((this.currentPage() - 1) * this.perPage) + 1;
+        },
+        pageTo() {
+            return Math.min(this.currentPage() * this.perPage, this.filteredProducts().length);
+        },
+        paginatedProducts() {
+            const start = (this.currentPage() - 1) * this.perPage;
+            return this.filteredProducts().slice(start, start + this.perPage);
+        },
+        goPage(p) {
+            const page = Number(p);
+            if (!page || page < 1 || page > this.totalPages()) return;
+            this.page = page;
+            this.$nextTick(() => {
+                document.querySelector('.product-list')?.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        },
+        pageNumbers() {
+            const total = this.totalPages();
+            const current = this.currentPage();
+            if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+            const pages = [1];
+            const start = Math.max(2, current - 1);
+            const end = Math.min(total - 1, current + 1);
+            if (start > 2) pages.push('…');
+            for (let i = start; i <= end; i++) pages.push(i);
+            if (end < total - 1) pages.push('…');
+            pages.push(total);
+            return pages;
         },
 
         findExactScanMatch(code) {
@@ -2059,18 +2877,24 @@ function posSystem() {
                 return;
             }
 
-            // Otherwise add if only one filtered result
-            const filtered = this.filteredProducts();
-            if (filtered.length === 1) {
-                this.addToCart(filtered[0]);
+            // Otherwise add if only one header search match
+            const matches = this.headerSearchMatches();
+            if (matches.length === 1) {
+                this.addToCart(matches[0]);
                 return;
             }
 
-            if (filtered.length === 0) {
+            if (matches.length === 0) {
                 this.playBeep(false);
                 this.showToast('No product found for “' + q + '”', 'error');
                 this.search = '';
                 this.$nextTick(() => this.$refs.searchInput?.focus());
+            } else {
+                // Multiple matches — push query into catalog filter so cashier can pick
+                this.catalogQuery = q;
+                this.page = 1;
+                this.search = '';
+                this.showToast(matches.length + ' matches — pick from the list', 'info');
             }
         },
 
@@ -2138,10 +2962,15 @@ function posSystem() {
                 this.cart.push({
                     id: product.id,
                     name: product.name,
-                    price: product.selling_price,
+                    price: Number(product.selling_price) || 0,
+                    list_price: Number(product.list_price ?? product.selling_price) || 0,
                     qty: 1,
                     max_stock: product.stock_quantity,
                     image: product.image || null,
+                    image_url: product.image_url || this.productImageSrc(product) || this.fallbackImageFor(product),
+                    sku: product.sku || null,
+                    barcode: product.barcode || null,
+                    category_name: product.category_name || null,
                 });
                 this.lastAddedId = product.id;
                 this.playBeep(true);
@@ -2172,10 +3001,12 @@ function posSystem() {
 
         updateQty(index, amount) {
             const item   = this.cart[index];
+            if (!item) return;
             const newQty = item.qty + amount;
             if (newQty <= 0) {
                 if (this.lastAddedId === item.id) this.lastAddedId = null;
                 this.cart.splice(index, 1);
+                if (this.cart.length === 0) this.cartViewModalOpen = false;
             } else if (newQty <= item.max_stock) {
                 item.qty = newQty;
                 this.lastAddedId = item.id;
@@ -2185,10 +3016,47 @@ function posSystem() {
             }
         },
 
+        setCartQty(index, value) {
+            const item = this.cart[index];
+            if (!item) return;
+            let qty = Math.floor(Number(value));
+            if (!Number.isFinite(qty) || qty < 1) qty = 1;
+            if (qty > item.max_stock) {
+                qty = item.max_stock;
+                this.playBeep(false);
+                this.showToast('Max stock for ' + item.name + ' is ' + item.max_stock, 'warning');
+            }
+            item.qty = qty;
+            this.lastAddedId = item.id;
+        },
+
+        setCartPrice(index, value) {
+            const item = this.cart[index];
+            if (!item) return;
+            let price = Number(value);
+            if (!Number.isFinite(price) || price < 0) price = 0;
+            item.price = Math.round(price * 100) / 100;
+        },
+
+        resetCartPrice(index) {
+            const item = this.cart[index];
+            if (!item) return;
+            item.price = Number(item.list_price ?? item.price) || 0;
+        },
+
+        openCartView() {
+            if (this.cart.length === 0) {
+                this.showToast('Cart is empty — add products first', 'warning');
+                return;
+            }
+            this.cartViewModalOpen = true;
+        },
+
         removeItem(index) {
             const removed = this.cart[index];
             this.cart.splice(index, 1);
             if (removed && this.lastAddedId === removed.id) this.lastAddedId = null;
+            if (this.cart.length === 0) this.cartViewModalOpen = false;
         },
 
         /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
