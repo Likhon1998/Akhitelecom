@@ -99,6 +99,8 @@
                 cartOpen: false,
                 checkoutOpen: false,
                 mobileOpen: false,
+                mobileCatsOpen: false,
+                mobileBrandsOpen: false,
                 checkoutStep: 'auth',
                 authPurpose: 'account',
                 authTab: 'login',
@@ -386,7 +388,7 @@
         .gaget-page-loader.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
     </style>
 </head>
-<body class="gaget-store bg-white antialiased" id="storefront-root" x-data="storefrontCart()" @keydown.escape.window="cartOpen=false; checkoutOpen=false; mobileOpen=false">
+<body class="gaget-store bg-white antialiased" id="storefront-root" x-data="storefrontCart()" @keydown.escape.window="cartOpen=false; checkoutOpen=false; mobileOpen=false; mobileCatsOpen=false; mobileBrandsOpen=false">
 
 {{-- Joyful full-page loader (shown on first paint + every navigation) --}}
 <div id="gaget-page-loader" class="gaget-page-loader is-active" role="status" aria-live="polite" aria-busy="true" aria-label="Loading">
