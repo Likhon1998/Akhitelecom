@@ -8,11 +8,24 @@
        class="fixed inset-y-0 left-0 z-50 w-[min(260px,88vw)] bg-[#0B1220] text-slate-300 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto lg:w-[260px] flex flex-col border-r border-white/5">
 
     <div class="flex items-center gap-2.5 h-[4.25rem] px-5 shrink-0 border-b border-white/5">
+        @php
+            $navSettings = \App\Models\SiteSetting::current();
+            $navName = $navSettings->store_name
+                ?: (Auth::user()->shop->name ?? config('app.name', 'Akhi Telecom'));
+            $navIcon = $navSettings->favicon_path
+                ? public_storage_url($navSettings->favicon_path)
+                : ($navSettings->logo_path ? public_storage_url($navSettings->logo_path) : null);
+        @endphp
         <a href="{{ route('dashboard') }}" @click="sidebarOpen = false" class="flex items-center gap-2.5 text-white font-bold text-[15px] tracking-tight min-w-0 flex-1">
-            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/30">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
-            </span>
-            <span class="truncate">{{ Auth::user()->shop->name ?? config('app.name', 'Nexa POS') }}</span>
+            @if($navIcon)
+                <img src="{{ $navIcon }}?v={{ @filemtime(storage_path('app/public/'.($navSettings->favicon_path ?: $navSettings->logo_path))) ?: time() }}" alt="" class="h-11 w-11 object-contain shrink-0" width="44" height="44" style="width:44px;height:44px;object-fit:contain;background:transparent;border:0;">
+                <span class="truncate">{{ $navName }}</span>
+            @else
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/30">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                </span>
+                <span class="truncate">{{ $navName }}</span>
+            @endif
         </a>
         <button type="button" @click="sidebarOpen = false" class="lg:hidden inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Close menu">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>

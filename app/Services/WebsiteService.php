@@ -59,7 +59,7 @@ class WebsiteService
         }
 
         return (object) [
-            'store_name' => $site->store_name ?: ($shop?->name ?? config('app.name', 'GAGET STORE')),
+            'store_name' => $site->store_name ?: ($shop?->name ?? config('app.name', 'Akhi Telecom')),
             'logo_path' => $site->logo_path,
             'favicon_path' => $site->favicon_path,
             'currency_code' => $currencyCode,

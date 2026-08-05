@@ -13,15 +13,28 @@
                     <svg x-show="mobileOpen" x-cloak class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
 
-                <a href="{{ route('home') }}" class="flex items-center gap-2.5 shrink-0 no-underline min-w-0">
-                    @if($settings->logo_path ?? false)
-                        <img src="{{ public_storage_url($settings->logo_path) }}" alt="" class="gaget-logo-icon object-contain p-1">
+                <a href="{{ route('home') }}" class="flex items-center gap-3 shrink-0 no-underline min-w-0">
+                    @php
+                        $headerName = $settings->store_name ?? config('app.name', 'Akhi Telecom');
+                        $headerIconPath = $settings->favicon_path ?: $settings->logo_path;
+                        $headerIcon = $headerIconPath ? public_storage_url($headerIconPath) : null;
+                        $headerIconVer = $headerIconPath
+                            ? (@filemtime(storage_path('app/public/'.$headerIconPath)) ?: time())
+                            : time();
+                    @endphp
+                    @if($headerIcon)
+                        <img src="{{ $headerIcon }}?v={{ $headerIconVer }}"
+                             alt="{{ $headerName }}"
+                             class="gaget-logo-mark"
+                             width="56"
+                             height="56"
+                             style="width:56px;height:56px;object-fit:contain;flex-shrink:0;background:transparent;border:0;border-radius:0;box-shadow:none;">
                     @else
                         <div class="gaget-logo-icon">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
                         </div>
                     @endif
-                    <span class="gaget-logo-text truncate">{{ $settings->store_name ?? 'GAGET STORE' }}</span>
+                    <span class="gaget-logo-text truncate">{{ $headerName }}</span>
                 </a>
                 </div>
 

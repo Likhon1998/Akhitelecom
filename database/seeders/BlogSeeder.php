@@ -23,7 +23,7 @@ class BlogSeeder extends Seeder
         if (! $settings) {
             $settings = SiteSetting::create([
                 'default_shop_id' => $shop->id,
-                'store_name' => 'Gadget Store',
+                'store_name' => 'Akhi Telecom',
                 'currency_code' => 'BDT',
                 'currency_symbol' => '৳',
             ]);
@@ -39,7 +39,7 @@ class BlogSeeder extends Seeder
             'default_shop_id' => $settings->default_shop_id ?: $shop->id,
             'blog_hero_kicker' => 'OUR BLOG',
             'blog_hero_title' => 'News & Articles',
-            'blog_hero_subtitle' => 'Stay updated with the latest tech news, product reviews, and buying guides from Gadget Store.',
+            'blog_hero_subtitle' => 'Stay updated with the latest tech news, product reviews, and buying guides from Akhi Telecom.',
             'blog_articles_title' => 'Latest Articles',
             'blog_newsletter_title' => 'Subscribe to Our Newsletter',
             'blog_newsletter_text' => 'Get the latest deals and tech news delivered to your inbox.',

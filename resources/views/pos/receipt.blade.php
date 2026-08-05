@@ -9,7 +9,7 @@
         $issuedAt = $order->created_at?->copy()->timezone($tz);
         $printedAt = now()->timezone($tz);
         $shop = $order->shop ?? Auth::user()->shop ?? null;
-        $shopName = $shop->name ?? 'Nexa POS';
+        $shopName = $shop->name ?? config('app.name', 'Akhi Telecom');
         $isOnline = $order->isOnlineOrder();
         $isVoid = in_array($order->status, ['refunded', 'cancelled', 'returned'], true);
         $channel = $isOnline

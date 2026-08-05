@@ -56,8 +56,11 @@
                 <div class="tn-container tn-hero-fallback-inner">
                     <p class="tn-hero-kicker">{{ data_get($settings, 'special_offer_text') ?: 'Premium Electronics' }}</p>
                     <h1 class="tn-hero-title">Upgrade Your Digital Life</h1>
-                    <p class="tn-hero-sub">Add poster banners in CMS &rarr; Home Posters to customize this section.</p>
-                    <a href="{{ route('website.shop') }}" class="tn-btn tn-btn-primary">Shop Now</a>
+                    <p class="tn-hero-sub">Discover the latest gadgets, unbeatable deals, and premium tech at {{ $settings->store_name ?? config('app.name', 'Akhi Telecom') }}.</p>
+                    <div class="tn-hero-actions">
+                        <a href="{{ route('website.shop') }}" class="tn-btn tn-btn-primary">Shop Now</a>
+                        <a href="{{ route('website.shop', ['filter' => 'new']) }}" class="tn-btn tn-btn-outline">Explore Collection</a>
+                    </div>
                 </div>
             </div>
         </div>

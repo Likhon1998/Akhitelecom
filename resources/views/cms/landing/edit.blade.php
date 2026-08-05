@@ -29,19 +29,19 @@
 
         <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h3 class="text-base font-bold text-slate-900">Store identity</h3>
-            <p class="text-sm text-slate-500 mt-1">Shown in the website header, footer, and browser title.</p>
+            <p class="text-sm text-slate-500 mt-1">Shown in the website header, footer, admin sidebar, login page, and browser title/tab.</p>
             <div class="mt-5 grid gap-4 md:grid-cols-2">
                 <div>
                     <label class="text-xs font-bold uppercase text-slate-500">Store name</label>
                     <input name="store_name" value="{{ old('store_name', $settings->store_name) }}" class="mt-1 w-full rounded-xl border-slate-200" required>
                 </div>
                 <div>
-                    <label class="text-xs font-bold uppercase text-slate-500">Logo</label>
+                    <label class="text-xs font-bold uppercase text-slate-500">Full logo (with text)</label>
                     <input type="file" name="logo" accept="image/*" class="mt-1 w-full rounded-xl border-slate-200 text-sm">
                     @if($settings->logo_path)
-                        <img src="{{ public_storage_url($settings->logo_path) }}" alt="" class="mt-2 h-10 object-contain">
+                        <img src="{{ public_storage_url($settings->logo_path) }}" alt="" class="mt-2 h-14 object-contain rounded-lg bg-black p-1">
                     @endif
-                    <p class="mt-1 text-[11px] text-slate-400">Header / footer logo.</p>
+                    <p class="mt-1 text-[11px] text-slate-400">Header, footer, login, and admin sidebar. Black backgrounds are auto-removed.</p>
                 </div>
                 <div>
                     <label class="text-xs font-bold uppercase text-slate-500">Browser tab icon (favicon)</label>
@@ -52,8 +52,8 @@
                             : ($settings->logo_path ? public_storage_url($settings->logo_path) : asset('favicon.svg'));
                     @endphp
                     <div class="mt-2 flex items-center gap-2">
-                        <img src="{{ $faviconPreview }}" alt="" class="h-8 w-8 rounded object-contain border border-slate-200 bg-white p-0.5">
-                        <p class="text-[11px] text-slate-400">Shown in the browser tab. Square PNG/SVG works best. Falls back to logo if empty.</p>
+                        <img src="{{ $faviconPreview }}" alt="" class="h-10 w-10 rounded object-contain border border-slate-200 bg-white p-0.5">
+                        <p class="text-[11px] text-slate-400">Text-less icon for the browser tab. Extra black padding is cropped automatically.</p>
                     </div>
                 </div>
                 <div>

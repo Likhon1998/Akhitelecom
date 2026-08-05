@@ -1,7 +1,7 @@
 @extends('website.layout')
 @php
     $settings = $settings ?? (object) [];
-    $storeName = data_get($settings, 'store_name', 'Gadget Store');
+    $storeName = data_get($settings, 'store_name', config('app.name', 'Akhi Telecom'));
     $heroKicker = data_get($settings, 'blog_hero_kicker') ?: 'OUR BLOG';
     $heroTitle = data_get($settings, 'blog_hero_title') ?: 'News & Articles';
     $heroSub = data_get($settings, 'blog_hero_subtitle')

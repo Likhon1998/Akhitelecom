@@ -83,12 +83,37 @@
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
 }
+.gaget-logo-mark {
+    width: 56px !important;
+    height: 56px !important;
+    max-width: 56px !important;
+    max-height: 56px !important;
+    object-fit: contain;
+    border-radius: 0;
+    flex-shrink: 0;
+    background: transparent !important;
+    display: block;
+    border: 0;
+    box-shadow: none;
+}
+.gaget-logo-wordmark {
+    height: 52px !important;
+    width: auto !important;
+    max-width: 220px !important;
+    max-height: 52px !important;
+    object-fit: contain;
+    border-radius: 0;
+    flex-shrink: 0;
+    background: transparent !important;
+    display: block;
+}
 .gaget-logo-text {
-    font-size: 17px;
+    font-size: 20px;
     font-weight: 800;
     color: var(--g-navy);
     letter-spacing: -0.02em;
     text-transform: uppercase;
+    line-height: 1.1;
 }
 
 /* Search: input | categories | navy button */
@@ -2367,22 +2392,40 @@
     margin-bottom: 14px;
 }
 .tn-footer-logo-mark {
-    width: 46px;
-    height: 46px;
+    width: 52px;
+    height: 52px;
     border-radius: 12px;
-    background: #3b82f6;
-    color: #fff;
+    background: transparent;
+    color: #111827;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 10px 24px rgba(59, 130, 246, .28);
+    box-shadow: none;
     overflow: hidden;
     flex-shrink: 0;
+}
+.tn-footer-logo-img {
+    width: 52px !important;
+    height: 52px !important;
+    object-fit: contain;
+    background: transparent !important;
+    display: block;
+    flex-shrink: 0;
+}
+.tn-footer-logo-wordmark {
+    height: 56px;
+    width: auto;
+    max-width: min(240px, 70vw);
+    object-fit: contain;
+    border-radius: 0;
+    background: transparent;
+    display: block;
 }
 .tn-footer-logo-mark img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    background: transparent;
 }
 .tn-footer-logo-mark svg {
     width: 22px;
@@ -3305,6 +3348,9 @@
         font-size: 14px;
     }
     .gaget-logo-icon { width: 36px; height: 36px; }
+    .gaget-logo-mark { width: 48px !important; height: 48px !important; max-width: 48px !important; max-height: 48px !important; }
+    .gaget-logo-wordmark { height: 44px !important; max-width: 170px !important; }
+    .gaget-logo-text { font-size: 17px; }
     .gaget-hover-panel { display: none !important; }
     .gaget-mobile-search {
         border-radius: 14px;

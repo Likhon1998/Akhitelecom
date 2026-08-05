@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PromoBanner;
 use App\Models\SiteFeature;
 use App\Models\SiteSetting;
+use App\Services\SiteLogoNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -110,14 +111,16 @@ class LandingPageController extends Controller
             if ($settings->logo_path) {
                 Storage::disk('public')->delete($settings->logo_path);
             }
-            $settings->logo_path = $request->file('logo')->store('cms/logo', 'public');
+            $settings->logo_path = app(SiteLogoNormalizer::class)
+                ->storeProcessed($request->file('logo'), 'logo');
         }
 
         if ($request->hasFile('favicon')) {
             if ($settings->favicon_path) {
                 Storage::disk('public')->delete($settings->favicon_path);
             }
-            $settings->favicon_path = $request->file('favicon')->store('cms/favicon', 'public');
+            $settings->favicon_path = app(SiteLogoNormalizer::class)
+                ->storeProcessed($request->file('favicon'), 'favicon');
         }
 
         $settings->save();

@@ -20,7 +20,6 @@ class RolesAndPermissionsSeeder extends Seeder
             'manage staff',
             'manage roles',
             'manage counters',
-            'use ai chat',
             'manage website',
         ];
 

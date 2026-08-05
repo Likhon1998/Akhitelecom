@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\Shop;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -16,9 +15,9 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $shop = Shop::firstOrCreate(
-            ['email' => 'admin@nexapos.com'],
+            ['email' => 'admin@akhitelecom.com'],
             [
-                'name' => 'Nexa POS Master Shop',
+                'name' => 'Akhi Telecom',
                 'phone' => '01700000000',
                 'address' => 'Dhaka, Bangladesh',
                 'is_active' => true,
@@ -26,24 +25,16 @@ class DatabaseSeeder extends Seeder
         );
 
         $admin = User::updateOrCreate(
-            ['email' => 'admin@nexapos.com'],
+            ['email' => 'admin@akhitelecom.com'],
             [
                 'shop_id' => $shop->id,
                 'role' => 'admin',
-                'name' => 'Store Admin',
-                'password' => Hash::make('password'),
+                'name' => 'Admin',
+                'password' => '12345678',
                 'email_verified_at' => now(),
             ]
         );
 
-        $admin->syncRoles(['Shop Owner']);
-
-        $this->call([
-            WebsiteSeeder::class,
-            BlogSeeder::class,
-            GadgetCatalogSeeder::class,
-            VariantFamilyCatalogSeeder::class,
-            ProductImageRepairSeeder::class,
-        ]);
+        $admin->syncRoles(['Admin']);
     }
 }

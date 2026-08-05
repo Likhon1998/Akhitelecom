@@ -1477,10 +1477,20 @@
 
         <div class="pos-chrome">
         <a href="{{ route('dashboard') }}" class="pos-brand" title="Dashboard">
+            @php
+                $posSettings = \App\Models\SiteSetting::current();
+                $posIcon = $posSettings->favicon_path
+                    ? public_storage_url($posSettings->favicon_path)
+                    : ($posSettings->logo_path ? public_storage_url($posSettings->logo_path) : null);
+            @endphp
             <span class="pos-brand-mark">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                @if($posIcon)
+                    <img src="{{ $posIcon }}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:8px;background:#000;">
+                @else
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                @endif
             </span>
-            <span>{{ Auth::user()->shop->name ?? 'GAGET' }} <em>POS</em></span>
+            <span>{{ Auth::user()->shop->name ?? config('app.name', 'Akhi Telecom') }} <em>POS</em></span>
         </a>
 
         <div class="pos-chrome-search">
@@ -2610,7 +2620,7 @@ function posSystem() {
         darkMode: localStorage.getItem('nexa_dark') === 'true',
         isFullscreen: !!(document.fullscreenElement || document.webkitFullscreenElement),
         showFullscreenHint: localStorage.getItem('nexa_pos_fs_hint') !== 'dismissed',
-        shopName: @json(Auth::user()->shop->name ?? 'Nexa POS'),
+        shopName: @json(Auth::user()->shop->name ?? config('app.name', 'Akhi Telecom')),
         cashierName: @json(Auth::user()->name),
         offlinePendingTick: 0, // forces UI refresh of pending count
 

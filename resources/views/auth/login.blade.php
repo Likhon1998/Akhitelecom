@@ -1,6 +1,15 @@
 <x-login-layout>
+    @php
+        $brandName = data_get($settings ?? null, 'store_name') ?: config('app.name', 'Akhi Telecom');
+        $brandLogo = !empty(data_get($settings ?? null, 'logo_path'))
+            ? public_storage_url($settings->logo_path)
+            : null;
+        $brandIcon = !empty(data_get($settings ?? null, 'favicon_path'))
+            ? public_storage_url($settings->favicon_path)
+            : ($brandLogo ?: null);
+    @endphp
     <div class="nexa-shell">
-        <section class="nexa-left" aria-label="Nexa POS overview">
+        <section class="nexa-left" aria-label="{{ $brandName }} overview">
             <div class="nexa-left-poster" aria-hidden="true">
                 <img
                     src="{{ asset('images/auth/login-pos-bg.png') }}?v=3"
@@ -16,22 +25,32 @@
 
             <div class="nexa-left-content">
                 <div class="nexa-brand">
-                    <div class="nexa-brand-mark" aria-hidden="true">
-                        <svg viewBox="0 0 32 32" fill="none">
-                            <defs>
-                                <linearGradient id="nexaCube" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#c084fc"/>
-                                    <stop offset="1" stop-color="#60a5fa"/>
-                                </linearGradient>
-                            </defs>
-                            <path d="M16 3.5L27 9.5V22.5L16 28.5L5 22.5V9.5L16 3.5Z" stroke="url(#nexaCube)" stroke-width="1.6" fill="rgba(168,85,247,.2)"/>
-                            <path d="M16 15.5L27 9.5M16 15.5V28.5M16 15.5L5 9.5" stroke="url(#nexaCube)" stroke-width="1.6" stroke-linecap="round"/>
-                        </svg>
-                    </div>
-                    <div>
-                        <div class="nexa-brand-name">NEXA POS</div>
-                        <div class="nexa-brand-sub">Smart POS &amp; Inventory System</div>
-                    </div>
+                    @if($brandIcon)
+                        <div class="nexa-brand-mark" aria-hidden="true" style="background:transparent;border:0;box-shadow:none;width:56px;height:56px;">
+                            <img src="{{ $brandIcon }}?v={{ @filemtime(storage_path('app/public/'.$settings->favicon_path)) ?: time() }}" alt="" style="width:56px;height:56px;object-fit:contain;">
+                        </div>
+                        <div>
+                            <div class="nexa-brand-name">{{ strtoupper($brandName) }}</div>
+                            <div class="nexa-brand-sub">Smart POS &amp; Inventory System</div>
+                        </div>
+                    @else
+                        <div class="nexa-brand-mark" aria-hidden="true">
+                            <svg viewBox="0 0 32 32" fill="none">
+                                <defs>
+                                    <linearGradient id="nexaCube" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+                                        <stop stop-color="#60a5fa"/>
+                                        <stop offset="1" stop-color="#2563eb"/>
+                                    </linearGradient>
+                                </defs>
+                                <path d="M16 3.5L27 9.5V22.5L16 28.5L5 22.5V9.5L16 3.5Z" stroke="url(#nexaCube)" stroke-width="1.6" fill="rgba(37,99,235,.2)"/>
+                                <path d="M16 15.5L27 9.5M16 15.5V28.5M16 15.5L5 9.5" stroke="url(#nexaCube)" stroke-width="1.6" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="nexa-brand-name">{{ strtoupper($brandName) }}</div>
+                            <div class="nexa-brand-sub">Smart POS &amp; Inventory System</div>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="nexa-left-body">
@@ -85,7 +104,7 @@
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                     </svg>
-                    Trusted by thousands of businesses worldwide
+                    Trusted by customers across Bangladesh
                 </div>
             </div>
         </section>
@@ -93,12 +112,16 @@
         <section class="nexa-right" aria-label="Admin sign in">
             <div class="nexa-card">
                 <div class="nexa-lock" aria-hidden="true">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                    </svg>
+                    @if($brandIcon)
+                        <img src="{{ $brandIcon }}" alt="" style="width:42px;height:42px;object-fit:contain;border-radius:10px;">
+                    @else
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                    @endif
                 </div>
                 <h2 class="nexa-card-title">Welcome Back</h2>
-                <p class="nexa-card-sub">Sign in to your Nexa POS admin account</p>
+                <p class="nexa-card-sub">Sign in to your {{ $brandName }} admin account</p>
 
                 @if ($errors->has('email') || $errors->has('password'))
                     <div class="nexa-alert" role="alert">
@@ -169,7 +192,7 @@
                 </form>
             </div>
 
-            <p class="nexa-right-foot">&copy; 2026 Nexa POS. All rights reserved.</p>
+            <p class="nexa-right-foot">&copy; {{ date('Y') }} {{ $brandName }}. All rights reserved.</p>
         </section>
     </div>
 </x-login-layout>

@@ -29,7 +29,7 @@ class WebsiteSeeder extends Seeder
 
         SiteSetting::create([
             'default_shop_id' => $shop->id,
-            'store_name' => 'GAGET STORE',
+            'store_name' => 'Akhi Telecom',
             'currency_code' => 'BDT',
             'currency_symbol' => '৳',
             'special_offer_text' => 'Special Offer!',
@@ -38,7 +38,7 @@ class WebsiteSeeder extends Seeder
             'deals_title' => "Deals You'll",
             'deals_title_accent' => 'Love',
             'deals_subtitle' => 'Grab the best deals on top-quality gadgets and accessories.',
-            'contact_email' => 'hello@gagetstore.com',
+            'contact_email' => 'admin@akhitelecom.com',
             'contact_phone' => '+880 1700-000000',
             'contact_address' => 'Dhaka, Bangladesh',
         ]);

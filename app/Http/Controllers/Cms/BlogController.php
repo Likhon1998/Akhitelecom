@@ -112,7 +112,7 @@ class BlogController extends Controller
         if (!$settings) {
             $settings = new SiteSetting();
             $settings->default_shop_id = $this->shopId();
-            $settings->store_name = config('app.name', 'GAGET STORE');
+            $settings->store_name = config('app.name', 'Akhi Telecom');
             $settings->currency_code = 'BDT';
             $settings->currency_symbol = 'Tk';
         }

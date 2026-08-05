@@ -1,5 +1,5 @@
 @extends('website.layout')
-@section('title', 'Wishlist — '.($settings->store_name ?? 'GAGET STORE'))
+@section('title', 'Wishlist — '.($settings->store_name ?? config('app.name', 'Akhi Telecom')))
 @section('content')
 <div class="max-w-7xl mx-auto px-4 py-10">
     <div class="flex flex-wrap items-end justify-between gap-3 mb-8">

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', $settings->store_name ?? 'GAGET STORE')</title>
+    <title>@yield('title', $settings->store_name ?? config('app.name', 'Akhi Telecom'))</title>
     @include('partials.favicon', ['settings' => $settings ?? null])
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800&display=swap" rel="stylesheet" />
@@ -403,7 +403,7 @@
             <div class="gaget-page-loader__bag"></div>
         </div>
         <p class="gaget-page-loader__text">
-            {{ $settings->store_name ?? 'GAGET STORE' }}
+            {{ $settings->store_name ?? config('app.name', 'Akhi Telecom') }}
             <span class="gaget-page-loader__dots" aria-hidden="true"><span></span><span></span><span></span></span>
         </p>
         <p class="gaget-page-loader__sub" id="gaget-loader-msg">Getting things ready</p>

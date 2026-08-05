@@ -519,43 +519,6 @@
     </div>
 </div>
 
-@can('use ai chat')
-<div x-data="{ open: false, message: '', loading: false, history: [] }" class="fixed bottom-6 right-6 z-50">
-    <button @click="open = !open" class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg ring-4 ring-blue-100 hover:bg-blue-700">
-        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
-    </button>
-    <div x-show="open" style="display:none" class="absolute bottom-16 right-0 flex h-[380px] w-80 flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl sm:w-96">
-        <div class="flex items-center justify-between bg-slate-900 px-4 py-3 text-white">
-            <div>
-                <h3 class="text-sm font-bold">Nexa AI Assistant</h3>
-                <p class="text-[10px] text-blue-300">Powered by Gemini</p>
-            </div>
-            <button @click="open = false" class="text-slate-400 hover:text-white">&times;</button>
-        </div>
-        <div class="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4 text-sm">
-            <div class="rounded-2xl bg-blue-50 p-3 text-blue-800">Ask about sales, products, or stock.</div>
-            <template x-for="chat in history">
-                <div class="flex flex-col space-y-1">
-                    <div class="max-w-[85%] self-end rounded-2xl bg-blue-600 p-3 text-white" x-text="chat.user"></div>
-                    <div class="max-w-[85%] self-start rounded-2xl border bg-white p-3 text-slate-700 whitespace-pre-wrap" x-text="chat.ai"></div>
-                </div>
-            </template>
-        </div>
-        <form class="flex gap-2 border-t bg-white p-3" @submit.prevent="
-            if(message.trim()==='') return;
-            history.push({user:message, ai:'...'});
-            let currentMsg=message; message=''; loading=true;
-            fetch('{{ route('ai.chat') }}',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'},body:JSON.stringify({message:currentMsg})})
-            .then(r=>r.json()).then(d=>{history[history.length-1].ai=d.reply||'Sorry, something went wrong.';loading=false;})
-            .catch(()=>{history[history.length-1].ai='Access Denied.';loading=false;});
-        ">
-            <input x-model="message" type="text" placeholder="Type your message..." class="w-full rounded-xl border-slate-200 text-sm">
-            <button class="rounded-xl bg-blue-600 px-4 text-sm font-bold text-white">Send</button>
-        </form>
-    </div>
-</div>
-@endcan
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 (() => {

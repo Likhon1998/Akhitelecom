@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AnalyticsController;
-use App\Http\Controllers\AiChatController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CounterController;
@@ -234,10 +233,6 @@ Route::middleware([
     Route::get('/reports/staff-performance', [ReportController::class, 'staffPerformance'])->name('reports.staff_performance');
     Route::get('/reports/staff-daily-details', [ReportController::class, 'staffDailyDetails'])->name('reports.staff_daily_details');
     Route::post('/orders/{order}/exchange', [ExchangeController::class, 'processExchange'])->name('orders.exchange');
-
-    Route::post('/ai-chat', [AiChatController::class, 'ask'])
-        ->name('ai.chat')
-        ->middleware('can:use ai chat');
 
     Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
     Route::get('/roles/create', [RoleController::class, 'create'])->name('roles.create');

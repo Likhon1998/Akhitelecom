@@ -1,4 +1,4 @@
-<x-cms-layout title="{{ $blog->exists ? 'Edit blog post' : 'New blog post' }}" subtitle="Posts power the GAGET STORE blog page — featured, categories, search, and sidebar." previewUrl="{{ route('website.blogs') }}">
+<x-cms-layout title="{{ $blog->exists ? 'Edit blog post' : 'New blog post' }}" subtitle="Posts power the storefront blog page — featured, categories, search, and sidebar." previewUrl="{{ route('website.blogs') }}">
     <form method="POST" action="{{ $blog->exists ? route('cms.blogs.update', $blog) : route('cms.blogs.store') }}" enctype="multipart/form-data" class="max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
         @csrf
         @if($blog->exists) @method('PUT') @endif

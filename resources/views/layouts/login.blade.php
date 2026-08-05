@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Sign In · {{ config('app.name', 'Nexa POS') }}</title>
-    @include('partials.favicon')
+    <title>Sign In · {{ data_get($settings ?? null, 'store_name') ?: config('app.name', 'Akhi Telecom') }}</title>
+    @include('partials.favicon', ['settings' => $settings ?? null])
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -83,16 +83,32 @@
             gap: 12px;
         }
         .nexa-brand-mark {
-            width: 44px;
-            height: 44px;
+            width: 48px;
+            height: 48px;
             border-radius: 12px;
             display: grid;
             place-items: center;
-            background: linear-gradient(145deg, rgba(168, 85, 247, .28), rgba(59, 130, 246, .14));
-            border: 1px solid rgba(168, 85, 247, .4);
-            box-shadow: 0 0 28px rgba(168, 85, 247, .28);
+            overflow: hidden;
+            background: #000;
+            border: 1px solid rgba(148, 163, 184, .25);
+            box-shadow: 0 0 28px rgba(37, 99, 235, .28);
+        }
+        .nexa-brand-mark img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
         }
         .nexa-brand-mark svg { width: 26px; height: 26px; }
+        .nexa-brand-logo {
+            height: 52px;
+            width: auto;
+            max-width: min(260px, 70vw);
+            object-fit: contain;
+            border-radius: 10px;
+            background: #000;
+            display: block;
+        }
         .nexa-brand-name {
             font-size: 19px;
             font-weight: 800;

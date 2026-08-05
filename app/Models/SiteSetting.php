@@ -43,7 +43,7 @@ class SiteSetting extends Model
     public static function current(): self
     {
         return static::query()->first() ?? new static([
-            'store_name' => config('app.name', 'GAGET STORE'),
+            'store_name' => config('app.name', 'Akhi Telecom'),
             'currency_code' => 'BDT',
             'currency_symbol' => '৳',
         ]);
