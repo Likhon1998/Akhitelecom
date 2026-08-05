@@ -110,121 +110,171 @@
         </div>
     @endif
 
-    {{-- Row 1: Sales / Returns / Expenses / Net --}}
-    <div class="grid grid-cols-2 xl:grid-cols-4 gap-3">
+    {{-- Row 1: Today’s trading + credit collections --}}
+    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 p-4 text-white shadow-md shadow-indigo-200/60">
-            <div class="flex items-start justify-between gap-2">
-                <div>
+            <div class="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10"></div>
+            <div class="relative flex items-start justify-between gap-2">
+                <div class="min-w-0">
                     <p class="text-[11px] font-semibold uppercase tracking-wide text-white/80">Total Sales</p>
-                    <p class="mt-2 text-xl font-bold tracking-tight">{{ $money($bs['total_sales'] ?? 0) }}</p>
-                    <p class="mt-1 text-[11px] text-white/75">Today's revenue</p>
+                    <p class="mt-2 text-xl font-bold tracking-tight truncate">{{ $money($bs['total_sales'] ?? 0) }}</p>
+                    <p class="mt-1 text-[11px] text-white/75">Today’s revenue</p>
                 </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                 </div>
             </div>
         </div>
+
         <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-400 to-rose-500 p-4 text-white shadow-md shadow-orange-200/60">
-            <div class="flex items-start justify-between gap-2">
-                <div>
+            <div class="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10"></div>
+            <div class="relative flex items-start justify-between gap-2">
+                <div class="min-w-0">
                     <p class="text-[11px] font-semibold uppercase tracking-wide text-white/80">Returns</p>
-                    <p class="mt-2 text-xl font-bold tracking-tight">{{ $money($bs['returns'] ?? 0) }}</p>
-                    <p class="mt-1 text-[11px] text-white/75">Refunded amount</p>
+                    <p class="mt-2 text-xl font-bold tracking-tight truncate">{{ $money($bs['returns'] ?? 0) }}</p>
+                    <p class="mt-1 text-[11px] text-white/75">Refunded today</p>
                 </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
                 </div>
             </div>
         </div>
-        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-sky-400 to-blue-500 p-4 text-white shadow-md shadow-sky-200/60">
-            <div class="flex items-start justify-between gap-2">
-                <div>
+
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 p-4 text-white shadow-md shadow-sky-200/60">
+            <div class="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10"></div>
+            <div class="relative flex items-start justify-between gap-2">
+                <div class="min-w-0">
                     <p class="text-[11px] font-semibold uppercase tracking-wide text-white/80">Expenses</p>
-                    <p class="mt-2 text-xl font-bold tracking-tight">{{ $money($bs['expenses'] ?? 0) }}</p>
-                    <p class="mt-1 text-[11px] text-white/75">{{ ($filterCounterId ?? null) ? 'All-together only' : 'Total expenses' }}</p>
+                    <p class="mt-2 text-xl font-bold tracking-tight truncate">{{ $money($bs['expenses'] ?? 0) }}</p>
+                    <p class="mt-1 text-[11px] text-white/75">{{ ($filterCounterId ?? null) ? 'Shop-wide petty' : 'Petty cash out' }}</p>
                 </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>
                 </div>
             </div>
         </div>
+
         <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-700 to-blue-900 p-4 text-white shadow-md shadow-slate-300/50">
-            <div class="flex items-start justify-between gap-2">
-                <div>
+            <div class="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10"></div>
+            <div class="relative flex items-start justify-between gap-2">
+                <div class="min-w-0">
                     <p class="text-[11px] font-semibold uppercase tracking-wide text-white/80">Net Amount</p>
-                    <p class="mt-2 text-xl font-bold tracking-tight">{{ $money($bs['net_amount'] ?? 0) }}</p>
-                    <p class="mt-1 text-[11px] text-white/75">Sales − Returns − Expenses</p>
+                    <p class="mt-2 text-xl font-bold tracking-tight truncate">{{ $money($bs['net_amount'] ?? 0) }}</p>
+                    <p class="mt-1 text-[11px] text-white/75">Sales − returns − expenses</p>
                 </div>
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 p-4 text-white shadow-md shadow-amber-200/60">
+            @if(!empty($isAdmin))
+                <a href="{{ route('customers.baki.index') }}" class="absolute inset-0 z-10" aria-label="Customer baki"></a>
+            @endif
+            <div class="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10"></div>
+            <div class="relative flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-white/80">Baki Collection</p>
+                    <p class="mt-2 text-xl font-bold tracking-tight truncate">{{ $money($bs['baki_collected'] ?? 0) }}</p>
+                    <p class="mt-1 text-[11px] text-white/75">Credit paid today</p>
+                </div>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-fuchsia-500 to-indigo-600 p-4 text-white shadow-md shadow-fuchsia-200/60">
+            @if(!empty($isAdmin))
+                <a href="{{ route('customers.emi.index') }}" class="absolute inset-0 z-10" aria-label="Customer EMI"></a>
+            @endif
+            <div class="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10"></div>
+            <div class="relative flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-white/80">EMI Collection</p>
+                    <p class="mt-2 text-xl font-bold tracking-tight truncate">{{ $money($bs['emi_collected'] ?? 0) }}</p>
+                    <p class="mt-1 text-[11px] text-white/75">Installments paid today</p>
+                </div>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- Row 2+3: Cash drawer --}}
+    {{-- Row 2: Cash drawer (same colorful card language) --}}
     <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
         <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-600 p-4 text-white shadow-md shadow-teal-200/50">
             @if(Auth::user()->isAdminUser())
                 <a href="{{ route('accounts.petty-cash') }}" class="absolute inset-0 z-10" aria-label="Petty cash"></a>
             @endif
-            <div class="flex items-start justify-between gap-2">
-                <div>
+            <div class="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10"></div>
+            <div class="relative flex items-start justify-between gap-2">
+                <div class="min-w-0">
                     <p class="text-[11px] font-semibold uppercase tracking-wide text-white/80">Petty Cash</p>
-                    <p class="mt-2 text-lg font-bold tracking-tight">{{ $money($bs['petty_cash'] ?? 0) }}</p>
-                    <p class="mt-1 text-[11px] text-white/75">Petty Cash Balance</p>
+                    <p class="mt-2 text-xl font-bold tracking-tight truncate">{{ $money($bs['petty_cash'] ?? 0) }}</p>
+                    <p class="mt-1 text-[11px] text-white/75">Shop float balance</p>
                 </div>
-                <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </div>
             </div>
         </div>
-        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 p-4 text-white shadow-md shadow-amber-200/50">
+
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-400 to-yellow-600 p-4 text-white shadow-md shadow-amber-200/50">
             <a href="{{ route('counters.sessions.index') }}" class="absolute inset-0 z-10" aria-label="Cash sessions"></a>
-            <div class="flex items-start justify-between gap-2">
-                <div>
+            <div class="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10"></div>
+            <div class="relative flex items-start justify-between gap-2">
+                <div class="min-w-0">
                     <p class="text-[11px] font-semibold uppercase tracking-wide text-white/80">Opening Balance</p>
-                    <p class="mt-2 text-lg font-bold tracking-tight">{{ $money($bs['opening_balance'] ?? 0) }}</p>
+                    <p class="mt-2 text-xl font-bold tracking-tight truncate">{{ $money($bs['opening_balance'] ?? 0) }}</p>
                     <p class="mt-1 text-[11px] text-white/75">{{ $openingHint }}</p>
                 </div>
-                <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
                 </div>
             </div>
         </div>
+
         <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-lime-400 to-green-600 p-4 text-white shadow-md shadow-green-200/50">
-            <div class="flex items-start justify-between gap-2">
-                <div>
+            <div class="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10"></div>
+            <div class="relative flex items-start justify-between gap-2">
+                <div class="min-w-0">
                     <p class="text-[11px] font-semibold uppercase tracking-wide text-white/80">Cash In</p>
-                    <p class="mt-2 text-lg font-bold tracking-tight">{{ $money($bs['cash_in'] ?? 0) }}</p>
+                    <p class="mt-2 text-xl font-bold tracking-tight truncate">{{ $money($bs['cash_in'] ?? 0) }}</p>
                     <p class="mt-1 text-[11px] text-white/75">{{ $cashInHint }}</p>
                 </div>
-                <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
                 </div>
             </div>
         </div>
+
         <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-pink-400 to-rose-600 p-4 text-white shadow-md shadow-rose-200/50">
-            <div class="flex items-start justify-between gap-2">
-                <div>
+            <div class="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10"></div>
+            <div class="relative flex items-start justify-between gap-2">
+                <div class="min-w-0">
                     <p class="text-[11px] font-semibold uppercase tracking-wide text-white/80">Cash Out</p>
-                    <p class="mt-2 text-lg font-bold tracking-tight">{{ $money($bs['cash_out'] ?? 0) }}</p>
+                    <p class="mt-2 text-xl font-bold tracking-tight truncate">{{ $money($bs['cash_out'] ?? 0) }}</p>
                     <p class="mt-1 text-[11px] text-white/75">{{ $cashOutHint }}</p>
                 </div>
-                <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
                 </div>
             </div>
         </div>
+
         <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 p-4 text-white shadow-md shadow-emerald-200/50 col-span-2 md:col-span-1">
-            <div class="flex items-start justify-between gap-2">
-                <div>
+            <div class="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10"></div>
+            <div class="relative flex items-start justify-between gap-2">
+                <div class="min-w-0">
                     <p class="text-[11px] font-semibold uppercase tracking-wide text-white/80">Closing Balance</p>
-                    <p class="mt-2 text-lg font-bold tracking-tight">{{ $money($bs['closing_balance'] ?? 0) }}</p>
+                    <p class="mt-2 text-xl font-bold tracking-tight truncate">{{ $money($bs['closing_balance'] ?? 0) }}</p>
                     <p class="mt-1 text-[11px] text-white/75">{{ $closingHint }}</p>
                 </div>
-                <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
                 </div>
             </div>
         </div>
@@ -418,6 +468,8 @@
                     <tr class="border-b border-slate-100 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">
                         <th class="pb-2 pr-4">Counter</th>
                         <th class="pb-2 pr-4 text-right">Sales</th>
+                        <th class="pb-2 pr-4 text-right">Baki collected</th>
+                        <th class="pb-2 pr-4 text-right">EMI collected</th>
                         <th class="pb-2 pr-4 text-right">Orders</th>
                         <th class="pb-2 text-right">Customers</th>
                     </tr>
@@ -429,16 +481,20 @@
                                 <a href="{{ route('dashboard', ['counter' => $row->id]) }}" class="text-indigo-700 hover:underline">{{ $row->name }}</a>
                             </td>
                             <td class="py-2.5 pr-4 text-right font-bold">{{ $money($row->sales_total) }}</td>
+                            <td class="py-2.5 pr-4 text-right font-semibold text-amber-700">{{ $money($row->baki_collected ?? 0) }}</td>
+                            <td class="py-2.5 pr-4 text-right font-semibold text-indigo-700">{{ $money($row->emi_collected ?? 0) }}</td>
                             <td class="py-2.5 pr-4 text-right text-slate-600">{{ $row->orders_count }}</td>
                             <td class="py-2.5 text-right text-slate-600">{{ $row->customers_count }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="py-6 text-center text-slate-400">No counters yet.</td></tr>
+                        <tr><td colspan="6" class="py-6 text-center text-slate-400">No counters yet.</td></tr>
                     @endforelse
                     @if(!empty($onlineToday) && ($onlineToday->orders_count > 0 || $onlineToday->sales_total > 0))
                         <tr>
                             <td class="py-2.5 pr-4 italic text-slate-500">{{ $onlineToday->name }}</td>
                             <td class="py-2.5 pr-4 text-right font-bold text-slate-700">{{ $money($onlineToday->sales_total) }}</td>
+                            <td class="py-2.5 pr-4 text-right text-slate-400">—</td>
+                            <td class="py-2.5 pr-4 text-right text-slate-400">—</td>
                             <td class="py-2.5 pr-4 text-right text-slate-500">{{ $onlineToday->orders_count }}</td>
                             <td class="py-2.5 text-right text-slate-500">{{ $onlineToday->customers_count }}</td>
                         </tr>

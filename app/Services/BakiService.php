@@ -167,6 +167,38 @@ class BakiService
                 $customer->update(['baki_balance' => 0]);
             }
 
+            // Apply collection to open baki invoices (oldest first) so reprints show PAID.
+            $applyLeft = $amount;
+            if ($order) {
+                $targets = Order::whereKey($order->id)->lockForUpdate()->get();
+            } else {
+                $targets = Order::where('shop_id', $customer->shop_id)
+                    ->where('customer_id', $customer->id)
+                    ->where('is_baki', true)
+                    ->where('credit_amount', '>', 0)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get();
+            }
+
+            foreach ($targets as $target) {
+                if ($applyLeft <= 0.009) {
+                    break;
+                }
+                $due = round((float) ($target->credit_amount ?? 0), 2);
+                if ($due <= 0.009) {
+                    continue;
+                }
+                $take = min($due, $applyLeft);
+                $target->credit_amount = round($due - $take, 2);
+                $target->paid_amount = round((float) ($target->paid_amount ?? 0) + $take, 2);
+                $target->save();
+                if (! $entry->order_id) {
+                    $entry->update(['order_id' => $target->id]);
+                }
+                $applyLeft = round($applyLeft - $take, 2);
+            }
+
             $this->accounts->postBakiPayment(
                 customer: $customer,
                 entry: $entry,

@@ -21,6 +21,7 @@ class Customer extends Model
         'gender',
         'reward_points',
         'baki_balance',
+        'emi_balance',
     ];
 
     protected function casts(): array
@@ -28,12 +29,23 @@ class Customer extends Model
         return [
             'date_of_birth' => 'date',
             'baki_balance' => 'decimal:2',
+            'emi_balance' => 'decimal:2',
         ];
     }
 
     public function bakiEntries()
     {
         return $this->hasMany(CustomerBakiEntry::class)->latest();
+    }
+
+    public function emiPlans()
+    {
+        return $this->hasMany(CustomerEmiPlan::class)->latest();
+    }
+
+    public function emiEntries()
+    {
+        return $this->hasMany(CustomerEmiEntry::class)->latest();
     }
 
     // Relationship to the Shop

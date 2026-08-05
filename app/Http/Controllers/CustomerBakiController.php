@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\CustomerBakiEntry;
 use App\Services\BakiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -68,11 +69,19 @@ class CustomerBakiController extends Controller
                 'bkash' => $mobile = $amount,
             };
 
-            $this->baki->collectPayment(
+            $isPartial = $amount + 0.009 < $balance;
+            $note = trim((string) ($validated['note'] ?? ''));
+            if ($note === '') {
+                $note = $isPartial
+                    ? 'Partial baki payment ৳'.number_format($amount, 2)
+                    : 'Full baki settlement';
+            }
+
+            $entry = $this->baki->collectPayment(
                 customer: $customer,
                 amount: $amount,
                 method: $validated['method'],
-                note: $validated['note'] ?? 'Baki collection',
+                note: $note,
                 order: null,
                 userId: $user->id,
                 counterId: $counterId ? (int) $counterId : null,
@@ -85,8 +94,40 @@ class CustomerBakiController extends Controller
         }
 
         return redirect()
-            ->route('customers.baki.show', $customer)
-            ->with('success', '৳'.number_format($amount, 2).' collected. Remaining baki: ৳'.number_format((float) $customer->fresh()->baki_balance, 2).'.');
+            ->to(url()->previous() ?: route('customers.baki.show', $customer))
+            ->with('success', 'Collected ৳'.number_format($amount, 2).'. Remaining baki: ৳'.number_format((float) $customer->fresh()->baki_balance, 2).'.')
+            ->with('open_slip_url', route('customers.baki.slip', ['entry' => $entry, 'embed' => 1]))
+            ->with('print_slip', true);
+    }
+
+    public function slip(CustomerBakiEntry $entry)
+    {
+        if ((int) $entry->shop_id !== (int) Auth::user()->shop_id) {
+            abort(403);
+        }
+        if ($entry->type !== 'payment') {
+            abort(404);
+        }
+
+        $entry->load(['customer', 'user', 'shop', 'order:id,invoice_no']);
+
+        $remainingAfter = (float) CustomerBakiEntry::where('customer_id', $entry->customer_id)
+            ->where('id', '<=', $entry->id)
+            ->sum('amount');
+        if ($remainingAfter < 0.005) {
+            $remainingAfter = 0;
+        }
+
+        return view('customers.payment-slip', [
+            'entry' => $entry,
+            'slipTitle' => 'Baki Payment Slip',
+            'slipTypeLabel' => 'Customer Baki',
+            'slipRef' => 'BAKI-'.$entry->id,
+            'invoiceNo' => $entry->order->invoice_no ?? null,
+            'remainingAfter' => $remainingAfter,
+            'extraRows' => [],
+            'backUrl' => route('customers.baki.show', $entry->customer_id),
+        ]);
     }
 
     private function authorizeCustomer(Customer $customer): void

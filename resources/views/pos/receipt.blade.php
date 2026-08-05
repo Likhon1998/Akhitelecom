@@ -21,6 +21,9 @@
         if ($itemsSubtotal <= 0) {
             $itemsSubtotal = max(0, (float) $order->total_amount - (float) ($order->delivery_charge ?? 0));
         }
+        $creditDue = round((float) ($order->credit_amount ?? 0), 2);
+        $isFullyPaid = ! $isVoid && $creditDue <= 0.009;
+        $hasOpenCredit = ! $isVoid && $creditDue > 0.009;
     @endphp
     <style>
         :root {
@@ -41,6 +44,8 @@
             print-color-adjust: exact;
         }
         .sheet {
+            position: relative;
+            overflow: hidden;
             width: 80mm;
             max-width: 80mm;
             margin: 12px auto;
@@ -131,6 +136,41 @@
         }
         .badge.void { color: #b91c1c; border-color: #b91c1c; }
         .badge.exchange { color: #1d4ed8; border-color: #1d4ed8; }
+        .badge.paid {
+            color: #15803d;
+            border-color: #16a34a;
+            border-style: solid;
+            border-width: 3px;
+            background: #f0fdf4;
+            font-size: 16px;
+            letter-spacing: .18em;
+            padding: 10px 8px;
+            border-radius: 8px;
+        }
+        .badge.due {
+            color: #b45309;
+            border-color: #f59e0b;
+            background: #fffbeb;
+        }
+        .paid-seal {
+            position: absolute;
+            top: 42%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-18deg);
+            border: 5px solid #16a34a;
+            color: #16a34a;
+            font-size: 52px;
+            font-weight: 900;
+            letter-spacing: .14em;
+            padding: 8px 18px;
+            border-radius: 14px;
+            opacity: .2;
+            pointer-events: none;
+            z-index: 8;
+            text-transform: uppercase;
+            white-space: nowrap;
+            box-shadow: inset 0 0 0 2px rgba(22, 163, 74, .4);
+        }
         .section-label {
             font-size: 9px;
             font-weight: 800;
@@ -256,6 +296,10 @@
     </div>
 
     <div class="sheet">
+        @if($isFullyPaid)
+            <div class="paid-seal" aria-hidden="true">PAID</div>
+        @endif
+
         <header class="brand">
             <div class="doc-type">{{ $isOnline ? 'Tax Invoice / Online Order' : 'Sales Invoice / POS Receipt' }}</div>
             <h1>{{ $shopName }}</h1>
@@ -315,6 +359,10 @@
 
         @if($isVoid)
             <div class="badge void">*** VOID / {{ strtoupper($order->status) }} ***</div>
+        @elseif($isFullyPaid)
+            <div class="badge paid">*** PAID ***</div>
+        @elseif($hasOpenCredit)
+            <div class="badge due">*** {{ ($order->is_emi ?? false) ? 'EMI DUE' : (($order->is_baki ?? false) ? 'BAKI DUE' : 'DUE') }} ***</div>
         @endif
 
         @if($order->is_exchange_receipt)
@@ -380,8 +428,20 @@
                 @endif
                 @if(($order->credit_amount ?? 0) > 0)
                     <tr>
-                        <td class="lbl">Baki (due)</td>
+                        <td class="lbl">{{ ($order->is_emi ?? false) ? 'EMI financed' : 'Baki (due)' }}</td>
                         <td class="text-right">৳{{ number_format((float) $order->credit_amount, 2) }}</td>
+                    </tr>
+                @endif
+                @if(($order->is_emi ?? false) && ($order->emi_down_payment ?? 0) > 0)
+                    <tr>
+                        <td class="lbl">EMI down payment</td>
+                        <td class="text-right">৳{{ number_format((float) $order->emi_down_payment, 2) }}</td>
+                    </tr>
+                @endif
+                @if(($order->is_emi ?? false) && ($order->emi_months ?? 0) > 0)
+                    <tr>
+                        <td class="lbl">EMI tenure</td>
+                        <td class="text-right">{{ (int) $order->emi_months }} months</td>
                     </tr>
                 @endif
                 <tr class="grand">
@@ -415,7 +475,7 @@
                         <td class="text-right">৳{{ number_format((float) $order->paid_amount, 2) }}</td>
                     </tr>
                     <tr>
-                        <td class="lbl">Baki (due)</td>
+                        <td class="lbl">{{ ($order->is_emi ?? false) ? 'EMI (due)' : 'Baki (due)' }}</td>
                         <td class="text-right" style="font-weight:800">৳{{ number_format((float) $order->credit_amount, 2) }}</td>
                     </tr>
                 @endif
@@ -426,7 +486,7 @@
             <table>
                 <tr>
                     <td class="lbl">Payment method</td>
-                    <td class="text-right" style="font-weight:700">{{ $paymentLabel }}{{ ($order->is_baki ?? false) ? ' / BAKI' : '' }}</td>
+                    <td class="text-right" style="font-weight:700">{{ $paymentLabel }}{{ ($order->is_emi ?? false) ? ' / EMI' : (($order->is_baki ?? false) ? ' / BAKI' : '') }}</td>
                 </tr>
                 @if(! $isVoid)
                     @php $tenderLines = $order->tenderLines(); @endphp
@@ -447,11 +507,17 @@
                 </tr>
                 @if(($order->credit_amount ?? 0) > 0 && ! $isVoid)
                     <tr>
-                        <td class="lbl">Due / Baki</td>
+                        <td class="lbl">{{ ($order->is_emi ?? false) ? 'EMI remaining' : 'Due / Baki' }}</td>
                         <td class="text-right" style="font-weight:800">৳{{ number_format((float) $order->credit_amount, 2) }}</td>
                     </tr>
                 @endif
-                @if(($order->customer?->baki_balance ?? 0) > 0 && ! $isVoid)
+                @if(($order->is_emi ?? false) && ($order->customer?->emi_balance ?? 0) > 0 && ! $isVoid)
+                    <tr>
+                        <td class="lbl">Total EMI left</td>
+                        <td class="text-right" style="font-weight:800">৳{{ number_format((float) $order->customer->emi_balance, 2) }}</td>
+                    </tr>
+                @endif
+                @if(!($order->is_emi ?? false) && ($order->customer?->baki_balance ?? 0) > 0 && ! $isVoid)
                     <tr>
                         <td class="lbl">Total baki left</td>
                         <td class="text-right" style="font-weight:800">৳{{ number_format((float) $order->customer->baki_balance, 2) }}</td>

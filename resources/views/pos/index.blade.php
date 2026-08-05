@@ -871,7 +871,7 @@
 }
 
 .cart-items {
-    flex: 1 1 0; min-height: 110px; overflow-y: auto;
+    flex: 1 1 0; min-height: 72px; overflow-y: auto;
     padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
     background: #f8fafc;
     scrollbar-width: thin;
@@ -982,7 +982,15 @@
 .empty-sub { font-size: 11px; margin-top: 3px; }
 
 .cart-extras {
-    flex-shrink: 0; border-top: 1px solid var(--border); background: var(--surface-2);
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: min(34vh, 260px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-top: 1px solid var(--border);
+    background: var(--surface-2);
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
 }
 .extras-body, .extras-body.always-open {
     padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 6px;
@@ -1008,6 +1016,115 @@
     border-color: var(--blue); box-shadow: 0 0 0 2px rgba(37,99,235,.12);
 }
 .discount-row, .coupon-row { display: flex; gap: 5px; align-items: center; }
+.credit-mode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 4px;
+}
+.credit-mode-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    min-height: 84px;
+}
+.credit-mode-card.is-baki-on {
+    border-color: #f59e0b;
+    background: #fffbeb;
+}
+.credit-mode-card.is-emi-on {
+    border-color: #818cf8;
+    background: #eef2ff;
+}
+.credit-mode-card.is-disabled {
+    opacity: .55;
+    pointer-events: none;
+}
+.credit-mode-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+.credit-mode-title {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--ink);
+    line-height: 1.2;
+}
+.credit-mode-sub {
+    margin-top: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--slate);
+    line-height: 1.35;
+}
+.credit-mode-card.is-baki-on .credit-mode-sub { color: #92400e; }
+.credit-mode-card.is-emi-on .credit-mode-sub { color: #3730a3; }
+.credit-toggle {
+    flex-shrink: 0;
+    min-width: 54px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1.5px solid var(--border);
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.credit-toggle:hover:not(:disabled) {
+    border-color: #94a3b8;
+    color: #334155;
+}
+.credit-toggle.is-on-baki {
+    background: #b45309;
+    border-color: #b45309;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(180, 83, 9, .25);
+}
+.credit-toggle.is-on-emi {
+    background: #4f46e5;
+    border-color: #4f46e5;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, .25);
+}
+.credit-toggle:disabled {
+    cursor: not-allowed;
+    opacity: .7;
+}
+.credit-mode-note {
+    margin-top: 6px;
+    font-size: 11px;
+    font-weight: 650;
+    color: #be123c;
+    line-height: 1.4;
+}
+.emi-options {
+    margin-top: 8px;
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid #c7d2fe;
+    background: #eef2ff;
+}
+.emi-options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+@media (max-width: 520px) {
+    .credit-mode-grid { grid-template-columns: 1fr; }
+    .emi-options-grid { grid-template-columns: 1fr; }
+}
 .type-toggle {
     display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex-shrink: 0;
 }
@@ -1039,10 +1156,14 @@
 }
 
 .cart-foot {
-    flex-shrink: 0; padding: 10px 12px 12px;
-    border-top: 1px solid var(--border); background: var(--surface);
-    z-index: 3;
-    box-shadow: 0 -6px 16px rgba(15,23,42,.04);
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    padding: 10px 12px 12px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    z-index: 5;
+    box-shadow: 0 -6px 16px rgba(15,23,42,.06);
+    position: relative;
 }
 .summary-rows { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
 .sum-row { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-2); }
@@ -1066,7 +1187,7 @@
 .pay-method:hover:not(:disabled) { filter: brightness(.97); }
 .pay-method:disabled { opacity: .45; cursor: not-allowed; }
 
-.cart-actions { display: grid; grid-template-columns: 104px 1fr; gap: 8px; }
+.cart-actions { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 8px; }
 .hold-btn, .pay-btn {
     border-radius: 12px; cursor: pointer; font-family: var(--font); font-weight: 700;
     display: flex; align-items: center; justify-content: center; gap: 6px; transition: .15s;
@@ -1079,13 +1200,17 @@
 .hold-btn:disabled { opacity: .4; cursor: not-allowed; }
 .hold-btn svg { width: 15px; height: 15px; }
 .pay-btn {
-    padding: 14px; border: none; background: var(--green); color: #fff; font-size: 14px;
+    min-width: 0; padding: 14px 12px; border: none; background: var(--green); color: #fff; font-size: 14px;
     box-shadow: 0 10px 22px rgba(22,163,74,.28);
-    flex-direction: row; justify-content: space-between;
+    flex-direction: row; justify-content: space-between; gap: 8px;
+}
+.pay-btn > span:first-child {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .pay-btn:hover { background: #15803d; }
 .pay-btn:disabled { background: #cbd5e1; color: #64748b; box-shadow: none; cursor: not-allowed; }
 .pay-btn .pay-hint {
+    flex-shrink: 0;
     font-size: 10.5px; font-family: var(--mono); font-weight: 600;
     opacity: .9; background: rgba(255,255,255,.2); padding: 2px 7px; border-radius: 6px;
 }
@@ -1099,11 +1224,16 @@
 .modal-bg { position: absolute; inset: 0; background: rgba(15,23,42,.55); backdrop-filter: blur(6px); }
 .modal {
     position: relative; z-index: 1; width: 100%; max-width: 400px;
-    max-height: min(92vh, 620px);
+    max-height: min(90vh, 680px);
     display: flex; flex-direction: column;
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 14px; box-shadow: 0 20px 50px rgba(15,23,42,.22);
     overflow: hidden;
+    transform: translateZ(0);
+}
+.checkout-modal {
+    max-width: 420px;
+    max-height: min(88vh, 720px);
 }
 .modal-head {
     padding: 12px 14px; border-bottom: 1px solid var(--border);
@@ -1122,6 +1252,8 @@
     padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
     overflow-y: auto; flex: 1 1 auto; min-height: 0;
     scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 .amount-display {
     background: var(--blue-soft); border: 1px solid var(--teal-border);
@@ -1222,7 +1354,10 @@
 .invoice-meta-item.change .im-val { color: var(--green); }
 .modal-foot {
     padding: 10px 14px 12px; display: flex; gap: 7px;
-    flex-shrink: 0; border-top: 1px solid var(--border); background: var(--surface);
+    flex: 0 0 auto; flex-shrink: 0;
+    border-top: 1px solid var(--border); background: var(--surface);
+    position: sticky; bottom: 0; z-index: 6;
+    box-shadow: 0 -8px 18px rgba(15,23,42,.05);
 }
 .modal-cancel, .modal-confirm {
     flex: 1; padding: 9px 10px; border-radius: 10px; cursor: pointer;
@@ -1732,11 +1867,11 @@
 
         <div class="cart-extras">
             <div class="extras-body always-open">
-                <div class="field-label" x-text="isBaki ? 'Customer (required for BAKI)' : 'Customer (optional)'"></div>
+                <div class="field-label" x-text="(isBaki || isEmi) ? 'Customer (required)' : 'Customer (optional)'"></div>
                 <div class="extras-grid">
                     <div class="cust-phone-wrap">
                         <input type="text" x-model="customerPhone" @input.debounce.500ms="searchCustomer()" placeholder="Mobile number" class="cust-input"
-                               :style="isBaki && !customerPhone ? 'border-color:#dc2626' : ''">
+                               :style="(isBaki || isEmi) && !customerPhone ? 'border-color:#dc2626' : ''">
                         <div x-show="isSearchingCustomer" x-cloak style="position:absolute;right:8px;top:50%;transform:translateY(-50%)">
                             <svg class="animate-spin" style="width:13px;height:13px;color:var(--teal)" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -1745,23 +1880,68 @@
                         </div>
                     </div>
                     <input type="text" x-model="customerName" placeholder="Customer name" class="cust-input"
-                           :style="isBaki && !customerName ? 'border-color:#dc2626' : ''">
+                           :style="(isBaki || isEmi) && !customerName ? 'border-color:#dc2626' : ''">
                 </div>
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--soft)">
-                    <div>
-                        <div style="font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ink)">BAKI (pay later)</div>
-                        <div style="font-size:10px;color:var(--slate);margin-top:2px" x-show="!isBaki">Off — shortfall counts as Less</div>
-                        <div style="font-size:10px;color:#b45309;margin-top:2px" x-show="isBaki" x-cloak>On — unpaid amount stays as customer credit</div>
+
+                <div class="field-label" style="margin-top:4px">Credit mode</div>
+                <div class="credit-mode-grid">
+                    <div class="credit-mode-card"
+                         :class="{ 'is-baki-on': isBaki, 'is-disabled': hasSaleItems() }">
+                        <div class="credit-mode-top">
+                            <div>
+                                <div class="credit-mode-title">Baki</div>
+                                <div class="credit-mode-sub" x-text="hasSaleItems() ? 'Not for sale items' : (isBaki ? 'Pay later credit' : 'Off')"></div>
+                            </div>
+                            <button type="button"
+                                    class="credit-toggle"
+                                    :class="{ 'is-on-baki': isBaki }"
+                                    :disabled="hasSaleItems()"
+                                    @click="toggleBaki()"
+                                    x-text="isBaki ? 'ON' : 'OFF'"></button>
+                        </div>
+                        <div x-show="customerBakiBalance > 0 && !hasSaleItems()" x-cloak style="font-size:11px;font-weight:700;color:#b45309">
+                            Due: Tk<span x-text="formatNumber(customerBakiBalance)"></span>
+                        </div>
                     </div>
-                    <button type="button" @click="toggleBaki()"
-                            :style="isBaki ? 'background:#b45309;border-color:#b45309;color:#fff' : 'background:var(--panel);border-color:var(--line);color:var(--slate)'"
-                            style="min-width:52px;padding:6px 10px;border-radius:999px;border:1px solid;font-size:11px;font-weight:800">
-                        <span x-text="isBaki ? 'ON' : 'OFF'"></span>
-                    </button>
+
+                    <div class="credit-mode-card"
+                         :class="{ 'is-emi-on': isEmi, 'is-disabled': hasSaleItems() }">
+                        <div class="credit-mode-top">
+                            <div>
+                                <div class="credit-mode-title">EMI</div>
+                                <div class="credit-mode-sub" x-text="hasSaleItems() ? 'Not for sale items' : (isEmi ? 'Installment plan' : 'Off')"></div>
+                            </div>
+                            <button type="button"
+                                    class="credit-toggle"
+                                    :class="{ 'is-on-emi': isEmi }"
+                                    :disabled="hasSaleItems()"
+                                    @click="toggleEmi()"
+                                    x-text="isEmi ? 'ON' : 'OFF'"></button>
+                        </div>
+                        <div x-show="customerEmiBalance > 0 && !hasSaleItems()" x-cloak style="font-size:11px;font-weight:700;color:#4338ca">
+                            Due: Tk<span x-text="formatNumber(customerEmiBalance)"></span>
+                        </div>
+                    </div>
                 </div>
-                <div x-show="customerBakiBalance > 0 || isBaki" x-cloak
-                     style="margin-top:6px;font-size:11px;font-weight:700;color:#b45309">
-                    Previous baki: Tk<span x-text="formatNumber(customerBakiBalance)"></span>
+                <p class="credit-mode-note" x-show="hasSaleItems()" x-cloak>
+                    Sale products cannot use BAKI or EMI. Remove sale items to enable.
+                </p>
+
+                <div class="emi-options" x-show="isEmi && !hasSaleItems()" x-cloak>
+                    <div class="emi-options-grid">
+                        <div>
+                            <label class="field-label" style="margin-bottom:4px">Months</label>
+                            <input type="number" min="1" max="36" step="1" x-model.number="emiMonths" class="cust-input" style="width:100%" placeholder="e.g. 8">
+                        </div>
+                        <div>
+                            <label class="field-label" style="margin-bottom:4px">Down payment (Tk)</label>
+                            <input type="number" min="0" step="0.01" x-model.number="emiDownPayment" class="cust-input" style="width:100%" placeholder="0">
+                        </div>
+                    </div>
+                    <div class="emi-rest-line">
+                        Rest amount (EMI): Tk<span x-text="formatNumber(getEmiPrincipal())"></span>
+                        <span x-show="emiMonths > 0"> · <span x-text="emiMonths"></span> months</span>
+                    </div>
                 </div>
 
                 <div class="field-label" style="margin-top:2px" x-text="hasSaleItems() ? 'Discount (SALE — locked)' : 'Discount'"></div>
@@ -1974,7 +2154,7 @@
 
         <div class="modal-bg" @click="checkoutModalOpen = false"></div>
 
-        <div class="modal"
+        <div class="modal checkout-modal"
              x-show="checkoutModalOpen"
              x-transition:enter="ease-out duration-250" x-transition:enter-start="opacity-0 scale-95 translate-y-3" x-transition:enter-end="opacity-100 scale-100 translate-y-0"
              x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95">
@@ -2014,11 +2194,14 @@
                     <div x-show="isExchangeMode" class="amount-note" style="color:var(--amber)" x-cloak>
                         Exchange credit: -Tk<span x-text="formatNumber(exchangeCredit)"></span>
                     </div>
-                    <div class="amount-note" style="color:var(--slate);margin-top:4px" x-show="!isBaki">
+                    <div class="amount-note" style="color:var(--slate);margin-top:4px" x-show="!isBaki && !isEmi">
                         Enter what the customer pays — any shortfall is counted as Less.
                     </div>
                     <div class="amount-note" style="color:#b45309;margin-top:4px" x-show="isBaki" x-cloak>
                         BAKI on — Pay now settles this bill first, then previous baki. Shortfall stays as credit.
+                    </div>
+                    <div class="amount-note" style="color:#4338ca;margin-top:4px" x-show="isEmi" x-cloak>
+                        EMI on — Collect down payment now. Remaining is split into monthly installments.
                     </div>
                 </div>
 
@@ -2046,6 +2229,31 @@
                     </p>
                 </div>
 
+                <div x-show="isEmi" x-cloak style="margin-bottom:12px;border:1px solid #c7d2fe;background:#eef2ff;border-radius:12px;padding:12px">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+                        <div>
+                            <div style="color:#3730a3;font-weight:700;font-size:10px;text-transform:uppercase">Bill total</div>
+                            <div style="font-weight:800;color:#312e81">Tk<span x-text="formatNumber(getPayableTotal())"></span></div>
+                        </div>
+                        <div>
+                            <div style="color:#3730a3;font-weight:700;font-size:10px;text-transform:uppercase">Down payment</div>
+                            <div style="font-weight:800;color:#312e81">Tk<span x-text="formatNumber(getEmiDownPayment())"></span></div>
+                        </div>
+                        <div style="grid-column:1 / -1">
+                            <div style="color:#3730a3;font-weight:700;font-size:10px;text-transform:uppercase">Rest amount (EMI)</div>
+                            <div style="font-weight:800;color:#4338ca">Tk<span x-text="formatNumber(getEmiPrincipal())"></span>
+                                <span x-show="emiMonths > 0" style="font-weight:700;color:#312e81"> · <span x-text="emiMonths"></span> months</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p x-show="!customerName || !customerPhone" style="margin:8px 0 0;font-size:11px;color:#dc2626;font-weight:700" x-cloak>
+                        Name and mobile are required for EMI.
+                    </p>
+                    <p x-show="getEmiPrincipal() <= 0" style="margin:8px 0 0;font-size:11px;color:#dc2626;font-weight:700" x-cloak>
+                        Lower down payment so some amount remains for EMI.
+                    </p>
+                </div>
+
                 <div x-show="hasLowStockItems()" class="warning-box" x-cloak>
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
@@ -2055,7 +2263,7 @@
 
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-                        <label class="field-label" style="margin-bottom:0" x-text="isBaki ? 'Pay now' : 'Customer pays'"></label>
+                        <label class="field-label" style="margin-bottom:0" x-text="isBaki ? 'Pay now' : (isEmi ? 'Down payment now' : 'Customer pays')"></label>
                         <span style="font-size:9px;font-weight:800;color:var(--teal);background:var(--teal-bg);padding:2px 7px;border-radius:100px;border:1px solid var(--teal-border)">Split pay</span>
                     </div>
                     <div class="split-grid">
@@ -2076,7 +2284,7 @@
                         </div>
                     </div>
                     <div class="qc-grid">
-                        <button type="button" @click="payCash = isBaki ? getBakiTotalDue() : getPayableTotal(); payCard = 0; payBkash = 0;" class="qc-btn exact">Exact</button>
+                        <button type="button" @click="payCash = isBaki ? getBakiTotalDue() : (isEmi ? getEmiDownPayment() : getPayableTotal()); payCard = 0; payBkash = 0;" class="qc-btn exact">Exact</button>
                         <button type="button" @click="payCash = 500"  class="qc-btn">Tk500</button>
                         <button type="button" @click="payCash = 1000" class="qc-btn">Tk1K</button>
                         <button type="button" @click="payCash = 2000" class="qc-btn">Tk2K</button>
@@ -2084,7 +2292,7 @@
                 </div>
 
                 {{-- Paid / less / change / baki summary --}}
-                <div class="pay-summary" x-show="!isBaki">
+                <div class="pay-summary" x-show="!isBaki && !isEmi">
                     <div class="pay-summary-cell due">
                         <div class="ps-label">Bill total</div>
                         <div class="ps-val">Tk<span x-text="formatNumber(getPayableTotal())"></span></div>
@@ -2113,11 +2321,28 @@
                         <div class="ps-val">Tk<span x-text="formatNumber(getBakiLeft())"></span></div>
                     </div>
                 </div>
-                <p x-show="!isBaki && getLessAmount() > 0" class="err-hint" style="color:var(--green);border-color:var(--green)" x-cloak>
+                <div class="pay-summary" x-show="isEmi" x-cloak>
+                    <div class="pay-summary-cell due">
+                        <div class="ps-label">Down due</div>
+                        <div class="ps-val">Tk<span x-text="formatNumber(getEmiDownPayment())"></span></div>
+                    </div>
+                    <div class="pay-summary-cell paid">
+                        <div class="ps-label">Paying now</div>
+                        <div class="ps-val">Tk<span x-text="formatNumber(getPaidAmount())"></span></div>
+                    </div>
+                    <div class="pay-summary-cell change less">
+                        <div class="ps-label">EMI remaining</div>
+                        <div class="ps-val">Tk<span x-text="formatNumber(getEmiPrincipal())"></span></div>
+                    </div>
+                </div>
+                <p x-show="!isBaki && !isEmi && getLessAmount() > 0" class="err-hint" style="color:var(--green);border-color:var(--green)" x-cloak>
                     Rest of bill (Tk<span x-text="formatNumber(getLessAmount())"></span>) will be counted as Less / discount.
                 </p>
                 <p x-show="isBaki && getBakiNewCredit() > 0" class="err-hint" style="color:#b45309;border-color:#fcd34d" x-cloak>
                     This bill adds Tk<span x-text="formatNumber(getBakiNewCredit())"></span> to baki (after paying this invoice first).
+                </p>
+                <p x-show="isEmi && getEmiPrincipal() > 0" class="err-hint" style="color:#4338ca;border-color:#c7d2fe" x-cloak>
+                    Rest EMI Tk<span x-text="formatNumber(getEmiPrincipal())"></span> over <span x-text="emiMonths"></span> months.
                 </p>
             </div>
 
@@ -2166,18 +2391,22 @@
                     <div class="im-val">Tk<span x-text="formatNumber(lastSale?.paid_amount || 0)"></span></div>
                 </div>
                 <div class="invoice-meta-item change" x-show="(lastSale?.credit_amount || 0) > 0" x-cloak>
-                    <div class="im-label">Baki on this bill</div>
+                    <div class="im-label" x-text="lastSale?.is_emi ? 'EMI financed' : 'Baki on this bill'"></div>
                     <div class="im-val">Tk<span x-text="formatNumber(lastSale?.credit_amount || 0)"></span></div>
                 </div>
-                <div class="invoice-meta-item change" x-show="(lastSale?.baki_balance || 0) > 0" x-cloak>
+                <div class="invoice-meta-item change" x-show="(lastSale?.is_emi) && (lastSale?.emi_months || 0) > 0" x-cloak>
+                    <div class="im-label">EMI tenure</div>
+                    <div class="im-val"><span x-text="lastSale?.emi_months"></span> months</div>
+                </div>
+                <div class="invoice-meta-item change" x-show="!(lastSale?.is_emi) && (lastSale?.baki_balance || 0) > 0" x-cloak>
                     <div class="im-label">Baki left</div>
                     <div class="im-val">Tk<span x-text="formatNumber(lastSale?.baki_balance || 0)"></span></div>
                 </div>
-                <div class="invoice-meta-item change" x-show="!(lastSale?.is_baki) && (lastSale?.discount_amount || 0) > 0 && (lastSale?.change || 0) <= 0" x-cloak>
+                <div class="invoice-meta-item change" x-show="!(lastSale?.is_baki) && !(lastSale?.is_emi) && (lastSale?.discount_amount || 0) > 0 && (lastSale?.change || 0) <= 0" x-cloak>
                     <div class="im-label">Less / discount</div>
                     <div class="im-val">Tk<span x-text="formatNumber(lastSale?.discount_amount || 0)"></span></div>
                 </div>
-                <div class="invoice-meta-item change" x-show="(lastSale?.change || 0) > 0 || (!(lastSale?.is_baki) && (lastSale?.discount_amount || 0) <= 0 && !(lastSale?.credit_amount))" x-cloak>
+                <div class="invoice-meta-item change" x-show="(lastSale?.change || 0) > 0 || (!(lastSale?.is_baki) && !(lastSale?.is_emi) && (lastSale?.discount_amount || 0) <= 0 && !(lastSale?.credit_amount))" x-cloak>
                     <div class="im-label">Change to return</div>
                     <div class="im-val">Tk<span x-text="formatNumber(lastSale?.change || 0)"></span></div>
                 </div>
@@ -2422,7 +2651,11 @@ function posSystem() {
         customerPhone: '',
         isSearchingCustomer: false,
         customerBakiBalance: 0,
+        customerEmiBalance: 0,
         isBaki: false,
+        isEmi: false,
+        emiMonths: 3,
+        emiDownPayment: 0,
 
         /* â”€â”€ Discount â”€â”€ */
         discountType: 'percent',
@@ -3011,6 +3244,7 @@ function posSystem() {
                 if (!this.customerPhone) {
                     this.customerName = '';
                     this.customerBakiBalance = 0;
+                    this.customerEmiBalance = 0;
                 }
                 return;
             }
@@ -3025,12 +3259,14 @@ function posSystem() {
                     if (data.found) {
                         this.customerName = data.name;
                         this.customerBakiBalance = Number(data.baki_balance) || 0;
-                        const msg = this.customerBakiBalance > 0
-                            ? ('Customer found: ' + data.name + ' · Baki Tk' + this.formatNumber(this.customerBakiBalance))
-                            : ('Customer found: ' + data.name);
+                        this.customerEmiBalance = Number(data.emi_balance) || 0;
+                        let msg = 'Customer found: ' + data.name;
+                        if (this.customerBakiBalance > 0) msg += ' · Baki Tk' + this.formatNumber(this.customerBakiBalance);
+                        if (this.customerEmiBalance > 0) msg += ' · EMI Tk' + this.formatNumber(this.customerEmiBalance);
                         this.showToast(msg, 'success');
                     } else {
                         this.customerBakiBalance = 0;
+                        this.customerEmiBalance = 0;
                     }
                 }
             } catch(e) {}
@@ -3038,9 +3274,28 @@ function posSystem() {
         },
 
         toggleBaki() {
+            if (this.hasSaleItems()) {
+                this.showToast('BAKI is not available for sale products.', 'warning');
+                return;
+            }
             this.isBaki = !this.isBaki;
             if (this.isBaki) {
+                this.isEmi = false;
                 this.showToast('BAKI on — unpaid amount is credit, not Less', 'info');
+            }
+        },
+
+        toggleEmi() {
+            if (this.hasSaleItems()) {
+                this.showToast('EMI is not available for sale products.', 'warning');
+                return;
+            }
+            this.isEmi = !this.isEmi;
+            if (this.isEmi) {
+                this.isBaki = false;
+                if (!this.emiMonths || this.emiMonths < 1) this.emiMonths = 3;
+                if (this.emiDownPayment == null) this.emiDownPayment = 0;
+                this.showToast('EMI on — collect down payment, rest over months', 'info');
             }
         },
 
@@ -3135,6 +3390,12 @@ function posSystem() {
                     this._saleDiscountActive = false;
                 }
                 return;
+            }
+            // Sale items cannot use BAKI / EMI
+            if (this.isBaki || this.isEmi) {
+                this.isBaki = false;
+                this.isEmi = false;
+                this.showToast('BAKI / EMI turned off — not allowed with sale products', 'warning');
             }
             this._saleDiscountActive = true;
             this.appliedCoupon = null;
@@ -3292,17 +3553,20 @@ function posSystem() {
         },
         /** Shortfall when customer pays less than bill — counted as Less / discount (BAKI off only). */
         getLessAmount() {
-            if (this.isBaki) return 0;
+            if (this.isBaki || this.isEmi) return 0;
             return Math.max(0, this.getPayableTotal() - this.getPaidAmount());
         },
         /** Cart discount + pay-less amount (same figure stored as orders.discount_amount). */
         getTotalDiscountAmount() {
-            if (this.isBaki) return this.getDiscount();
+            if (this.isBaki || this.isEmi) return this.getDiscount();
             return this.getDiscount() + this.getLessAmount();
         },
         getChange() {
             if (this.isBaki) {
                 return Math.max(0, this.getPaidAmount() - this.getBakiTotalDue());
+            }
+            if (this.isEmi) {
+                return Math.max(0, this.getPaidAmount() - this.getEmiDownPayment());
             }
             return Math.max(0, this.getPaidAmount() - this.getPayableTotal());
         },
@@ -3321,14 +3585,36 @@ function posSystem() {
         getBakiLeft() {
             return Math.max(0, this.getBakiTotalDue() - this.getBakiAppliedPay());
         },
+        getEmiDownPayment() {
+            const bill = this.getPayableTotal();
+            const down = Math.max(0, Number(this.emiDownPayment) || 0);
+            return Math.min(bill, Math.round(down * 100) / 100);
+        },
+        getEmiPrincipal() {
+            return Math.max(0, Math.round((this.getPayableTotal() - this.getEmiDownPayment()) * 100) / 100);
+        },
+        getEmiMonthly() {
+            const months = Math.max(1, Number(this.emiMonths) || 1);
+            const principal = this.getEmiPrincipal();
+            if (principal <= 0) return 0;
+            return Math.round((principal / months) * 100) / 100;
+        },
         canConfirmSale() {
             if (this.cart.length === 0) return false;
             if (this.isBaki) {
                 const nameOk = (this.customerName || '').trim().length >= 2;
                 const phoneOk = (this.customerPhone || '').trim().length >= 5;
                 if (!nameOk || !phoneOk) return false;
-                // Pay now may be 0 (full baki)
                 return true;
+            }
+            if (this.isEmi) {
+                const nameOk = (this.customerName || '').trim().length >= 2;
+                const phoneOk = (this.customerPhone || '').trim().length >= 5;
+                if (!nameOk || !phoneOk) return false;
+                const months = Math.floor(Number(this.emiMonths) || 0);
+                if (months < 1 || months > 36) return false;
+                if (this.getEmiPrincipal() <= 0) return false;
+                return this.getPaidAmount() + 0.009 >= this.getEmiDownPayment();
             }
             // Fully covered by exchange credit — nothing to collect
             if (this.getPayableTotal() <= 0) return true;
@@ -3353,7 +3639,7 @@ function posSystem() {
             if (this.payBkash  > 0) methods.push('bKash');
             if (methods.length > 1) return methods.join(' + ');
             if (methods.length === 1) return methods[0].toLowerCase();
-            return this.isBaki ? 'baki' : 'cash';
+            return this.isBaki ? 'baki' : (this.isEmi ? 'emi' : 'cash');
         },
 
         /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -3375,7 +3661,11 @@ function posSystem() {
             this.customerName = '';
             this.customerPhone = '';
             this.customerBakiBalance = 0;
+            this.customerEmiBalance = 0;
             this.isBaki = false;
+            this.isEmi = false;
+            this.emiDownPayment = 0;
+            this.emiMonths = 3;
             this.syncSaleDiscount();
             this.showToast('Cart suspended. Ready for next customer.', 'info');
         },
@@ -3394,7 +3684,11 @@ function posSystem() {
             this.customerName  = rec.customerName  || '';
             this.customerPhone = rec.customerPhone || '';
             this.customerBakiBalance = 0;
+            this.customerEmiBalance = 0;
             this.isBaki = false;
+            this.isEmi = false;
+            this.emiDownPayment = 0;
+            this.emiMonths = 3;
             if (this.customerPhone) this.searchCustomer();
             this.heldCarts.splice(index, 1);
             localStorage.setItem('nexa_held_carts', JSON.stringify(this.heldCarts));
@@ -3430,6 +3724,35 @@ openCheckout() {
                     return;
                 }
             }
+            if (this.isEmi) {
+                const nameOk = (this.customerName || '').trim().length >= 2;
+                const phoneOk = (this.customerPhone || '').trim().length >= 5;
+                if (!nameOk || !phoneOk) {
+                    this.showToast('Name and mobile are required for EMI sales.', 'error');
+                    return;
+                }
+                const months = Math.floor(Number(this.emiMonths) || 0);
+                if (months < 1 || months > 36) {
+                    this.showToast('Enter EMI months between 1 and 36.', 'error');
+                    return;
+                }
+                if (this.getEmiPrincipal() <= 0) {
+                    this.showToast('Lower down payment so some amount remains for EMI.', 'error');
+                    return;
+                }
+                if (this.isExchangeMode) {
+                    this.showToast('EMI cannot be combined with exchange.', 'error');
+                    return;
+                }
+                if (this.hasSaleItems()) {
+                    this.showToast('EMI is not available for sale products.', 'error');
+                    return;
+                }
+            }
+            if (this.isBaki && this.hasSaleItems()) {
+                this.showToast('BAKI is not available for sale products.', 'error');
+                return;
+            }
             if (this.hasLowStockItems()) this.showToast('! Some items are at stock limit - check before confirming', 'warning');
             // Leave cash empty so cashier types what the customer pays; Exact fills bill total
             this.payCash  = '';
@@ -3452,6 +3775,12 @@ openCheckout() {
                 this.showToast('BAKI sales require an online connection.', 'error');
                 return;
             }
+            if (this.isEmi && !this.isOnline) {
+                this.isProcessing = false;
+                this.playBeep(false);
+                this.showToast('EMI sales require an online connection.', 'error');
+                return;
+            }
 
             const payload = {
                 client_uuid:             (window.crypto && crypto.randomUUID)
@@ -3468,6 +3797,9 @@ openCheckout() {
                 card_paid:               Number(this.payCard) || 0,
                 mobile_paid:             Number(this.payBkash) || 0,
                 is_baki:                 !!this.isBaki,
+                is_emi:                  !!this.isEmi,
+                emi_months:              this.isEmi ? (Number(this.emiMonths) || 3) : null,
+                emi_down_payment:        this.isEmi ? this.getEmiDownPayment() : 0,
                 customer_name:           this.customerName,
                 customer_phone:          this.customerPhone,
                 created_at:              new Date().toISOString(),
@@ -3500,13 +3832,18 @@ openCheckout() {
                         const paidSnap = this.getPaidAmount();
                         const lessSnap = this.getLessAmount();
                         const bakiLeftSnap = data.baki_balance ?? this.getBakiLeft();
-                        const creditSnap = data.credit_amount ?? this.getBakiNewCredit();
-                        const changeSnap = data.change ?? (this.isBaki ? this.getChange() : Math.max(0, paidSnap - this.getPayableTotal()));
+                        const creditSnap = data.credit_amount ?? (this.isEmi ? this.getEmiPrincipal() : this.getBakiNewCredit());
+                        const changeSnap = data.change ?? (this.isBaki || this.isEmi ? this.getChange() : Math.max(0, paidSnap - this.getPayableTotal()));
                         const customerSnap = this.customerName || 'Walk-in Customer';
                         const wasBaki = this.isBaki;
+                        const wasEmi = this.isEmi;
+                        const emiMonthsSnap = this.emiMonths;
+                        const emiDownSnap = this.getEmiDownPayment();
 
                         this.cart = []; this.customerName = ''; this.customerPhone = '';
-                        this.customerBakiBalance = 0; this.isBaki = false;
+                        this.customerBakiBalance = 0; this.customerEmiBalance = 0;
+                        this.isBaki = false; this.isEmi = false;
+                        this.emiDownPayment = 0; this.emiMonths = 3;
                         this.discountValue = 0; this.appliedCoupon = null; this.couponCode = '';
                         this._saleDiscountActive = false;
                         this.lastAddedId = null;
@@ -3520,7 +3857,11 @@ openCheckout() {
                             discount_amount: data.discount_amount ?? lessSnap,
                             credit_amount: creditSnap,
                             baki_balance: bakiLeftSnap,
+                            emi_balance: data.emi_balance ?? 0,
                             is_baki: wasBaki,
+                            is_emi: wasEmi,
+                            emi_months: emiMonthsSnap,
+                            emi_down_payment: emiDownSnap,
                             total_amount: data.total_amount ?? 0,
                             customer: customerSnap,
                             receipt_url: data.receipt_url || ('/pos/receipt/' + data.order_id),
@@ -3528,7 +3869,9 @@ openCheckout() {
                             offline: false,
                         };
                         this.invoiceModalOpen = true;
-                        if (wasBaki) {
+                        if (wasEmi) {
+                            this.showToast('EMI sale complete! Remaining: Tk' + this.formatNumber(creditSnap) + ' over ' + emiMonthsSnap + ' months', 'success');
+                        } else if (wasBaki) {
                             this.showToast('Sale complete! Baki left: Tk' + this.formatNumber(bakiLeftSnap), 'success');
                         } else if (lessSnap > 0) {
                             this.showToast('Sale complete! Less: Tk' + this.formatNumber(lessSnap), 'success');
@@ -3544,8 +3887,8 @@ openCheckout() {
                     // (avoid duplicate when server committed but response was lost —
                     // client_uuid + unique constraint makes resync safe).
                     this.isOnline = false;
-                    if (payload.is_baki) {
-                        this.showToast('Connection lost. BAKI sale was not saved — retry when online.', 'error');
+                    if (payload.is_baki || payload.is_emi) {
+                        this.showToast('Connection lost. Credit/EMI sale was not saved — retry when online.', 'error');
                     } else {
                         this.saveOfflineSale(payload);
                     }

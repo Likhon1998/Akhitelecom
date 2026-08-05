@@ -230,10 +230,13 @@ class DashboardController extends Controller
                 ->get()
                 ->keyBy('counter_id');
 
+            $bakiByCounter = $summaryService->todayArCollectionsByCounter($shopId, 'baki_payment', 'BAKI-AR', $today);
+            $emiByCounter = $summaryService->todayArCollectionsByCounter($shopId, 'emi_payment', 'EMI-AR', $today);
+
             $counterBreakdown = Counter::where('shop_id', $shopId)
                 ->orderBy('name')
                 ->get()
-                ->map(function (Counter $c) use ($rows) {
+                ->map(function (Counter $c) use ($rows, $bakiByCounter, $emiByCounter) {
                     $row = $rows->get($c->id);
 
                     return (object) [
@@ -242,6 +245,8 @@ class DashboardController extends Controller
                         'sales_total' => (float) ($row->sales_total ?? 0),
                         'orders_count' => (int) ($row->orders_count ?? 0),
                         'customers_count' => (int) ($row->customers_count ?? 0),
+                        'baki_collected' => (float) ($bakiByCounter->get($c->id) ?? 0),
+                        'emi_collected' => (float) ($emiByCounter->get($c->id) ?? 0),
                     ];
                 });
 

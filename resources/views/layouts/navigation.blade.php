@@ -181,6 +181,11 @@
                 <svg class="w-5 h-5 mr-3 {{ request()->routeIs('customers.baki.*') ? 'text-white' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>
                 Customer Baki
             </a>
+            <a href="{{ route('customers.emi.index') }}"
+               class="{{ request()->routeIs('customers.emi.*') ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' : 'hover:bg-white/5 hover:text-white' }} flex items-center px-3 py-2.5 rounded-lg transition-all font-medium text-sm mt-1">
+                <svg class="w-5 h-5 mr-3 {{ request()->routeIs('customers.emi.*') ? 'text-white' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                Customer EMI
+            </a>
         </div>
         @endcan
 

@@ -5,7 +5,9 @@
             'total_stock' => 0,
             'total_value' => 0,
             'out_of_stock' => 0,
+            'on_sale' => 0,
         ];
+        $activeBrandSales = $activeBrandSales ?? collect();
         $pageIds = $products->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
     @endphp
 
@@ -101,7 +103,7 @@
         @endif
 
         {{-- Summary cards --}}
-        <div class="grid grid-cols-2 xl:grid-cols-4 gap-2.5 mb-3.5">
+        <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5 mb-3.5">
             <div class="rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-sm flex items-center justify-between gap-2">
                 <div>
                     <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Total Products</p>
@@ -138,7 +140,96 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
                 </span>
             </div>
+            <div class="rounded-xl border {{ ($stats['on_sale'] ?? 0) > 0 ? 'border-rose-200 bg-rose-50/40' : 'border-slate-200/80 bg-white' }} px-3 py-2.5 shadow-sm flex items-center justify-between gap-2">
+                <div>
+                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">On Sale Now</p>
+                    <p class="mt-0.5 text-[17px] font-semibold {{ ($stats['on_sale'] ?? 0) > 0 ? 'text-[var(--pl-sale)]' : 'text-slate-900' }} tabular-nums leading-none">{{ number_format($stats['on_sale'] ?? 0) }}</p>
+                </div>
+                <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-[var(--pl-sale)]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>
+                </span>
+            </div>
         </div>
+
+        @if($activeBrandSales->isNotEmpty())
+            <div class="mb-3.5 rounded-xl border border-rose-200 bg-gradient-to-r from-rose-50 via-white to-orange-50 shadow-sm overflow-hidden">
+                <div class="px-3.5 py-2.5 border-b border-rose-100/80 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500 text-white shrink-0">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-[12px] font-semibold text-rose-900">Active brand sales</p>
+                            <p class="text-[10.5px] text-rose-700/80">
+                                {{ $activeBrandSales->count() }} brand campaign{{ $activeBrandSales->count() === 1 ? '' : 's' }} running
+                                · {{ number_format($stats['on_sale'] ?? 0) }} product{{ ($stats['on_sale'] ?? 0) === 1 ? '' : 's' }} discounted
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <a href="{{ route('products.index', ['status' => 'sale']) }}"
+                           data-no-progress
+                           @click.prevent="softLoad(@js(route('products.index', ['status' => 'sale'])))"
+                           class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-50">
+                            View sale products
+                        </a>
+                        <button type="button" @click="openBrandEndSale()"
+                                class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50">
+                            End a brand sale
+                        </button>
+                    </div>
+                </div>
+                <div class="p-2.5 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    @foreach($activeBrandSales as $campaign)
+                        @php
+                            $endsAt = $campaign['ends_at'] ?? null;
+                            $endsCarbon = $endsAt ? \Illuminate\Support\Carbon::parse($endsAt) : null;
+                            $endsLabel = $endsCarbon
+                                ? $endsCarbon->timezone(config('app.display_timezone', config('app.timezone')))->format('d M Y, h:i A')
+                                : '—';
+                            $daysLeft = $endsCarbon
+                                ? max(0, (int) floor(now()->diffInSeconds($endsCarbon, false) / 86400))
+                                : null;
+                        @endphp
+                        <div class="rounded-lg border border-rose-100 bg-white/90 px-3 py-2.5 shadow-sm">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0">
+                                    <p class="text-[12px] font-bold text-slate-900 truncate">{{ $campaign['brand_name'] }}</p>
+                                    <p class="mt-0.5 text-[10.5px] text-slate-500">
+                                        {{ number_format($campaign['product_count']) }} product{{ $campaign['product_count'] === 1 ? '' : 's' }}
+                                        @if($daysLeft !== null)
+                                            · {{ $daysLeft === 0 ? 'Ends today' : ($daysLeft.' day'.($daysLeft === 1 ? '' : 's').' left') }}
+                                        @endif
+                                    </p>
+                                </div>
+                                @if(($campaign['discount_percent'] ?? 0) > 0)
+                                    <span class="shrink-0 inline-flex items-center rounded-md bg-rose-500 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
+                                        −{{ $campaign['discount_percent'] }}%
+                                    </span>
+                                @else
+                                    <span class="shrink-0 inline-flex items-center rounded-md bg-rose-500 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
+                                        Sale
+                                    </span>
+                                @endif
+                            </div>
+                            <p class="mt-1.5 text-[10px] font-medium text-rose-700/90">
+                                Ends {{ $endsLabel }}
+                            </p>
+                            @if(!empty($campaign['brand_id']))
+                                <div class="mt-2 flex items-center gap-2">
+                                    <a href="{{ route('products.index', ['status' => 'sale', 'q' => $campaign['brand_name']]) }}"
+                                       data-no-progress
+                                       @click.prevent="softLoad(@js(route('products.index', ['status' => 'sale', 'q' => $campaign['brand_name']])))"
+                                       class="text-[10.5px] font-semibold text-indigo-600 hover:text-indigo-800">
+                                        Filter list →
+                                    </a>
+                                </div>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
 
         {{-- Table card --}}
         <div id="products-table-panel"
@@ -260,8 +351,9 @@
                                     'clear_url' => route('products.sale.clear', $product),
                                 ];
                             @endphp
-                            <tr class="hover:bg-slate-50/70 transition-colors"
-                                :class="isSelected({{ $product->id }}) && 'bg-indigo-50/40'">
+                            <tr class="hover:bg-slate-50/70 transition-colors {{ $onSale ? 'bg-rose-50/30' : '' }}"
+                                :class="isSelected({{ $product->id }}) && 'bg-indigo-50/40'"
+                                @if($onSale) style="box-shadow: inset 3px 0 0 #EF4444" @endif>
                                 <td class="pl-3 pr-1 py-2.5 align-middle">
                                     <input type="checkbox"
                                            class="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
@@ -271,7 +363,7 @@
                                 </td>
                                 <td class="px-2.5 py-2.5 align-middle">
                                     <div class="flex items-center gap-2.5 min-w-0">
-                                        <div class="h-9 w-9 shrink-0 rounded-lg bg-slate-50 border border-slate-100 overflow-hidden flex items-center justify-center">
+                                        <div class="h-9 w-9 shrink-0 rounded-lg bg-slate-50 border border-slate-100 overflow-hidden flex items-center justify-center {{ $onSale ? 'ring-1 ring-rose-200' : '' }}">
                                             @if($product->image)
                                                 <img src="{{ public_storage_url($product->image) }}" alt="" class="h-full w-full object-cover">
                                             @else
@@ -287,11 +379,21 @@
                                                 @endif
                                                 · <span class="font-mono text-slate-400">{{ $product->sku ?: $product->barcode }}</span>
                                             </p>
-                                            <div class="mt-1 flex flex-wrap gap-1">
+                                            <div class="mt-1 flex flex-wrap items-center gap-1">
                                                 @if($onSale)
-                                                    <span class="inline-flex items-center px-1 py-px rounded text-[9px] font-bold uppercase tracking-wide bg-[var(--pl-sale)] text-white">Sale</span>
+                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide bg-[var(--pl-sale)] text-white">
+                                                        −{{ $product->discountPercent() }}% sale
+                                                    </span>
+                                                    @if($product->sale_ends_at)
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-rose-100 text-rose-700 border border-rose-200">
+                                                            Ends {{ $product->sale_ends_at->timezone(config('app.display_timezone', config('app.timezone')))->format('d M, h:i A') }}
+                                                        </span>
+                                                    @endif
                                                 @elseif($product->sale_price !== null && $product->sale_ends_at && $product->sale_ends_at->isFuture())
-                                                    <span class="inline-flex items-center px-1 py-px rounded text-[9px] font-bold uppercase tracking-wide bg-amber-500 text-white">Scheduled</span>
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide bg-amber-500 text-white">Scheduled</span>
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                                        From {{ $product->sale_starts_at?->timezone(config('app.display_timezone', config('app.timezone')))->format('d M') }}
+                                                    </span>
                                                 @endif
                                                 @if($product->is_published === false)
                                                     <span class="inline-flex items-center px-1 py-px rounded text-[9px] font-bold uppercase tracking-wide bg-slate-100 text-slate-500">Hidden</span>
@@ -578,10 +680,18 @@
                         <label class="block text-[11px] font-medium text-slate-600 mb-1">Brand</label>
                         <select name="brand_id" required class="block w-full rounded-lg border-slate-200 text-[12px] py-1.5">
                             <option value="">Select brand</option>
+                            @php
+                                $saleBrandIds = collect($activeBrandSales ?? [])->pluck('brand_id')->filter()->map(fn ($id) => (int) $id)->all();
+                            @endphp
                             @foreach(($brands ?? collect()) as $brand)
-                                <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                                <option value="{{ $brand->id }}">
+                                    {{ $brand->name }}{{ in_array((int) $brand->id, $saleBrandIds, true) ? ' · ON SALE' : '' }}
+                                </option>
                             @endforeach
                         </select>
+                        @if(count($saleBrandIds) > 0)
+                            <p class="mt-1 text-[10px] text-rose-600 font-medium">Brands marked “ON SALE” have an active campaign.</p>
+                        @endif
                     </div>
                     <div class="flex items-center justify-end gap-1.5 pt-1">
                         <button type="button" @click="brandEndOpen = false" class="px-2.5 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50 rounded-lg">Cancel</button>

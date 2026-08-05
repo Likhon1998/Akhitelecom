@@ -9,6 +9,7 @@ use App\Models\Counter;
 use App\Models\CounterSession;
 use App\Models\Customer;
 use App\Models\CustomerBakiEntry;
+use App\Models\CustomerEmiEntry;
 use App\Models\Order;
 use App\Models\StockMovement;
 use Carbon\Carbon;
@@ -31,6 +32,7 @@ class AccountService
         ['code' => 'CARD', 'name' => 'Card Payments', 'type' => 'asset'],
         ['code' => 'BKASH', 'name' => 'Mobile Wallet (bKash)', 'type' => 'asset'],
         ['code' => 'BAKI-AR', 'name' => 'Customer Baki Receivable', 'type' => 'asset'],
+        ['code' => 'EMI-AR', 'name' => 'Customer EMI Receivable', 'type' => 'asset'],
         ['code' => 'EXPENSE', 'name' => 'General Expenses', 'type' => 'expense'],
     ];
 
@@ -217,8 +219,9 @@ class AccountService
         }
 
         if ($creditAmount > 0) {
+            $arCode = ! empty($order->is_emi) ? 'EMI-AR' : 'BAKI-AR';
             $lines[] = [
-                'account' => $this->getAccount($order->shop_id, 'BAKI-AR'),
+                'account' => $this->getAccount($order->shop_id, $arCode),
                 'debit' => $creditAmount,
                 'credit' => 0,
                 'counter_id' => $order->counter_id,
@@ -378,8 +381,9 @@ class AccountService
             }
 
             if ($arCredit > 0.009) {
+                $arCode = ! empty($order->is_emi) ? 'EMI-AR' : 'BAKI-AR';
                 $lines[] = [
-                    'account' => $this->getAccount($order->shop_id, 'BAKI-AR'),
+                    'account' => $this->getAccount($order->shop_id, $arCode),
                     'debit' => 0,
                     'credit' => $arCredit,
                     'counter_id' => $order->counter_id,
@@ -1065,6 +1069,85 @@ class AccountService
             || $this->transactionExists($order->shop_id, 'web_refund', Order::class, $order->id)) {
             return;
         }
+    }
+
+    /**
+     * Customer pays EMI installment: Debit cash/card/bkash, Credit EMI-AR.
+     */
+    public function postEmiPayment(
+        Customer $customer,
+        CustomerEmiEntry $entry,
+        float $amount,
+        string $method = 'cash',
+        ?int $counterId = null,
+        ?float $cash = null,
+        ?float $card = null,
+        ?float $mobile = null,
+        ?int $userId = null,
+    ): void {
+        if ($this->transactionExists($customer->shop_id, 'emi_payment', CustomerEmiEntry::class, $entry->id)) {
+            return;
+        }
+
+        $amount = round($amount, 2);
+        if ($amount <= 0) {
+            return;
+        }
+
+        $this->ensureShopAccounts($customer->shop_id);
+        $ar = $this->getAccount($customer->shop_id, 'EMI-AR');
+
+        $lines = [];
+        $hasSplit = $cash !== null || $card !== null || $mobile !== null;
+
+        if ($hasSplit) {
+            $cash = max(0, round((float) $cash, 2));
+            $card = max(0, round((float) $card, 2));
+            $mobile = max(0, round((float) $mobile, 2));
+            if ($cash > 0) {
+                $cashAccount = $counterId
+                    ? $this->ensureCounterCashAccount(Counter::findOrFail($counterId))
+                    : $this->getAccount($customer->shop_id, 'WEB-CASH');
+                $lines[] = ['account' => $cashAccount, 'debit' => $cash, 'credit' => 0, 'counter_id' => $counterId];
+            }
+            if ($card > 0) {
+                $lines[] = ['account' => $this->getAccount($customer->shop_id, 'CARD'), 'debit' => $card, 'credit' => 0, 'counter_id' => $counterId];
+            }
+            if ($mobile > 0) {
+                $lines[] = ['account' => $this->getAccount($customer->shop_id, 'BKASH'), 'debit' => $mobile, 'credit' => 0, 'counter_id' => $counterId];
+            }
+            $debited = round($cash + $card + $mobile, 2);
+            if ($debited + 0.009 < $amount) {
+                $gap = round($amount - $debited, 2);
+                $cashAccount = $counterId
+                    ? $this->ensureCounterCashAccount(Counter::findOrFail($counterId))
+                    : $this->getAccount($customer->shop_id, 'WEB-CASH');
+                $lines[] = ['account' => $cashAccount, 'debit' => $gap, 'credit' => 0, 'counter_id' => $counterId];
+            }
+        } else {
+            $method = strtolower($method);
+            $account = match (true) {
+                str_contains($method, 'card') || str_contains($method, 'bank') => $this->getAccount($customer->shop_id, 'CARD'),
+                str_contains($method, 'bkash') || str_contains($method, 'nagad') || str_contains($method, 'mobile') => $this->getAccount($customer->shop_id, 'BKASH'),
+                default => $counterId
+                    ? $this->ensureCounterCashAccount(Counter::findOrFail($counterId))
+                    : $this->getAccount($customer->shop_id, 'WEB-CASH'),
+            };
+            $lines[] = ['account' => $account, 'debit' => $amount, 'credit' => 0, 'counter_id' => $counterId];
+        }
+
+        $lines[] = ['account' => $ar, 'debit' => 0, 'credit' => $amount, 'counter_id' => $counterId];
+
+        $this->createTransaction(
+            shopId: $customer->shop_id,
+            type: 'emi_payment',
+            referenceType: CustomerEmiEntry::class,
+            referenceId: $entry->id,
+            description: 'EMI payment - '.$customer->name.($customer->phone ? ' ('.$customer->phone.')' : ''),
+            date: $entry->created_at ?? now(),
+            lines: $lines,
+            userId: $userId,
+        );
     }
 
     protected function calculateCogs(Order $order): float

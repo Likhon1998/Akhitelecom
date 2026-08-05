@@ -40,6 +40,8 @@ class DashboardSummaryService
 
         $cash = $this->cashDrawerSummary($shopId, $counterId, $today);
         $pettyCash = $this->pettyCashBalance($shopId);
+        $bakiCollected = $this->todayArCollections($shopId, 'baki_payment', 'BAKI-AR', $counterId, $today);
+        $emiCollected = $this->todayArCollections($shopId, 'emi_payment', 'EMI-AR', $counterId, $today);
 
         return [
             'total_sales' => round($totalSales, 2),
@@ -47,6 +49,8 @@ class DashboardSummaryService
             'expenses' => round($expenses, 2),
             'net_amount' => round($netAmount, 2),
             'petty_cash' => round($pettyCash, 2),
+            'baki_collected' => round($bakiCollected, 2),
+            'emi_collected' => round($emiCollected, 2),
             'opening_balance' => round($cash['opening'], 2),
             'cash_in' => round($cash['cash_in'], 2),
             'cash_out' => round($cash['cash_out'], 2),
@@ -67,6 +71,8 @@ class DashboardSummaryService
             'expenses' => 0.0,
             'net_amount' => 0.0,
             'petty_cash' => 0.0,
+            'baki_collected' => 0.0,
+            'emi_collected' => 0.0,
             'opening_balance' => 0.0,
             'cash_in' => 0.0,
             'cash_out' => 0.0,
@@ -240,5 +246,65 @@ class DashboardSummaryService
             'has_session' => $hasSession,
             'stale_open' => $staleOpen,
         ];
+    }
+
+    /**
+     * Today's Baki/EMI collections from ledger (AR credit lines).
+     * Scoped by account_entries.counter_id when $counterId is set.
+     */
+    public function todayArCollections(
+        int $shopId,
+        string $txnType,
+        string $arCode,
+        ?int $counterId,
+        ?Carbon $today = null,
+    ): float {
+        $today = $today ?? Carbon::today();
+        $ar = Account::where('shop_id', $shopId)->where('code', $arCode)->first();
+        if (! $ar) {
+            return 0.0;
+        }
+
+        return (float) AccountEntry::query()
+            ->where('account_id', $ar->id)
+            ->where('entry_type', 'credit')
+            ->when($counterId !== null, fn ($q) => $q->where('counter_id', $counterId))
+            ->whereHas('transaction', function ($q) use ($shopId, $txnType, $today) {
+                $q->where('shop_id', $shopId)
+                    ->where('type', $txnType)
+                    ->whereDate('transaction_date', $today);
+            })
+            ->sum('amount');
+    }
+
+    /**
+     * Map of counter_id => collected amount for today (null key = no counter).
+     *
+     * @return Collection<string|int, float>
+     */
+    public function todayArCollectionsByCounter(
+        int $shopId,
+        string $txnType,
+        string $arCode,
+        ?Carbon $today = null,
+    ): Collection {
+        $today = $today ?? Carbon::today();
+        $ar = Account::where('shop_id', $shopId)->where('code', $arCode)->first();
+        if (! $ar) {
+            return collect();
+        }
+
+        return AccountEntry::query()
+            ->where('account_id', $ar->id)
+            ->where('entry_type', 'credit')
+            ->whereHas('transaction', function ($q) use ($shopId, $txnType, $today) {
+                $q->where('shop_id', $shopId)
+                    ->where('type', $txnType)
+                    ->whereDate('transaction_date', $today);
+            })
+            ->selectRaw('counter_id, COALESCE(SUM(amount), 0) as total')
+            ->groupBy('counter_id')
+            ->pluck('total', 'counter_id')
+            ->map(fn ($v) => round((float) $v, 2));
     }
 }

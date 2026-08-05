@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\AccountService;
 use App\Services\BakiService;
 use App\Services\CounterSessionService;
+use App\Services\EmiService;
 use App\Services\StockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -26,6 +27,7 @@ class PosController extends Controller
         protected AccountService $accounts,
         protected StockService $stock,
         protected BakiService $baki,
+        protected EmiService $emi,
     ) {}
     /**
      * Load the POS Terminal
@@ -192,12 +194,22 @@ class PosController extends Controller
             'mobile_paid' => 'nullable|numeric|min:0',
             'discount_amount' => 'nullable|numeric|min:0',
             'is_baki' => 'nullable|boolean',
+            'is_emi' => 'nullable|boolean',
+            'emi_months' => 'nullable|integer|min:1|max:36',
+            'emi_down_payment' => 'nullable|numeric|min:0',
             'customer_phone' => 'nullable|string',
             'customer_name' => 'nullable|string',
             'counter_id' => 'nullable|integer',
         ]);
 
         $isBaki = $request->boolean('is_baki');
+        $isEmi = $request->boolean('is_emi');
+        if ($isBaki && $isEmi) {
+            return response()->json([
+                'success' => false,
+                'message' => 'BAKI and EMI cannot be used on the same sale.',
+            ], 422);
+        }
         if ($isBaki) {
             $request->validate([
                 'customer_phone' => 'required|string|min:5',
@@ -205,6 +217,18 @@ class PosController extends Controller
             ], [
                 'customer_phone.required' => 'Mobile number is required for BAKI sales.',
                 'customer_name.required' => 'Customer name is required for BAKI sales.',
+            ]);
+        }
+        if ($isEmi) {
+            $request->validate([
+                'customer_phone' => 'required|string|min:5',
+                'customer_name' => 'required|string|min:2',
+                'emi_months' => 'required|integer|min:1|max:36',
+                'emi_down_payment' => 'nullable|numeric|min:0',
+            ], [
+                'customer_phone.required' => 'Mobile number is required for EMI sales.',
+                'customer_name.required' => 'Customer name is required for EMI sales.',
+                'emi_months.required' => 'Enter EMI months (1–36).',
             ]);
         }
 
@@ -236,6 +260,10 @@ class PosController extends Controller
             $chargeTotal = round($chargeTotal, 2);
             $autoSaleDiscount = max(0, round($totalAmount - $chargeTotal, 2));
 
+            if ($includesSale && ($isBaki || $isEmi)) {
+                throw new \Exception('BAKI and EMI are not available when the cart contains sale products.');
+            }
+
             // 🚀 EXCHANGE MATH & SECURITY
             $isExchange = $request->is_exchange ?? false;
             $exchangeCredit = (float) ($request->exchange_credit ?? 0);
@@ -256,6 +284,9 @@ class PosController extends Controller
             $towardPrevious = 0.0;
             $previousBalance = 0.0;
             $bakiPool = null;
+            $emiDownPayment = 0.0;
+            $emiMonths = 0;
+            $emiPrincipal = 0.0;
 
             if ($isBaki) {
                 // Explicit discount only — shortfall becomes baki, not "Less" discount.
@@ -266,6 +297,26 @@ class PosController extends Controller
                 $payableAmount = $billPayable;
                 $changeAmount = 0.0;
                 $paidAmount = $paidAmountInput;
+            } elseif ($isEmi) {
+                if ($isExchange) {
+                    throw new \Exception('EMI cannot be combined with exchange sales.');
+                }
+                $afterCredit = max(0, round((float) $totalAmount - $exchangeForMath, 2));
+                $discountAmount = min($afterCredit, $requestedDiscount);
+                $billPayable = round($afterCredit - $discountAmount, 2);
+                $emiMonths = (int) $request->input('emi_months', 3);
+                $emiDownPayment = min($billPayable, max(0, round((float) $request->input('emi_down_payment', 0), 2)));
+                $emiPrincipal = round($billPayable - $emiDownPayment, 2);
+                if ($emiPrincipal <= 0) {
+                    throw new \Exception('EMI financed amount must be greater than zero. Lower the down payment.');
+                }
+                if ($paidAmountInput + 0.009 < $emiDownPayment) {
+                    throw new \Exception('Pay at least the EMI down payment (৳'.number_format($emiDownPayment, 2).').');
+                }
+                $creditAmount = $emiPrincipal;
+                $paidAmount = $emiDownPayment;
+                $changeAmount = max(0, round($paidAmountInput - $emiDownPayment, 2));
+                $payableAmount = $billPayable;
             } else {
                 $settlement = Order::resolvePosSettlement(
                     (float) $totalAmount,
@@ -322,6 +373,10 @@ class PosController extends Controller
                 $payableAmount = $bakiPool['bill'];
             }
 
+            if ($isEmi && ! $customer) {
+                throw new \Exception('Customer name and mobile are required for EMI.');
+            }
+
             // 3. Unique invoice inside the open transaction (locked)
             $invoiceNo = Order::nextPosInvoiceNo($shopId, 'INV');
 
@@ -349,6 +404,12 @@ class PosController extends Controller
                 $prevCash = $prevSplit['cash'];
                 $prevCard = $prevSplit['card'];
                 $prevMobile = $prevSplit['mobile'];
+            } elseif ($isEmi && $hasTenderBreakdown) {
+                // Only the down payment is collected on this invoice.
+                $billSplit = $this->baki->splitTenders($paidAmount, $rawCash, $rawCard, $rawMobile);
+                $cashPaid = $billSplit['cash'];
+                $cardPaid = $billSplit['card'];
+                $mobilePaid = $billSplit['mobile'];
             } elseif ($hasTenderBreakdown) {
                 $cashPaid = $rawCash;
                 $cardPaid = $rawCard;
@@ -386,6 +447,9 @@ class PosController extends Controller
                 'discount_amount' => $discountAmount,
                 'credit_amount' => $creditAmount,
                 'is_baki' => $isBaki && ($creditAmount > 0 || $towardPrevious > 0 || $previousBalance > 0),
+                'is_emi' => $isEmi && $emiPrincipal > 0,
+                'emi_down_payment' => $isEmi ? $emiDownPayment : 0,
+                'emi_months' => $isEmi ? $emiMonths : null,
                 'paid_amount' => $paidAmount,
                 'cash_paid' => $cashPaid,
                 'card_paid' => $cardPaid,
@@ -467,6 +531,18 @@ class PosController extends Controller
                 }
             }
 
+            $emiPlan = null;
+            if ($isEmi && $customer && $emiPrincipal > 0) {
+                $emiPlan = $this->emi->createPlanFromSale(
+                    customer: $customer,
+                    order: $order,
+                    principal: $emiPrincipal,
+                    downPayment: $emiDownPayment,
+                    months: $emiMonths,
+                    userId: $user->id,
+                );
+            }
+
             DB::commit();
 
             $customer?->refresh();
@@ -481,6 +557,11 @@ class PosController extends Controller
                 'total_amount' => $order->total_amount,
                 'discount_amount' => $order->discount_amount,
                 'credit_amount' => (float) $order->credit_amount,
+                'is_emi' => (bool) $order->is_emi,
+                'emi_plan_id' => $emiPlan?->id,
+                'emi_months' => $order->emi_months,
+                'emi_down_payment' => (float) ($order->emi_down_payment ?? 0),
+                'emi_balance' => $customer ? (float) $customer->emi_balance : 0,
                 'baki_balance' => $customer ? (float) $customer->baki_balance : 0,
                 'receipt_url' => route('pos.receipt', $order),
             ]);
@@ -537,6 +618,7 @@ class PosController extends Controller
                 'email' => $customer->email,
                 'phone' => $customer->phone,
                 'baki_balance' => (float) ($customer->baki_balance ?? 0),
+                'emi_balance' => (float) ($customer->emi_balance ?? 0),
             ]);
         }
 

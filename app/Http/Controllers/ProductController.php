@@ -31,6 +31,7 @@ class ProductController extends Controller
             'total_stock' => (int) ((clone $base)->sum('stock_quantity') ?? 0),
             'total_value' => (float) ((clone $base)->selectRaw('COALESCE(SUM(cost_price * stock_quantity), 0) as v')->value('v') ?? 0),
             'out_of_stock' => (clone $base)->where('stock_quantity', '<=', 0)->count(),
+            'on_sale' => (clone $base)->onSale()->count(),
         ];
 
         $query = Product::where('shop_id', $shopId)->with(['category', 'brand']);
@@ -65,8 +66,56 @@ class ProductController extends Controller
         $products = $query->latest('id')->paginate(10)->appends($request->only(['q', 'category_id', 'status']));
         $brands = Brand::where('shop_id', $shopId)->where('is_active', true)->orderBy('name')->get();
         $categories = Category::where('shop_id', $shopId)->orderBy('name')->get();
+        $activeBrandSales = $this->activeBrandSaleCampaigns($shopId);
 
-        return view('products.index', compact('products', 'brands', 'categories', 'stats', 'status', 'search'));
+        return view('products.index', compact(
+            'products',
+            'brands',
+            'categories',
+            'stats',
+            'status',
+            'search',
+            'activeBrandSales',
+        ));
+    }
+
+    /**
+     * Summarize brands that currently have timed sale products (for admin product list).
+     *
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    protected function activeBrandSaleCampaigns(int $shopId)
+    {
+        $onSale = Product::query()
+            ->where('shop_id', $shopId)
+            ->onSale()
+            ->with('brand:id,name')
+            ->get(['id', 'brand_id', 'brand_name', 'selling_price', 'sale_price', 'sale_starts_at', 'sale_ends_at']);
+
+        return $onSale
+            ->filter(fn (Product $p) => filled($p->brand_id) || filled($p->brand_name) || filled($p->brand?->name))
+            ->groupBy(fn (Product $p) => $p->brand_id ?: ('name:'.mb_strtolower((string) ($p->brand?->name ?: $p->brand_name))))
+            ->map(function ($items) {
+                /** @var \Illuminate\Support\Collection<int, Product> $items */
+                $first = $items->first();
+                $percents = $items->map(fn (Product $p) => $p->discountPercent())->filter(fn ($p) => $p > 0);
+                $commonPercent = $percents->isNotEmpty()
+                    ? (int) $percents->countBy()->sortDesc()->keys()->first()
+                    : 0;
+                $endsAt = $items->max('sale_ends_at');
+                $startsAt = $items->min('sale_starts_at');
+
+                return [
+                    'brand_id' => $first->brand_id ? (int) $first->brand_id : null,
+                    'brand_name' => $first->brand?->name ?: ($first->brand_name ?: 'Brand'),
+                    'product_count' => $items->count(),
+                    'discount_percent' => $commonPercent,
+                    'starts_at' => $startsAt,
+                    'ends_at' => $endsAt,
+                ];
+            })
+            ->sortBy('brand_name')
+            ->values();
     }
 
     public function create(Request $request)

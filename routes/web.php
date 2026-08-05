@@ -9,6 +9,7 @@ use App\Http\Controllers\CounterController;
 use App\Http\Controllers\CounterSessionController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerBakiController;
+use App\Http\Controllers\CustomerEmiController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExchangeController;
 use App\Http\Controllers\GlobalSearchController;
@@ -129,8 +130,15 @@ Route::middleware([
 
     Route::resource('customers', CustomerController::class);
     Route::get('/customers-baki', [CustomerBakiController::class, 'index'])->name('customers.baki.index');
+    Route::get('/customers/baki/entries/{entry}/slip', [CustomerBakiController::class, 'slip'])->name('customers.baki.slip');
     Route::get('/customers/{customer}/baki', [CustomerBakiController::class, 'show'])->name('customers.baki.show');
     Route::post('/customers/{customer}/baki/pay', [CustomerBakiController::class, 'pay'])->name('customers.baki.pay');
+
+    Route::get('/customers-emi', [CustomerEmiController::class, 'index'])->name('customers.emi.index');
+    Route::get('/customers/emi/entries/{entry}/slip', [CustomerEmiController::class, 'slip'])->name('customers.emi.slip');
+    Route::get('/customers/emi/{plan}', [CustomerEmiController::class, 'show'])->name('customers.emi.show');
+    Route::post('/customers/emi/{plan}/pay', [CustomerEmiController::class, 'pay'])->name('customers.emi.pay');
+    Route::get('/customers/{customer}/emi', [CustomerEmiController::class, 'customer'])->name('customers.emi.customer');
 
     Route::middleware('can:manage inventory')->group(function () {
         Route::resource('categories', CategoryController::class)->except(['show']);

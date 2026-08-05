@@ -1,64 +1,175 @@
-<x-guest-layout>
-    <div class="mb-8">
-        <h2 class="text-2xl font-bold text-gray-900">Admin Login</h2>
-        <p class="text-sm text-gray-500 mt-1">Sign in to the Nexa POS admin panel.</p>
-    </div>
-
-    @if ($errors->has('email'))
-        <div class="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start gap-3 shadow-sm">
-            <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-red-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                </svg>
+<x-login-layout>
+    <div class="nexa-shell">
+        <section class="nexa-left" aria-label="Nexa POS overview">
+            <div class="nexa-left-poster" aria-hidden="true">
+                <img
+                    src="{{ asset('images/auth/login-pos-bg.png') }}?v=3"
+                    alt=""
+                    class="nexa-left-poster-img"
+                    width="1600"
+                    height="2400"
+                    decoding="async"
+                    fetchpriority="high"
+                >
+                <div class="nexa-left-scrim"></div>
             </div>
-            <div>
-                <h3 class="text-sm font-bold text-red-800">Access Denied</h3>
-                <p class="text-sm text-red-700 mt-1">{{ $errors->first('email') }}</p>
+
+            <div class="nexa-left-content">
+                <div class="nexa-brand">
+                    <div class="nexa-brand-mark" aria-hidden="true">
+                        <svg viewBox="0 0 32 32" fill="none">
+                            <defs>
+                                <linearGradient id="nexaCube" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#c084fc"/>
+                                    <stop offset="1" stop-color="#60a5fa"/>
+                                </linearGradient>
+                            </defs>
+                            <path d="M16 3.5L27 9.5V22.5L16 28.5L5 22.5V9.5L16 3.5Z" stroke="url(#nexaCube)" stroke-width="1.6" fill="rgba(168,85,247,.2)"/>
+                            <path d="M16 15.5L27 9.5M16 15.5V28.5M16 15.5L5 9.5" stroke="url(#nexaCube)" stroke-width="1.6" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="nexa-brand-name">NEXA POS</div>
+                        <div class="nexa-brand-sub">Smart POS &amp; Inventory System</div>
+                    </div>
+                </div>
+
+                <div class="nexa-left-body">
+                    <h1 class="nexa-headline">
+                        Manage Smarter.<br>
+                        <em>Sell Faster.</em>
+                    </h1>
+                    <p class="nexa-lead">A modern POS and inventory solution built for today's retail businesses.</p>
+
+                    <div class="nexa-features">
+                        <div class="nexa-feature">
+                            <div class="nexa-feature-icon is-purple" aria-hidden="true">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 3v18h18M7 14l3-3 3 2 5-6"/></svg>
+                            </div>
+                            <div>
+                                <strong>Real-time Analytics</strong>
+                                <span>Track sales and performance in real time.</span>
+                            </div>
+                        </div>
+                        <div class="nexa-feature">
+                            <div class="nexa-feature-icon is-blue" aria-hidden="true">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 3h2l.4 2M7 13h10l3-8H6.4M7 13L5.4 5M7 13l-2 7h14M10 20a1 1 0 102 0 1 1 0 00-2 0zm8 0a1 1 0 102 0 1 1 0 00-2 0z"/></svg>
+                            </div>
+                            <div>
+                                <strong>Inventory Control</strong>
+                                <span>Manage stock with accuracy and ease.</span>
+                            </div>
+                        </div>
+                        <div class="nexa-feature">
+                            <div class="nexa-feature-icon is-green" aria-hidden="true">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-3z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.5 12.2l1.8 1.8 3.4-3.6"/></svg>
+                            </div>
+                            <div>
+                                <strong>Secure &amp; Reliable</strong>
+                                <span>Your data is safe with enterprise grade security.</span>
+                            </div>
+                        </div>
+                        <div class="nexa-feature">
+                            <div class="nexa-feature-icon is-orange" aria-hidden="true">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 2L4 14h7l-1 8 10-14h-7l1-6z"/></svg>
+                            </div>
+                            <div>
+                                <strong>Fast &amp; Intuitive</strong>
+                                <span>Streamlined workflows for maximum productivity.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="nexa-left-foot">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                    Trusted by thousands of businesses worldwide
+                </div>
             </div>
-        </div>
-    @endif
+        </section>
 
-    <x-auth-session-status class="mb-4" :status="session('status')" />
+        <section class="nexa-right" aria-label="Admin sign in">
+            <div class="nexa-card">
+                <div class="nexa-lock" aria-hidden="true">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                </div>
+                <h2 class="nexa-card-title">Welcome Back</h2>
+                <p class="nexa-card-sub">Sign in to your Nexa POS admin account</p>
 
-    <form method="POST" action="{{ route('login') }}" class="space-y-6">
-        @csrf
-
-        <div>
-            <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
-            <input id="email" class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" type="email" name="email" :value="old('email')" required autofocus autocomplete="username" />
-            <div class="hidden">
-                <x-input-error :messages="$errors->get('email')" class="mt-2" />
-            </div>
-        </div>
-
-        <div>
-            <div class="flex items-center justify-between">
-                <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                @if (Route::has('password.request'))
-                    <a class="text-sm font-medium text-indigo-600 hover:text-indigo-500" href="{{ route('password.request') }}">
-                        Forgot password?
-                    </a>
+                @if ($errors->has('email') || $errors->has('password'))
+                    <div class="nexa-alert" role="alert">
+                        <strong>Access Denied</strong>
+                        {{ $errors->first('email') ?: $errors->first('password') }}
+                    </div>
                 @endif
+
+                @if (session('status'))
+                    <div class="nexa-status">{{ session('status') }}</div>
+                @endif
+
+                <form method="POST" action="{{ route('login') }}" class="nexa-form">
+                    @csrf
+
+                    <div>
+                        <label for="email" class="nexa-label">Email Address</label>
+                        <div class="nexa-field">
+                            <input
+                                id="email"
+                                type="email"
+                                name="email"
+                                value="{{ old('email') }}"
+                                required
+                                autofocus
+                                autocomplete="username"
+                                placeholder="Enter your email"
+                            >
+                            <svg class="nexa-field-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="nexa-label-row">
+                            <label for="password" class="nexa-label">Password</label>
+                            @if (Route::has('password.request'))
+                                <a class="nexa-forgot" href="{{ route('password.request') }}">Forgot password?</a>
+                            @endif
+                        </div>
+                        <div class="nexa-field">
+                            <input
+                                id="password"
+                                type="password"
+                                name="password"
+                                required
+                                autocomplete="current-password"
+                                placeholder="Enter your password"
+                            >
+                            <svg class="nexa-field-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <label class="nexa-check" for="remember_me">
+                        <input id="remember_me" type="checkbox" name="remember">
+                        Remember me
+                    </label>
+
+                    <button type="submit" class="nexa-submit">
+                        Sign In
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                        </svg>
+                    </button>
+                </form>
             </div>
-            <input id="password" class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" type="password" name="password" required autocomplete="current-password" />
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
-        </div>
 
-        <div class="flex items-center">
-            <input id="remember_me" type="checkbox" class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" name="remember">
-            <label for="remember_me" class="block ml-2 text-sm text-gray-900">
-                Remember me
-            </label>
-        </div>
-
-        <div>
-            <button type="submit" class="flex justify-center w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                Sign In
-            </button>
-        </div>
-        
-        {{-- <div class="text-center mt-4 text-sm text-gray-600">
-            Don't have an account? <a href="{{ route('register') }}" class="font-medium text-indigo-600 hover:text-indigo-500">Register here</a>
-        </div> --}}
-    </form>
-</x-guest-layout>
+            <p class="nexa-right-foot">&copy; 2026 Nexa POS. All rights reserved.</p>
+        </section>
+    </div>
+</x-login-layout>
