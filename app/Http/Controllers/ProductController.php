@@ -11,8 +11,10 @@ use App\Services\StockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
@@ -153,7 +155,7 @@ class ProductController extends Controller
                 Rule::exists('brands', 'id')->where(fn ($q) => $q->where('shop_id', $shopId)),
             ],
             'images' => 'nullable|array|max:20',
-            'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:2048',
+            'images.*' => 'image|mimes:jpeg,png,jpg,webp,gif|max:5120',
             'is_published' => 'nullable|boolean',
             'is_new_arrival' => 'nullable|boolean',
             'is_best_seller' => 'nullable|boolean',
@@ -272,7 +274,7 @@ class ProductController extends Controller
             'category_id' => 'nullable|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
             'images' => 'nullable|array|max:20',
-            'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:2048',
+            'images.*' => 'image|mimes:jpeg,png,jpg,webp,gif|max:5120',
             'remove_images' => 'nullable|array',
             'remove_images.*' => 'integer',
             'is_published' => 'nullable|boolean',
@@ -346,6 +348,111 @@ class ProductController extends Controller
         return view('products.import');
     }
 
+    /**
+     * Downloadable demo CSV (Excel-friendly) so staff can fill and re-upload.
+     */
+    public function importTemplate()
+    {
+        $headers = [
+            'name',
+            'barcode',
+            'sku',
+            'category',
+            'brand',
+            'cost_price',
+            'selling_price',
+            'stock_quantity',
+            'alert_quantity',
+            'image_url',
+            'color',
+            'color_hex',
+            'ram',
+            'storage',
+            'variant_group',
+            'short_description',
+        ];
+
+        $rows = [
+            [
+                'Samsung Galaxy S22 — Green / 8GB / 128GB',
+                '8801234567001',
+                'SKU-S22-G-128',
+                'Smartphones',
+                'Samsung',
+                '24500',
+                '28999',
+                '10',
+                '5',
+                '',
+                'Green',
+                '#16a34a',
+                '8GB',
+                '128GB',
+                'samsung-s22',
+                'Demo phone — add photo later or paste image_url.',
+            ],
+            [
+                'Somostel 65W GaN Charger',
+                '8801234567002',
+                'SKU-CHG-65W',
+                'Chargers',
+                'Somostel',
+                '900',
+                '1490',
+                '40',
+                '8',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                'Fast GaN charger for phones and laptops.',
+            ],
+            [
+                'Oraimo FreePods 4',
+                '8801234567003',
+                'SKU-EAR-FP4',
+                'Earbuds',
+                'Oraimo',
+                '1600',
+                '2290',
+                '22',
+                '5',
+                '',
+                'Black',
+                '#111827',
+                '',
+                '',
+                '',
+                'True wireless earbuds with deep bass.',
+            ],
+        ];
+
+        $escape = function ($value): string {
+            $value = (string) $value;
+            if (str_contains($value, '"') || str_contains($value, ',') || str_contains($value, "\n")) {
+                return '"'.str_replace('"', '""', $value).'"';
+            }
+
+            return $value;
+        };
+
+        $lines = [];
+        $lines[] = implode(',', array_map($escape, $headers));
+        foreach ($rows as $row) {
+            $lines[] = implode(',', array_map($escape, $row));
+        }
+
+        // UTF-8 BOM so Excel opens Bangla / special characters correctly
+        $csv = "\xEF\xBB\xBF".implode("\r\n", $lines)."\r\n";
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="akhitelecom-products-demo.csv"',
+        ]);
+    }
+
     public function importStore(Request $request)
     {
         $request->validate([
@@ -411,6 +518,12 @@ class ProductController extends Controller
             'reorder_level' => 'alert_quantity',
             'category_name' => 'category',
             'brand_name' => 'brand',
+            'image' => 'image_url',
+            'photo' => 'image_url',
+            'photo_url' => 'image_url',
+            'picture' => 'image_url',
+            'description' => 'short_description',
+            'rom' => 'storage',
         ];
         $header = array_map(fn ($h) => $aliases[$h] ?? $h, $header);
 
@@ -519,6 +632,12 @@ class ProductController extends Controller
                         'name' => $name,
                         'barcode' => $barcode,
                         'sku' => filled($data['sku'] ?? null) ? trim((string) $data['sku']) : null,
+                        'variant_group' => filled($data['variant_group'] ?? null) ? Str::slug((string) $data['variant_group']) : null,
+                        'color' => filled($data['color'] ?? null) ? trim((string) $data['color']) : null,
+                        'color_hex' => filled($data['color_hex'] ?? null) ? trim((string) $data['color_hex']) : null,
+                        'ram' => filled($data['ram'] ?? null) ? trim((string) $data['ram']) : null,
+                        'storage' => filled($data['storage'] ?? null) ? trim((string) $data['storage']) : null,
+                        'short_description' => filled($data['short_description'] ?? null) ? trim((string) $data['short_description']) : null,
                         'cost_price' => $cost,
                         'selling_price' => $sell,
                         'stock_quantity' => 0,
@@ -526,6 +645,11 @@ class ProductController extends Controller
                         'is_published' => true,
                         'is_new_arrival' => true,
                     ]);
+
+                    $imageUrl = trim((string) ($data['image_url'] ?? ''));
+                    if ($imageUrl !== '') {
+                        $this->attachImportedImage($product, $imageUrl);
+                    }
 
                     if ($openingQty > 0) {
                         $this->stock->ensureDefaultLocations($shopId);
@@ -857,6 +981,51 @@ class ProductController extends Controller
                             ->where('brand_name', $brand->name);
                     });
             });
+    }
+
+    /**
+     * Download a remote product image during CSV import (optional image_url column).
+     */
+    private function attachImportedImage(Product $product, string $url): void
+    {
+        if (! filter_var($url, FILTER_VALIDATE_URL)) {
+            return;
+        }
+
+        try {
+            $response = Http::timeout(12)
+                ->withHeaders(['User-Agent' => 'AkhiTelecom-ProductImport/1.0'])
+                ->get($url);
+
+            if (! $response->successful()) {
+                return;
+            }
+
+            $bytes = $response->body();
+            if ($bytes === '' || strlen($bytes) > 5 * 1024 * 1024) {
+                return;
+            }
+
+            $mime = (string) ($response->header('Content-Type') ?? '');
+            $ext = match (true) {
+                str_contains($mime, 'png') => 'png',
+                str_contains($mime, 'webp') => 'webp',
+                str_contains($mime, 'gif') => 'gif',
+                str_contains($mime, 'jpeg'), str_contains($mime, 'jpg') => 'jpg',
+                default => 'jpg',
+            };
+
+            $path = 'products/import-'.$product->id.'-'.Str::lower(Str::random(10)).'.'.$ext;
+            Storage::disk('public')->put($path, $bytes);
+
+            $product->galleryImages()->create([
+                'path' => $path,
+                'sort_order' => 0,
+            ]);
+            $product->forceFill(['image' => $path])->save();
+        } catch (\Throwable) {
+            // Image is optional — product row still imports without it.
+        }
     }
 
     /**

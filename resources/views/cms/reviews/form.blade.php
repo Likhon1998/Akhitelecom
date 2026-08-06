@@ -38,7 +38,12 @@
         <div class="grid gap-4 md:grid-cols-2">
             <div>
                 <label class="text-xs font-bold uppercase text-slate-500">Avatar</label>
-                <input type="file" name="avatar" accept="image/*" class="mt-1 w-full rounded-xl border-slate-200 text-sm">
+                <x-image-file-preview
+                    name="avatar"
+                    accept="image/*"
+                    :existing="$review->avatar_path ? public_storage_url($review->avatar_path) : null"
+                    preview-class="h-16 w-16 rounded-full object-cover border border-slate-200"
+                />
             </div>
             <div>
                 <label class="text-xs font-bold uppercase text-slate-500">Sort order</label>

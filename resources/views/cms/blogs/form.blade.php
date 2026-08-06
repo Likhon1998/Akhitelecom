@@ -62,10 +62,12 @@
 
         <div>
             <label class="text-xs font-bold uppercase text-slate-500">Cover image</label>
-            <input type="file" name="cover" accept="image/*" class="mt-1 w-full rounded-xl border-slate-200 text-sm">
-            @if($blog->cover_image)
-                <img src="{{ public_storage_url($blog->cover_image) }}" class="mt-2 h-28 rounded-xl object-cover border border-slate-100" alt="">
-            @endif
+            <x-image-file-preview
+                name="cover"
+                accept="image/*"
+                :existing="$blog->cover_image ? public_storage_url($blog->cover_image) : null"
+                preview-class="h-28 max-w-full rounded-xl object-cover border border-slate-100"
+            />
         </div>
 
         <div class="flex flex-wrap gap-4 pt-1">

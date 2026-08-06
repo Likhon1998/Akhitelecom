@@ -20,9 +20,10 @@
                 'sort_order'=>$b->sort_order,
                 'is_active'=>$b->is_active,
                 'image_path'=>$b->image_path,
+                'preview'=> $b->image_path ? public_storage_url($b->image_path) : null,
             ])->values()),
             addFeature(){ this.features.push({id:null,icon:'truck',title:'',subtitle:'',sort_order:this.features.length,is_active:true}) },
-            addBanner(){ this.banners.push({id:null,title:'',subtitle:'',badge_text:'',highlight_text:'',discount_badge:'',price_from:'',button_text:'Shop Now',button_url:'/shop',theme:'dark',sort_order:this.banners.length,is_active:true,image_path:null}) }
+            addBanner(){ this.banners.push({id:null,title:'',subtitle:'',badge_text:'',highlight_text:'',discount_badge:'',price_from:'',button_text:'Shop Now',button_url:'/shop',theme:'dark',sort_order:this.banners.length,is_active:true,image_path:null,preview:null}) }
           }">
         @csrf
         @method('PUT')
@@ -37,24 +38,23 @@
                 </div>
                 <div>
                     <label class="text-xs font-bold uppercase text-slate-500">Full logo (with text)</label>
-                    <input type="file" name="logo" accept="image/*" class="mt-1 w-full rounded-xl border-slate-200 text-sm">
-                    @if($settings->logo_path)
-                        <img src="{{ public_storage_url($settings->logo_path) }}" alt="" class="mt-2 h-14 object-contain rounded-lg bg-black p-1">
-                    @endif
-                    <p class="mt-1 text-[11px] text-slate-400">Header, footer, login, and admin sidebar. Black backgrounds are auto-removed.</p>
+                    <x-image-file-preview
+                        name="logo"
+                        accept="image/*"
+                        :existing="$settings->logo_path ? public_storage_url($settings->logo_path) : null"
+                        preview-class="h-14 max-w-full object-contain rounded-lg bg-black p-1 border border-slate-200"
+                    />
+                    <p class="mt-1 text-[11px] text-slate-400">Header, footer, login, and admin sidebar. Black backgrounds are auto-removed. Preview shows before save.</p>
                 </div>
                 <div>
                     <label class="text-xs font-bold uppercase text-slate-500">Browser tab icon (favicon)</label>
-                    <input type="file" name="favicon" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/x-icon,.ico" class="mt-1 w-full rounded-xl border-slate-200 text-sm">
-                    @php
-                        $faviconPreview = $settings->favicon_path
-                            ? public_storage_url($settings->favicon_path)
-                            : ($settings->logo_path ? public_storage_url($settings->logo_path) : asset('favicon.svg'));
-                    @endphp
-                    <div class="mt-2 flex items-center gap-2">
-                        <img src="{{ $faviconPreview }}" alt="" class="h-10 w-10 rounded object-contain border border-slate-200 bg-white p-0.5">
-                        <p class="text-[11px] text-slate-400">Text-less icon for the browser tab. Extra black padding is cropped automatically.</p>
-                    </div>
+                    <x-image-file-preview
+                        name="favicon"
+                        accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/x-icon,.ico"
+                        :existing="($settings->favicon_path ? public_storage_url($settings->favicon_path) : ($settings->logo_path ? public_storage_url($settings->logo_path) : asset('favicon.svg')))"
+                        preview-class="h-10 w-10 rounded object-contain border border-slate-200 bg-white p-0.5"
+                    />
+                    <p class="mt-1 text-[11px] text-slate-400">Text-less icon for the browser tab. Extra black padding is cropped automatically.</p>
                 </div>
                 <div>
                     <label class="text-xs font-bold uppercase text-slate-500">Currency</label>
@@ -213,12 +213,21 @@
                         </div>
                         <div class="flex flex-wrap items-center gap-3">
                             <div class="flex items-center gap-3 min-w-0">
-                                <template x-if="b.image_path">
-                                    <img :src="'{{ asset('storage') }}/' + b.image_path" alt="" class="h-14 w-14 rounded-lg object-cover border border-slate-200 bg-white">
+                                <template x-if="b.preview">
+                                    <img :src="b.preview" alt="" class="h-14 w-14 rounded-lg object-cover border border-slate-200 bg-white">
                                 </template>
                                 <div>
                                     <label class="text-[11px] font-bold uppercase text-slate-500">Banner image</label>
-                                    <input type="file" :name="'banners['+i+'][image]'" accept="image/jpeg,image/png,image/webp,image/gif" class="mt-1 block text-sm">
+                                    <input type="file" :name="'banners['+i+'][image]'" accept="image/jpeg,image/png,image/webp,image/gif" class="mt-1 block text-sm"
+                                           @change="
+                                                const file = $event.target.files && $event.target.files[0];
+                                                if (b._blob) { URL.revokeObjectURL(b._blob); b._blob = null; }
+                                                if (file) {
+                                                    b._blob = URL.createObjectURL(file);
+                                                    b.preview = b._blob;
+                                                }
+                                           ">
+                                    <p class="mt-1 text-[10px] text-emerald-700 font-medium" x-show="b.preview" x-cloak>Preview before save</p>
                                 </div>
                             </div>
                             <input type="number" :name="'banners['+i+'][sort_order]'" x-model="b.sort_order" class="w-20 rounded-lg border-slate-200 text-sm" title="Sort order">

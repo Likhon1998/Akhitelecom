@@ -150,6 +150,10 @@
                     @enderror
 
                     <div class="mt-5 flex flex-wrap items-center gap-2.5">
+                        <a href="{{ route('products.import.template') }}" class="csv-btn-outline">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Download demo Excel/CSV
+                        </a>
                         <a href="{{ route('products.index') }}" class="csv-btn-ghost">Cancel</a>
                         <button type="submit" class="csv-btn-primary">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
@@ -168,12 +172,13 @@
                         </div>
                         <ul class="space-y-2.5">
                             @foreach([
+                                'Download the demo CSV, open it in Excel, replace the sample rows with your products, then Save As → CSV UTF-8.',
                                 'CSV file should be encoded in UTF-8 for special characters.',
                                 'Maximum file size allowed is 5 MB.',
                                 'Duplicate barcodes will be skipped.',
-                                'stock_quantity will create opening stock with full inventory and accounts audit trail.',
+                                'stock_quantity creates opening stock with inventory + accounts audit trail.',
+                                'Pictures: paste a public image_url in the CSV, OR leave blank and upload photos later from Edit Product.',
                                 'Comma, semicolon, or tab separators are supported.',
-                                'Windows Excel BOM is handled automatically.',
                             ] as $note)
                                 <li class="flex items-start gap-2.5 text-[13px] text-slate-600 leading-snug">
                                     <span class="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[#1d68ff] text-white">
@@ -204,12 +209,21 @@
                 </div>
                 <div class="csv-badge-opt">
                     <span class="uppercase tracking-wide text-[10px] font-extrabold opacity-80">Optional</span>
-                    <span>category, brand, sku, stock_quantity, alert_quantity</span>
+                    <span>sku, category, brand, stock_quantity, alert_quantity, image_url, color, color_hex, ram, storage, variant_group, short_description</span>
                 </div>
             </div>
 
+            <div class="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-slate-600 leading-relaxed">
+                <p class="font-bold text-slate-800 mb-1">How pictures work</p>
+                <ol class="list-decimal pl-4 space-y-1">
+                    <li><strong>Recommended:</strong> import the CSV first, then open each product → <em>Edit</em> → upload gallery photos.</li>
+                    <li><strong>Optional in CSV:</strong> put a public image link in the <code class="text-[12px] bg-white px-1 rounded border">image_url</code> column (https://…). The system downloads it during import.</li>
+                    <li>Excel cannot embed local phone photos inside a CSV file — local files must be uploaded in the product edit screen.</li>
+                </ol>
+            </div>
+
             <div class="overflow-x-auto rounded-xl border border-slate-200">
-                <table class="csv-sample min-w-[860px]">
+                <table class="csv-sample min-w-[1100px]">
                     <thead>
                         <tr>
                             <th>name</th>
@@ -219,10 +233,49 @@
                             <th>cost_price</th>
                             <th>selling_price</th>
                             <th>stock_quantity</th>
-                            <th>alert_quantity</th>
+                            <th>image_url</th>
                         </tr>
                     </thead>
+                    <tbody>
+                        <tr>
+                            <td>Samsung Galaxy S22 — Green / 8GB / 128GB</td>
+                            <td>8801234567001</td>
+                            <td>Smartphones</td>
+                            <td>Samsung</td>
+                            <td>24500</td>
+                            <td>28999</td>
+                            <td>10</td>
+                            <td class="text-slate-400">(optional https link)</td>
+                        </tr>
+                        <tr>
+                            <td>Somostel 65W GaN Charger</td>
+                            <td>8801234567002</td>
+                            <td>Chargers</td>
+                            <td>Somostel</td>
+                            <td>900</td>
+                            <td>1490</td>
+                            <td>40</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Oraimo FreePods 4</td>
+                            <td>8801234567003</td>
+                            <td>Earbuds</td>
+                            <td>Oraimo</td>
+                            <td>1600</td>
+                            <td>2290</td>
+                            <td>22</td>
+                            <td></td>
+                        </tr>
+                    </tbody>
                 </table>
+            </div>
+
+            <div class="mt-4">
+                <a href="{{ route('products.import.template') }}" class="csv-btn-outline">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    Download demo Excel/CSV template
+                </a>
             </div>
         </div>
     </div>

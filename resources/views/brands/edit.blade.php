@@ -17,13 +17,15 @@
 
                     <div class="mt-4">
                         <x-input-label for="logo" :value="__('Brand Logo')" />
-                        @if($brand->logo_path)
-                            <div class="mb-2">
-                                <img src="{{ public_storage_url($brand->logo_path) }}" alt="{{ $brand->name }}" class="h-16 object-contain">
-                            </div>
-                        @endif
-                        <input id="logo" name="logo" type="file" accept=".png,.jpg,.jpeg,.webp,.gif,.svg,image/png,image/jpeg,image/webp" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                        <p class="mt-1 text-xs text-gray-500">PNG, JPG, WEBP, GIF or SVG — max 5MB</p>
+                        <x-image-file-preview
+                            name="logo"
+                            id="logo"
+                            :existing="$brand->logo_path ? public_storage_url($brand->logo_path) : null"
+                            accept=".png,.jpg,.jpeg,.webp,.gif,.svg,image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                            input-class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                            preview-class="h-16 max-w-full object-contain rounded-lg border border-slate-200 bg-white p-1"
+                        />
+                        <p class="mt-1 text-xs text-gray-500">PNG, JPG, WEBP, GIF or SVG — max 5MB. New selection previews before save.</p>
                         <x-input-error class="mt-2" :messages="$errors->get('logo')" />
                     </div>
 

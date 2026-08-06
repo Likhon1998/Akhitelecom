@@ -149,6 +149,7 @@ Route::middleware([
         Route::post('/products-brand-sale', [ProductController::class, 'applyBrandSale'])->name('products.brand-sale');
         Route::delete('/products-brand-sale', [ProductController::class, 'clearBrandSale'])->name('products.brand-sale.clear');
         Route::get('/products-import/csv', [ProductController::class, 'importForm'])->name('products.import');
+        Route::get('/products-import/csv/template', [ProductController::class, 'importTemplate'])->name('products.import.template');
         Route::post('/products-import/csv', [ProductController::class, 'importStore'])->name('products.import.store');
         Route::get('/products-barcodes', [ProductController::class, 'barcodes'])->name('products.barcodes');
         Route::get('/products-barcodes/print', [ProductController::class, 'barcodesPrint'])->name('products.barcodes.print');

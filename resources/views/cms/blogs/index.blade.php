@@ -24,11 +24,13 @@
             </div>
             <div>
                 <label class="text-[11px] font-bold uppercase text-slate-500">Hero background image</label>
-                <input type="file" name="blog_hero_image" accept="image/jpeg,image/png,image/webp,image/gif" class="mt-1 w-full rounded-xl border-slate-200 text-sm">
-                @if(!empty($settings->blog_hero_image))
-                    <img src="{{ public_storage_url($settings->blog_hero_image) }}" class="mt-2 h-16 rounded-lg object-cover" alt="">
-                    <p class="mt-1 text-[11px] text-slate-400">Leave empty to keep the current image.</p>
-                @endif
+                <x-image-file-preview
+                    name="blog_hero_image"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    :existing="!empty($settings->blog_hero_image) ? public_storage_url($settings->blog_hero_image) : null"
+                    preview-class="h-16 max-w-full rounded-lg object-cover border border-slate-200"
+                />
+                <p class="mt-1 text-[11px] text-slate-400">Leave empty to keep the current image. New selection previews before save.</p>
                 @error('blog_hero_image') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
             </div>
             <div>

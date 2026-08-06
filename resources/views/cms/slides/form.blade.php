@@ -24,11 +24,13 @@
         <div class="grid gap-4 md:grid-cols-2">
             <div class="md:col-span-2">
                 <label class="text-xs font-bold uppercase text-slate-500">Poster image {{ $slide->exists ? '' : '*' }}</label>
-                <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif"
-                       class="mt-1 w-full rounded-xl border-slate-200 text-sm" {{ $slide->exists ? '' : 'required' }}>
-                @if($slide->image_path)
-                    <img src="{{ public_storage_url($slide->image_path) }}" class="mt-2 h-28 w-full rounded-xl object-cover border border-slate-200" alt="">
-                @endif
+                <x-image-file-preview
+                    name="image"
+                    :existing="$slide->image_path ? public_storage_url($slide->image_path) : null"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    :required="! $slide->exists"
+                    preview-class="h-36 w-full rounded-xl object-cover border border-slate-200 bg-slate-50"
+                />
                 @error('image') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
             </div>
             <div class="md:col-span-2">
