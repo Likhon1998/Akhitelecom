@@ -1,5 +1,28 @@
 <?php
 
+if (! function_exists('public_storage_path')) {
+    /**
+     * Absolute filesystem path for a public-disk relative path.
+     * Honors PUBLIC_STORAGE_ROOT on hosts where public_html != Laravel public/.
+     */
+    function public_storage_path(?string $path = null): string
+    {
+        $root = \Illuminate\Support\Facades\Storage::disk('public')->path('');
+        $root = rtrim(str_replace('\\', '/', $root), '/');
+
+        if ($path === null || $path === '') {
+            return $root;
+        }
+
+        $path = ltrim(str_replace('\\', '/', $path), '/');
+        if (str_starts_with($path, 'storage/')) {
+            $path = substr($path, strlen('storage/'));
+        }
+
+        return $root.'/'.$path;
+    }
+}
+
 if (! function_exists('public_storage_url')) {
     /**
      * Public disk files live under storage/app/public and are served from {base}/storage/...
@@ -169,6 +192,94 @@ if (! function_exists('unique_memory_sizes')) {
             ->unique(fn ($v) => memory_size_compact($v))
             ->sortBy(fn ($v) => memory_size_sort_key($v))
             ->values();
+    }
+}
+
+if (! function_exists('normalize_map_embed_url')) {
+    /**
+     * Turn a Google Maps paste (full iframe HTML, share link, or embed src) into an iframe-ready URL.
+     */
+    function normalize_map_embed_url(?string $value): ?string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        // Full <iframe ... src="..." ...></iframe> paste
+        if (preg_match('/\bsrc\s*=\s*(["\'])(.*?)\1/i', $value, $m)) {
+            $value = html_entity_decode($m[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        } elseif (preg_match('/\bsrc\s*=\s*([^\s>]+)/i', $value, $m)) {
+            $value = html_entity_decode(trim($m[1], "\"'"), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+
+        $value = trim($value, " \t\n\r\0\x0B\"'");
+        if ($value === '') {
+            return null;
+        }
+
+        // Protocol-relative URLs
+        if (str_starts_with($value, '//')) {
+            $value = 'https:'.$value;
+        }
+
+        if (! filter_var($value, FILTER_VALIDATE_URL)) {
+            return null;
+        }
+
+        $lower = strtolower($value);
+
+        // Already a usable embed URL
+        if (str_contains($lower, '/maps/embed') || str_contains($lower, 'output=embed')) {
+            return $value;
+        }
+
+        $isGoogleMaps = str_contains($lower, 'google.') && str_contains($lower, '/maps')
+            || str_contains($lower, 'maps.google.')
+            || str_contains($lower, 'goo.gl/maps')
+            || str_contains($lower, 'maps.app.goo.gl');
+
+        if (! $isGoogleMaps) {
+            // OpenStreetMap / other embed URLs — use as-is
+            return $value;
+        }
+
+        // Coordinates from /@lat,lng,zoom
+        if (preg_match('/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/', $value, $c)) {
+            return 'https://maps.google.com/maps?q='.rawurlencode($c[1].','.$c[2]).'&z=15&output=embed';
+        }
+
+        // /place/Name/
+        if (preg_match('#/place/([^/@]+)#', $value, $p)) {
+            $place = urldecode(str_replace('+', ' ', $p[1]));
+            $place = preg_replace('/\+/', ' ', $place) ?? $place;
+
+            return 'https://maps.google.com/maps?q='.rawurlencode($place).'&output=embed';
+        }
+
+        // /search/Query/
+        if (preg_match('#/search/([^/@?]+)#', $value, $s)) {
+            $query = urldecode(str_replace('+', ' ', $s[1]));
+
+            return 'https://maps.google.com/maps?q='.rawurlencode($query).'&output=embed';
+        }
+
+        $parts = parse_url($value);
+        $query = [];
+        if (! empty($parts['query'])) {
+            parse_str($parts['query'], $query);
+        }
+        if (! empty($query['q'])) {
+            return 'https://maps.google.com/maps?q='.rawurlencode((string) $query['q']).'&output=embed';
+        }
+        if (! empty($query['query'])) {
+            return 'https://maps.google.com/maps?q='.rawurlencode((string) $query['query']).'&output=embed';
+        }
+
+        // Last resort for google maps links
+        $sep = str_contains($value, '?') ? '&' : '?';
+
+        return $value.$sep.'output=embed';
     }
 }
 

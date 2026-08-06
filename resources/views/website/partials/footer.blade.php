@@ -62,7 +62,7 @@
                         $footerIconPath = $settings->favicon_path ?: $settings->logo_path;
                         $footerIcon = $footerIconPath ? public_storage_url($footerIconPath) : null;
                         $footerIconVer = $footerIconPath
-                            ? (@filemtime(storage_path('app/public/'.$footerIconPath)) ?: time())
+                            ? (@filemtime(public_storage_path($footerIconPath)) ?: time())
                             : time();
                     @endphp
                     @if($footerIcon)

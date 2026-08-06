@@ -45,7 +45,7 @@ class ContactController extends Controller
             'contact_hours_weekend' => 'nullable|string|max:255',
             'contact_form_title' => 'nullable|string|max:160',
             'contact_form_subtitle' => 'nullable|string|max:255',
-            'contact_map_embed' => 'nullable|string|max:2000',
+            'contact_map_embed' => 'nullable|string|max:8000',
             'contact_newsletter_title' => 'nullable|string|max:160',
             'contact_newsletter_text' => 'nullable|string|max:255',
             'social_facebook' => 'nullable|string|max:255',
@@ -73,13 +73,18 @@ class ContactController extends Controller
             'contact_phone_card_title', 'contact_phone_card_text',
             'contact_hours_title', 'contact_hours_weekday', 'contact_hours_weekend',
             'contact_form_title', 'contact_form_subtitle',
-            'contact_map_embed', 'contact_newsletter_title', 'contact_newsletter_text',
+            'contact_newsletter_title', 'contact_newsletter_text',
         ];
 
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {
                 $settings->{$field} = $data[$field] !== '' ? $data[$field] : null;
             }
+        }
+
+        if (array_key_exists('contact_map_embed', $data)) {
+            $raw = $data['contact_map_embed'] !== '' ? $data['contact_map_embed'] : null;
+            $settings->contact_map_embed = $raw ? (normalize_map_embed_url($raw) ?: $raw) : null;
         }
 
         $settings->social_links = array_filter([

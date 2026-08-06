@@ -3,13 +3,13 @@
     $faviconUrl = site_favicon_url($settings ?? null);
     $faviconPath = data_get($settings ?? null, 'favicon_path') ?: data_get($settings ?? null, 'logo_path');
     $faviconVer = $faviconPath
-        ? (@filemtime(storage_path('app/public/'.$faviconPath)) ?: time())
+        ? (@filemtime(public_storage_path($faviconPath)) ?: time())
         : time();
     if ($faviconUrl && ! str_contains($faviconUrl, '?')) {
         $faviconUrl .= '?v='.$faviconVer;
     }
     $applePath = 'cms/favicon/akhitelecom-apple.png';
-    $appleFull = storage_path('app/public/'.$applePath);
+    $appleFull = public_storage_path($applePath);
     $appleUrl = is_file($appleFull)
         ? public_storage_url($applePath).'?v='.(@filemtime($appleFull) ?: $faviconVer)
         : $faviconUrl;

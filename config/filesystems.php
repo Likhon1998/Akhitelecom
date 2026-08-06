@@ -40,7 +40,9 @@ return [
 
         'public' => [
             'driver' => 'local',
-            'root' => storage_path('app/public'),
+            // On cPanel/LiteSpeed, set PUBLIC_STORAGE_ROOT=/home/USER/public_html/storage
+            // because document root cannot use Laravel's public/ + symlink.
+            'root' => env('PUBLIC_STORAGE_ROOT') ?: storage_path('app/public'),
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
             'visibility' => 'public',
             'throw' => false,

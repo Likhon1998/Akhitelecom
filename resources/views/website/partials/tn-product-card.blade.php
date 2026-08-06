@@ -4,13 +4,14 @@
     $currentPrice = $product->currentPrice();
     $compareAt = $product->compareAtPrice();
     $img = $ws->productImageUrl($product);
+    $displayName = $product->storefrontDisplayName();
     $catLabel = $product->category?->name ?? $product->brand_name ?? 'Electronics';
     $flash = !empty($flash);
     $isNew = $product->showsAsNew();
 
     $listItem = [
         'id' => $product->id,
-        'name' => $product->name,
+        'name' => $displayName,
         'price' => $currentPrice,
         'image' => $img,
         'url' => route('website.product', $product),
@@ -20,7 +21,7 @@
 
     $cartItem = [
         'id' => $product->id,
-        'name' => $product->name,
+        'name' => $displayName,
         'price' => $currentPrice,
         'image' => $img,
     ];
@@ -45,13 +46,13 @@
         </svg>
     </button>
 
-    <a href="{{ route('website.product', $product) }}" class="tn-product-img" aria-label="{{ $product->name }}">
-        <img src="{{ $img }}" alt="{{ $product->name }}" loading="lazy">
+    <a href="{{ route('website.product', $product) }}" class="tn-product-img" aria-label="{{ $displayName }}">
+        <img src="{{ $img }}" alt="{{ $displayName }}" loading="lazy">
     </a>
 
     <div class="tn-product-meta">
         <p class="tn-product-cat">{{ $catLabel }}</p>
-        <a href="{{ route('website.product', $product) }}" class="tn-product-name">{{ $product->name }}</a>
+        <a href="{{ route('website.product', $product) }}" class="tn-product-name">{{ $displayName }}</a>
 
         @if(($product->rating ?? 0) > 0)
             <div class="tn-product-stars" aria-label="Rating {{ $product->rating }}">

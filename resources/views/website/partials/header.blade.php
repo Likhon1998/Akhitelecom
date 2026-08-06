@@ -19,7 +19,7 @@
                         $headerIconPath = $settings->favicon_path ?: $settings->logo_path;
                         $headerIcon = $headerIconPath ? public_storage_url($headerIconPath) : null;
                         $headerIconVer = $headerIconPath
-                            ? (@filemtime(storage_path('app/public/'.$headerIconPath)) ?: time())
+                            ? (@filemtime(public_storage_path($headerIconPath)) ?: time())
                             : time();
                     @endphp
                     @if($headerIcon)
@@ -400,7 +400,7 @@
                                     {{ $link->label }}
                                     <svg class="gaget-nav-chevron" :class="{ 'is-open': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                 </button>
-                                <div class="gaget-nav-dropdown-menu" x-cloak>
+                                <div class="gaget-nav-dropdown-menu" x-show="open" style="display: none;">
                                     <a href="{{ $link->url ?: route('website.shop') }}" class="gaget-nav-dropdown-item gaget-nav-dropdown-item--all">
                                         <span>All categories</span>
                                     </a>
@@ -430,7 +430,7 @@
                                     {{ $link->label }}
                                     <svg class="gaget-nav-chevron" :class="{ 'is-open': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                 </button>
-                                <div class="gaget-nav-dropdown-menu" x-cloak>
+                                <div class="gaget-nav-dropdown-menu" x-show="open" style="display: none;">
                                     <a href="{{ $link->url ?: route('home').'#brands' }}" class="gaget-nav-dropdown-item gaget-nav-dropdown-item--all">
                                         <span>All brands</span>
                                     </a>
@@ -466,7 +466,7 @@
                                 Categories
                                 <svg class="gaget-nav-chevron" :class="{ 'is-open': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                             </button>
-                            <div class="gaget-nav-dropdown-menu" x-cloak>
+                            <div class="gaget-nav-dropdown-menu" x-show="open" style="display: none;">
                                 <a href="{{ route('website.shop') }}" class="gaget-nav-dropdown-item gaget-nav-dropdown-item--all">
                                     <span>All categories</span>
                                 </a>
@@ -502,7 +502,7 @@
                                 Brands
                                 <svg class="gaget-nav-chevron" :class="{ 'is-open': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                             </button>
-                            <div class="gaget-nav-dropdown-menu" x-cloak>
+                            <div class="gaget-nav-dropdown-menu" x-show="open" style="display: none;">
                                 <a href="{{ route('home') }}#brands" class="gaget-nav-dropdown-item gaget-nav-dropdown-item--all">
                                     <span>All brands</span>
                                 </a>

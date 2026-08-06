@@ -192,6 +192,18 @@ class Product extends Model
             ->get();
     }
 
+    /** Model name without trailing "— Green / 8GB" style suffixes used for admin clarity. */
+    public function storefrontDisplayName(): string
+    {
+        if (! $this->variant_group) {
+            return (string) $this->name;
+        }
+
+        $name = trim(preg_replace('/\s*[—\-–].*$/u', '', (string) $this->name) ?? '');
+
+        return $name !== '' ? $name : (string) $this->name;
+    }
+
     public function displayColor(): ?string
     {
         return $this->color ?: null;

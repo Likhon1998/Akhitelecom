@@ -18,7 +18,7 @@
         @php
             $posterUrl = $slide->image_path ? public_storage_url($slide->image_path) : null;
             if ($posterUrl && $slide->image_path) {
-                $full = storage_path('app/public/'.$slide->image_path);
+                $full = public_storage_path($slide->image_path);
                 $posterUrl .= '?v='.(is_file($full) ? filemtime($full) : time());
             }
             $link = $slide->button_url ?: route('website.shop');

@@ -18,7 +18,7 @@
         @endphp
         <a href="{{ route('dashboard') }}" @click="sidebarOpen = false" class="flex items-center gap-2.5 text-white font-bold text-[15px] tracking-tight min-w-0 flex-1">
             @if($navIcon)
-                <img src="{{ $navIcon }}?v={{ @filemtime(storage_path('app/public/'.($navSettings->favicon_path ?: $navSettings->logo_path))) ?: time() }}" alt="" class="h-11 w-11 object-contain shrink-0" width="44" height="44" style="width:44px;height:44px;object-fit:contain;background:transparent;border:0;">
+                <img src="{{ $navIcon }}?v={{ @filemtime(public_storage_path($navSettings->favicon_path ?: $navSettings->logo_path)) ?: time() }}" alt="" class="h-11 w-11 object-contain shrink-0" width="44" height="44" style="width:44px;height:44px;object-fit:contain;background:transparent;border:0;">
                 <span class="truncate">{{ $navName }}</span>
             @else
                 <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/30">

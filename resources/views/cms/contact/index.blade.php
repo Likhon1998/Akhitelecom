@@ -27,10 +27,19 @@
                 <label class="text-[11px] font-bold uppercase text-slate-500">Website URL</label>
                 <input name="contact_website_url" value="{{ old('contact_website_url', $settings->contact_website_url ?? url('/')) }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm" placeholder="https://…">
             </div>
-            <div>
-                <label class="text-[11px] font-bold uppercase text-slate-500">Map embed URL</label>
-                <input name="contact_map_embed" value="{{ old('contact_map_embed', $settings->contact_map_embed) }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm" placeholder="Google Maps embed src URL">
-                <p class="mt-1 text-[11px] text-slate-400">Paste the iframe <code>src</code> from Google Maps → Share → Embed.</p>
+            <div class="md:col-span-2">
+                <label class="text-[11px] font-bold uppercase text-slate-500">Map embed (Google Maps)</label>
+                <textarea name="contact_map_embed" rows="3" class="mt-1 w-full rounded-xl border-slate-200 text-sm font-mono text-[12px]" placeholder="Paste Google Maps embed code OR the iframe src URL">{{ old('contact_map_embed', $settings->contact_map_embed) }}</textarea>
+                <p class="mt-1 text-[11px] text-slate-400">
+                    Google Maps → <strong>Share</strong> → <strong>Embed a map</strong> → Copy HTML (full iframe is OK), or paste only the <code>src</code> link.
+                    Share links like <code>maps.app.goo.gl</code> / place URLs are also accepted.
+                </p>
+                @php $mapPreview = normalize_map_embed_url(old('contact_map_embed', $settings->contact_map_embed)); @endphp
+                @if($mapPreview)
+                    <div class="mt-3 overflow-hidden rounded-xl border border-slate-200">
+                        <iframe src="{{ $mapPreview }}" class="w-full h-40 border-0" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+                    </div>
+                @endif
             </div>
 
             <div class="md:col-span-2 pt-2"><p class="text-xs font-bold uppercase tracking-wider text-indigo-600">Hero</p></div>

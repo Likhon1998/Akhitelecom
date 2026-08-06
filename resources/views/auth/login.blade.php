@@ -27,7 +27,7 @@
                 <div class="nexa-brand">
                     @if($brandIcon)
                         <div class="nexa-brand-mark" aria-hidden="true" style="background:transparent;border:0;box-shadow:none;width:56px;height:56px;">
-                            <img src="{{ $brandIcon }}?v={{ @filemtime(storage_path('app/public/'.$settings->favicon_path)) ?: time() }}" alt="" style="width:56px;height:56px;object-fit:contain;">
+                            <img src="{{ $brandIcon }}?v={{ @filemtime(public_storage_path($settings->favicon_path)) ?: time() }}" alt="" style="width:56px;height:56px;object-fit:contain;">
                         </div>
                         <div>
                             <div class="nexa-brand-name">{{ strtoupper($brandName) }}</div>

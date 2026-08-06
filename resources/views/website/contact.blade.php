@@ -10,7 +10,7 @@
     $address = data_get($settings, 'contact_address') ?: 'Dhaka, Bangladesh';
     $website = data_get($settings, 'contact_website_url') ?: url('/');
     $websiteLabel = preg_replace('#^https?://#', '', rtrim($website, '/'));
-    $mapEmbed = data_get($settings, 'contact_map_embed');
+    $mapEmbed = normalize_map_embed_url(data_get($settings, 'contact_map_embed'));
     $social = data_get($settings, 'social_links') ?: [];
     $newsletterTitle = data_get($settings, 'contact_newsletter_title') ?: 'Stay in the loop';
     $newsletterText = data_get($settings, 'contact_newsletter_text') ?: 'Subscribe for deals and product updates.';

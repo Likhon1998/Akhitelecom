@@ -4,11 +4,12 @@
     $currentPrice = $product->currentPrice();
     $compareAt = $product->compareAtPrice();
     $img = $ws->productImageUrl($product);
+    $displayName = $product->storefrontDisplayName();
     $catLabel = $product->category?->name ?? $product->brand_name ?? 'Electronics';
     $isNew = $product->showsAsNew();
     $listItem = [
         'id' => $product->id,
-        'name' => $product->name,
+        'name' => $displayName,
         'price' => $currentPrice,
         'image' => $img,
         'url' => route('website.product', $product),
@@ -17,7 +18,7 @@
     ];
     $cartItem = [
         'id' => $product->id,
-        'name' => $product->name,
+        'name' => $displayName,
         'price' => $currentPrice,
         'image' => $img,
     ];
@@ -30,12 +31,12 @@
     @endif
 
     <a href="{{ route('website.product', $product) }}" class="gaget-product-img">
-        <img src="{{ $img }}" alt="{{ $product->name }}" loading="lazy">
+        <img src="{{ $img }}" alt="{{ $displayName }}" loading="lazy">
     </a>
 
     <div class="gaget-product-body">
         <p class="gaget-product-cat">{{ $catLabel }}</p>
-        <a href="{{ route('website.product', $product) }}" class="gaget-product-name">{{ $product->name }}</a>
+        <a href="{{ route('website.product', $product) }}" class="gaget-product-name">{{ $displayName }}</a>
 
         <div class="gaget-stars">
             @for($i = 1; $i <= 5; $i++)

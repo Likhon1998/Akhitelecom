@@ -3,16 +3,15 @@
     $images = $ws->productImageUrls($product);
     $img = $images[0];
     $reviews = $reviews ?? collect();
-    $variantOptions = $variantOptions ?? ['colors' => [], 'storages' => [], 'rams' => []];
-    $discountPct = $product->discountPercent();
-    $currentPrice = $product->currentPrice();
-    $compareAt = $product->compareAtPrice();
-    $displayName = $product->variant_group
-        ? trim(preg_replace('/\s*[—\-–].*$/u', '', $product->name))
-        : $product->name;
-    if ($displayName === '') {
-        $displayName = $product->name;
-    }
+        $variantOptions = $variantOptions ?? ['colors' => [], 'combos' => [], 'storages' => [], 'rams' => []];
+        $discountPct = $product->discountPercent();
+        $currentPrice = $product->currentPrice();
+        $compareAt = $product->compareAtPrice();
+        $displayName = $product->storefrontDisplayName();
+        $hasVariantPicker = count($variantOptions['colors'] ?? []) > 0
+            || count($variantOptions['combos'] ?? []) > 0
+            || count($variantOptions['storages'] ?? []) > 0
+            || count($variantOptions['rams'] ?? []) > 0;
 @endphp
 
 {{-- Breadcrumbs --}}
@@ -93,71 +92,143 @@
             @endif
         </div>
 
-        {{-- Storage variants --}}
-        @if(count($variantOptions['storages'] ?? []) > 0)
-            <div class="mb-4">
-                <p class="text-xs font-medium text-slate-700 mb-2">
-                    Storage: <span class="text-slate-500">{{ normalize_memory_size($product->storage) ?? $product->storage ?? '—' }}</span>
-                </p>
-                <div class="flex flex-wrap gap-2">
-                    @foreach($variantOptions['storages'] as $opt)
-                        <a href="{{ $opt['url'] }}"
-                           data-product-variant
-                           data-no-loader
-                           class="px-3 py-1.5 rounded-lg border text-xs font-medium transition
-                                  {{ $opt['active'] ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-slate-200 text-slate-600 hover:border-slate-300 bg-white' }}">
-                            {{ $opt['label'] }}
-                        </a>
-                    @endforeach
-                </div>
-            </div>
-        @elseif($product->storage)
-            <p class="text-xs text-slate-600 mb-4">Storage: <span class="font-medium">{{ normalize_memory_size($product->storage) ?? $product->storage }}</span></p>
-        @endif
+        {{-- Variants: Color first, then RAM / storage combinations for that color --}}
+        @if($hasVariantPicker)
+            <div class="mb-4 space-y-4">
+                @if(count($variantOptions['colors'] ?? []) > 0)
+                    <div>
+                        <p class="text-xs font-medium text-slate-700 mb-2">
+                            Color:
+                            <span class="text-slate-500">{{ $product->color ?? '—' }}</span>
+                        </p>
+                        <div class="flex flex-wrap gap-2.5">
+                            @foreach($variantOptions['colors'] as $opt)
+                                @if(!empty($opt['available']) && !empty($opt['url']))
+                                    <a href="{{ $opt['url'] }}"
+                                       data-product-variant
+                                       data-no-loader
+                                       title="{{ $opt['label'] }}"
+                                       class="w-9 h-9 rounded-full border-2 transition shrink-0
+                                              {{ !empty($opt['active']) ? 'border-blue-600 ring-2 ring-blue-100 ring-offset-1' : 'border-slate-200 hover:border-slate-400' }}"
+                                       style="background-color: {{ $opt['hex'] }}; {{ in_array(strtolower($opt['hex'] ?? ''), ['#f8fafc', '#ffffff', '#e8e6e3', '#d4cfc8'], true) ? 'box-shadow: inset 0 0 0 1px rgba(0,0,0,.08)' : '' }}">
+                                        <span class="sr-only">{{ $opt['label'] }}</span>
+                                    </a>
+                                @else
+                                    <span title="{{ $opt['label'] }} (out of stock)"
+                                          class="w-9 h-9 rounded-full border-2 border-slate-200 opacity-40 cursor-not-allowed shrink-0 relative"
+                                          style="background-color: {{ $opt['hex'] }}">
+                                        <span class="absolute inset-0 flex items-center justify-center text-slate-600 text-lg leading-none">×</span>
+                                        <span class="sr-only">{{ $opt['label'] }} unavailable</span>
+                                    </span>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                @elseif($product->color)
+                    <p class="text-xs text-slate-600">Color: <span class="font-medium">{{ $product->color }}</span></p>
+                @endif
 
-        {{-- RAM variants --}}
-        @if(count($variantOptions['rams'] ?? []) > 0)
-            <div class="mb-4">
-                <p class="text-xs font-medium text-slate-700 mb-2">
-                    RAM: <span class="text-slate-500">{{ normalize_memory_size($product->ram) ?? $product->ram ?? '—' }}</span>
-                </p>
-                <div class="flex flex-wrap gap-2">
-                    @foreach($variantOptions['rams'] as $opt)
-                        <a href="{{ $opt['url'] }}"
-                           data-product-variant
-                           data-no-loader
-                           class="px-3 py-1.5 rounded-lg border text-xs font-medium transition
-                                  {{ $opt['active'] ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-slate-200 text-slate-600 hover:border-slate-300 bg-white' }}">
-                            {{ $opt['label'] }}
-                        </a>
-                    @endforeach
-                </div>
-            </div>
-        @elseif($product->ram)
-            <p class="text-xs text-slate-600 mb-4">RAM: <span class="font-medium">{{ normalize_memory_size($product->ram) ?? $product->ram }}</span></p>
-        @endif
+                @if(count($variantOptions['combos'] ?? []) > 0)
+                    <div>
+                        <p class="text-xs font-medium text-slate-700 mb-2">
+                            Memory:
+                            <span class="text-slate-500">
+                                @php
+                                    $memParts = array_filter([
+                                        normalize_memory_size($product->ram) ?? $product->ram,
+                                        normalize_memory_size($product->storage) ?? $product->storage,
+                                    ]);
+                                @endphp
+                                {{ $memParts ? implode(' / ', $memParts) : '—' }}
+                            </span>
+                        </p>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($variantOptions['combos'] as $opt)
+                                @if(!empty($opt['available']) && !empty($opt['url']))
+                                    <a href="{{ $opt['url'] }}"
+                                       data-product-variant
+                                       data-no-loader
+                                       class="px-3 py-2 rounded-lg border text-xs font-medium transition min-w-[7.5rem] text-center
+                                              {{ !empty($opt['active']) ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-slate-200 text-slate-700 hover:border-slate-300 bg-white' }}">
+                                        <span class="block">{{ $opt['label'] }}</span>
+                                        @if(isset($opt['price']))
+                                            <span class="block mt-0.5 text-[10px] font-normal {{ !empty($opt['active']) ? 'text-blue-500' : 'text-slate-400' }}">
+                                                {{ $ws->formatPrice($opt['price'], $settings) }}
+                                            </span>
+                                        @endif
+                                    </a>
+                                @else
+                                    <span class="px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 text-xs font-medium text-slate-400 min-w-[7.5rem] text-center cursor-not-allowed line-through decoration-slate-300">
+                                        {{ $opt['label'] }}
+                                    </span>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                @else
+                    @if(count($variantOptions['storages'] ?? []) > 0)
+                        <div>
+                            <p class="text-xs font-medium text-slate-700 mb-2">
+                                Storage:
+                                <span class="text-slate-500">{{ normalize_memory_size($product->storage) ?? $product->storage ?? '—' }}</span>
+                            </p>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($variantOptions['storages'] as $opt)
+                                    @if(!empty($opt['available']) && !empty($opt['url']))
+                                        <a href="{{ $opt['url'] }}"
+                                           data-product-variant
+                                           data-no-loader
+                                           class="px-3 py-1.5 rounded-lg border text-xs font-medium transition
+                                                  {{ !empty($opt['active']) ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-slate-200 text-slate-600 hover:border-slate-300 bg-white' }}">
+                                            {{ $opt['label'] }}
+                                        </a>
+                                    @else
+                                        <span class="px-3 py-1.5 rounded-lg border border-slate-100 bg-slate-50 text-xs font-medium text-slate-400 line-through cursor-not-allowed">{{ $opt['label'] }}</span>
+                                    @endif
+                                @endforeach
+                            </div>
+                        </div>
+                    @elseif($product->storage)
+                        <p class="text-xs text-slate-600">Storage: <span class="font-medium">{{ normalize_memory_size($product->storage) ?? $product->storage }}</span></p>
+                    @endif
 
-        {{-- Color variants --}}
-        @if(count($variantOptions['colors'] ?? []) > 0)
-            <div class="mb-4">
-                <p class="text-xs font-medium text-slate-700 mb-2">
-                    Color: <span class="text-slate-500">{{ $product->color ?? '—' }}</span>
-                </p>
-                <div class="flex flex-wrap gap-2.5">
-                    @foreach($variantOptions['colors'] as $opt)
-                        <a href="{{ $opt['url'] }}"
-                           data-product-variant
-                           data-no-loader
-                           title="{{ $opt['label'] }}"
-                           class="w-8 h-8 rounded-full border-2 transition shrink-0
-                                  {{ $opt['active'] ? 'border-blue-600 ring-2 ring-blue-100 ring-offset-1' : 'border-slate-200 hover:border-slate-400' }}"
-                           style="background-color: {{ $opt['hex'] }}; {{ in_array(strtolower($opt['hex']), ['#f8fafc', '#ffffff', '#e8e6e3', '#d4cfc8']) ? 'box-shadow: inset 0 0 0 1px rgba(0,0,0,.08)' : '' }}">
-                        </a>
-                    @endforeach
-                </div>
+                    @if(count($variantOptions['rams'] ?? []) > 0)
+                        <div>
+                            <p class="text-xs font-medium text-slate-700 mb-2">
+                                RAM:
+                                <span class="text-slate-500">{{ normalize_memory_size($product->ram) ?? $product->ram ?? '—' }}</span>
+                            </p>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($variantOptions['rams'] as $opt)
+                                    @if(!empty($opt['available']) && !empty($opt['url']))
+                                        <a href="{{ $opt['url'] }}"
+                                           data-product-variant
+                                           data-no-loader
+                                           class="px-3 py-1.5 rounded-lg border text-xs font-medium transition
+                                                  {{ !empty($opt['active']) ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-slate-200 text-slate-600 hover:border-slate-300 bg-white' }}">
+                                            {{ $opt['label'] }}
+                                        </a>
+                                    @else
+                                        <span class="px-3 py-1.5 rounded-lg border border-slate-100 bg-slate-50 text-xs font-medium text-slate-400 line-through cursor-not-allowed">{{ $opt['label'] }}</span>
+                                    @endif
+                                @endforeach
+                            </div>
+                        </div>
+                    @elseif($product->ram)
+                        <p class="text-xs text-slate-600">RAM: <span class="font-medium">{{ normalize_memory_size($product->ram) ?? $product->ram }}</span></p>
+                    @endif
+                @endif
             </div>
-        @elseif($product->color)
-            <p class="text-xs text-slate-600 mb-4">Color: <span class="font-medium">{{ $product->color }}</span></p>
+        @else
+            @if($product->color)
+                <p class="text-xs text-slate-600 mb-2">Color: <span class="font-medium">{{ $product->color }}</span></p>
+            @endif
+            @if($product->storage)
+                <p class="text-xs text-slate-600 mb-2">Storage: <span class="font-medium">{{ normalize_memory_size($product->storage) ?? $product->storage }}</span></p>
+            @endif
+            @if($product->ram)
+                <p class="text-xs text-slate-600 mb-4">RAM: <span class="font-medium">{{ normalize_memory_size($product->ram) ?? $product->ram }}</span></p>
+            @endif
         @endif
 
         <div class="mb-4">
@@ -182,7 +253,7 @@
                 @php
                     $cartItem = [
                         'id' => $product->id,
-                        'name' => $product->name,
+                        'name' => $displayName,
                         'price' => $currentPrice,
                         'image' => $img,
                     ];
@@ -209,7 +280,7 @@
             @php
                 $listItem = [
                     'id' => $product->id,
-                    'name' => $product->name,
+                    'name' => $displayName,
                     'price' => $currentPrice,
                     'image' => $img,
                     'url' => route('website.product', $product),

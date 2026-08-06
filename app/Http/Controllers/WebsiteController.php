@@ -113,6 +113,7 @@ class WebsiteController extends Controller
                 : $query->orderByDesc('is_best_seller')->orderByDesc('review_count')->latest('id'),
         };
 
+        $this->website->applyVariantGroupListing($query);
         $products = $query->paginate(12)->withQueryString();
 
         $pageTitle = match ($request->filter) {
@@ -179,9 +180,10 @@ class WebsiteController extends Controller
                 ->latest();
         }
 
-        $products = $query->limit($limit)->get()->map(fn (Product $product) => [
+        $products = $this->website->dedupeVariantCollection($query->limit($limit * 3)->get(), $limit)
+            ->map(fn (Product $product) => [
             'id' => $product->id,
-            'name' => $product->name,
+            'name' => $product->storefrontDisplayName(),
             'brand' => $product->brand?->name ?? $product->brand_name,
             'price' => $product->currentPrice(),
             'image' => $this->website->productImageUrl($product),
@@ -234,6 +236,7 @@ class WebsiteController extends Controller
             default => $query->latest(),
         };
 
+        $this->website->applyVariantGroupListing($query);
         $products = $query->paginate(12)->withQueryString();
 
         $sidebarFacets = $showSidebar
@@ -517,14 +520,15 @@ class WebsiteController extends Controller
             ->sortByDesc(fn ($b) => Product::where('brand_id', $b->id)->count())
             ->first() ?? $brand;
 
-        $products = $this->website->catalogQuery($shopId)
+        $brandQuery = $this->website->catalogQuery($shopId)
             ->where(function ($q) use ($brand) {
                 $q->where('brand_id', $brand->id)
                     ->orWhereRaw('LOWER(TRIM(COALESCE(brand_name, \'\'))) = ?', [strtolower(trim($brand->name))]);
             })
             ->with(['category', 'brand'])
-            ->latest()
-            ->paginate(12);
+            ->latest();
+        $this->website->applyVariantGroupListing($brandQuery);
+        $products = $brandQuery->paginate(12);
 
         return view('website.shop', array_merge($this->website->homepageData(), $this->shopSidebarData($shopId), [
             'products' => $products,
@@ -543,11 +547,17 @@ class WebsiteController extends Controller
 
         $product->loadMissing(['category', 'brand']);
 
-        $related = $this->website->catalogQuery($shopId)
+        $relatedQuery = $this->website->catalogQuery($shopId)
             ->where('category_id', $product->category_id)
-            ->where('id', '!=', $product->id)
-            ->take(4)
-            ->get();
+            ->where('id', '!=', $product->id);
+        if ($product->variant_group) {
+            $relatedQuery->where(function ($q) use ($product) {
+                $q->whereNull('variant_group')
+                    ->orWhere('variant_group', '!=', $product->variant_group);
+            });
+        }
+        $this->website->applyVariantGroupListing($relatedQuery);
+        $related = $relatedQuery->take(4)->get();
 
         $variantOptions = $this->website->productVariantOptions($product);
 
@@ -565,12 +575,7 @@ class WebsiteController extends Controller
         $settings = $home['settings'] ?? $this->website->settings();
 
         if ($request->boolean('ajax') || $request->ajax()) {
-            $displayName = $product->variant_group
-                ? trim(preg_replace('/\s*[—\-–].*$/u', '', $product->name))
-                : $product->name;
-            if ($displayName === '') {
-                $displayName = $product->name;
-            }
+            $displayName = $product->storefrontDisplayName();
 
             $storeName = data_get($settings, 'store_name', 'Shop');
 

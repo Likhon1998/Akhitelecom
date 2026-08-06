@@ -507,6 +507,7 @@
 .gaget-navbar {
     background: var(--g-navy);
     width: 100%;
+    overflow: visible;
 }
 .gaget-navbar-inner {
     max-width: 1280px;
@@ -516,12 +517,16 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    /* Must stay visible — overflow-x:auto clips category/brand dropdowns */
+    overflow: visible;
 }
-.gaget-navbar-inner::-webkit-scrollbar { display: none; }
-.gaget-navbar-left { display: flex; align-items: stretch; margin-left: -24px; }
+.gaget-navbar-left { display: flex; align-items: stretch; margin-left: -24px; min-width: 0; flex: 1; }
+.gaget-nav-links {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    min-width: 0;
+}
 .gaget-all-cat {
     background: var(--g-blue);
     color: #fff;
@@ -537,7 +542,6 @@
 }
 .gaget-all-cat:hover { background: var(--g-blue-hover); }
 .gaget-all-cat svg { width: 18px; height: 18px; }
-.gaget-nav-links { display: flex; align-items: center; }
 .gaget-nav-link {
     color: rgba(255,255,255,.88);
     padding: 0 14px;
@@ -569,22 +573,9 @@
     display: flex;
     align-items: stretch;
 }
-.gaget-nav-dropdown:hover .gaget-nav-dropdown-menu,
-.gaget-nav-dropdown:focus-within .gaget-nav-dropdown-menu,
-.gaget-nav-dropdown.is-open .gaget-nav-dropdown-menu {
-    display: block;
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-}
 .gaget-nav-dropdown-menu {
-    display: none;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(6px);
-    transition: opacity .15s ease, transform .15s ease, visibility .15s ease;
     position: absolute;
-    top: 100%;
+    top: calc(100% - 2px);
     left: 0;
     min-width: 220px;
     max-width: min(320px, 92vw);
@@ -595,7 +586,7 @@
     border: 1px solid #e2e8f0;
     border-radius: 0 0 12px 12px;
     box-shadow: 0 16px 40px rgba(15, 23, 42, .14);
-    z-index: 60;
+    z-index: 120;
     padding: 8px 0;
 }
 .gaget-nav-dropdown-menu--wide {

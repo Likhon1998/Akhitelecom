@@ -237,7 +237,9 @@
         <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/80">
             <h3 class="text-sm font-semibold text-slate-800">4. Color, storage & RAM (store variants)</h3>
             <p class="text-xs text-slate-500 mt-0.5">
-                Same <strong>variant group</strong> links products (e.g. Red + Blue S22). Customers pick color, storage, and RAM on the store page.
+                Link same-model SKUs with one <strong>variant group</strong> key (example: <code class="text-[11px] bg-slate-100 px-1 rounded">samsung-s22</code>).
+                Create a separate product for each color + RAM + storage combo. On the store page customers pick
+                <strong>color</strong> first, then the available <strong>RAM / storage</strong> combinations.
             </p>
         </div>
         <div class="p-4 space-y-4">
@@ -252,7 +254,10 @@
                 <input type="text" name="variant_group" x-model="variantGroup" @input="autoGroup = false"
                        class="block w-full rounded-lg border-slate-200 text-sm py-2.5 font-mono"
                        placeholder="e.g. samsung-s22">
-                <p class="text-[11px] text-slate-400 mt-1">Create another product with the same key + different color to show swatches together.</p>
+                <p class="text-[11px] text-slate-400 mt-1">
+                    Example: 3 Green S22 rows (4GB/64GB, 8GB/128GB, 8GB/512GB) + Blue/Black rows — all use the same key.
+                    Shop shows one card per group; the product page shows all colors and memory options.
+                </p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

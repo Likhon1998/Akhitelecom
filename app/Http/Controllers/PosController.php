@@ -72,7 +72,7 @@ class PosController extends Controller
 
                 // Prefer a verified local file URL; otherwise keep WebsiteService fallback (CDN).
                 if ($imagePath) {
-                    $diskPath = storage_path('app/public/'.ltrim(str_replace('\\', '/', $imagePath), '/'));
+                    $diskPath = public_storage_path(ltrim(str_replace('\\', '/', $imagePath), '/'));
                     if (is_file($diskPath)) {
                         $imageUrl = public_storage_url($imagePath);
                     }
