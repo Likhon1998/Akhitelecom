@@ -920,6 +920,7 @@ class AccountService
 
             $opening = $this->accountBalance($account, $dayStart->copy()->subSecond());
             $salesIn = $this->sumEntries($account->id, 'debit', $dayStart, $dayEnd, 'sale');
+            $collectionsIn = $this->sumEntriesTypes($account->id, 'debit', $dayStart, $dayEnd, ['baki_payment', 'emi_payment']);
             $transfersIn = $this->sumEntries($account->id, 'debit', $dayStart, $dayEnd, 'transfer');
             $transfersOut = $this->sumEntries($account->id, 'credit', $dayStart, $dayEnd, 'transfer');
             $refundsOut = $this->sumEntries($account->id, 'credit', $dayStart, $dayEnd, 'refund');
@@ -931,6 +932,7 @@ class AccountService
                 'account' => $account,
                 'opening' => $opening,
                 'sales_in' => $salesIn,
+                'collections_in' => $collectionsIn,
                 'transfers_in' => $transfersIn,
                 'transfers_out' => $transfersOut,
                 'refunds_out' => $refundsOut,
@@ -954,7 +956,49 @@ class AccountService
             'transfers_in' => $this->sumEntriesCreatedBetween($account->id, 'debit', $from, $until, 'transfer'),
             'transfers_out' => $this->sumEntriesCreatedBetween($account->id, 'credit', $from, $until, 'transfer'),
             'cash_purchases' => $this->sumEntriesCreatedBetween($account->id, 'credit', $from, $until, 'supplier_payment'),
+            'collections_in' => $this->sumEntriesCreatedBetweenTypes(
+                $account->id,
+                'debit',
+                $from,
+                $until,
+                ['baki_payment', 'emi_payment']
+            ),
         ];
+    }
+
+    /**
+     * Sum account entries for one or more ledger transaction types (by transaction_date).
+     */
+    public function sumAccountByTypes(
+        int $shopId,
+        string $accountCode,
+        string $entryType,
+        array $txnTypes,
+        ?Carbon $dayStart = null,
+        ?Carbon $dayEnd = null,
+        ?int $counterId = null,
+    ): float {
+        $account = Account::where('shop_id', $shopId)->where('code', $accountCode)->first();
+        if (! $account || $txnTypes === []) {
+            return 0.0;
+        }
+
+        $query = AccountEntry::query()
+            ->where('account_id', $account->id)
+            ->where('entry_type', $entryType)
+            ->when($counterId !== null, fn ($q) => $q->where('counter_id', $counterId))
+            ->whereHas('transaction', function ($q) use ($shopId, $txnTypes, $dayStart, $dayEnd) {
+                $q->where('shop_id', $shopId)
+                    ->whereIn('type', $txnTypes);
+                if ($dayStart && $dayEnd) {
+                    $q->whereBetween('transaction_date', [
+                        $dayStart->toDateString(),
+                        $dayEnd->toDateString(),
+                    ]);
+                }
+            });
+
+        return (float) $query->sum('amount');
     }
 
     protected function resolvePaymentAccount(Order $order): Account
@@ -1235,12 +1279,48 @@ class AccountService
         return (float) $query->sum('amount');
     }
 
+    protected function sumEntriesTypes(int $accountId, string $entryType, Carbon $start, Carbon $end, array $txnTypes): float
+    {
+        if ($txnTypes === []) {
+            return 0.0;
+        }
+
+        return (float) AccountEntry::where('account_id', $accountId)
+            ->where('entry_type', $entryType)
+            ->whereHas('transaction', function ($q) use ($start, $end, $txnTypes) {
+                $q->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()])
+                    ->whereIn('type', $txnTypes);
+            })
+            ->sum('amount');
+    }
+
     protected function sumEntriesCreatedBetween(int $accountId, string $entryType, Carbon $from, Carbon $until, string $txnType): float
     {
         return (float) AccountEntry::where('account_id', $accountId)
             ->where('entry_type', $entryType)
             ->whereHas('transaction', function ($q) use ($from, $until, $txnType) {
                 $q->where('type', $txnType)
+                    ->where('created_at', '>=', $from)
+                    ->where('created_at', '<=', $until);
+            })
+            ->sum('amount');
+    }
+
+    protected function sumEntriesCreatedBetweenTypes(
+        int $accountId,
+        string $entryType,
+        Carbon $from,
+        Carbon $until,
+        array $txnTypes,
+    ): float {
+        if ($txnTypes === []) {
+            return 0.0;
+        }
+
+        return (float) AccountEntry::where('account_id', $accountId)
+            ->where('entry_type', $entryType)
+            ->whereHas('transaction', function ($q) use ($from, $until, $txnTypes) {
+                $q->whereIn('type', $txnTypes)
                     ->where('created_at', '>=', $from)
                     ->where('created_at', '<=', $until);
             })

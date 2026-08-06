@@ -21,6 +21,9 @@ class DashboardSummaryService
     /**
      * Business summary for today.
      * $counterId = null means shop-wide (admin "All together").
+     *
+     * P&L cards (sales / returns / expenses / net) follow the general ledger.
+     * Till cards follow counter session expected cash (incl. AR cash collections).
      */
     public function todaySummary(int $shopId, ?int $counterId = null): array
     {
@@ -30,12 +33,14 @@ class DashboardSummaryService
         $dayStart = $today->copy()->startOfDay();
         $dayEnd = $today->copy()->endOfDay();
 
-        $totalSales = $this->todaySales($shopId, $counterId, $today);
-        $returns = $this->todayReturns($shopId, $counterId, $today);
-        // Petty-cash expenses are shop-wide (not till-scoped)
-        $expenses = $counterId === null
-            ? $this->todayExpenses($shopId, $dayStart, $dayEnd)
-            : 0.0;
+        $posSalesToday = $this->salesForPeriod($shopId, $counterId, $dayStart, $dayEnd, ['sale']);
+        $onlineSalesToday = $this->salesForPeriod($shopId, $counterId, $dayStart, $dayEnd, ['web_sale']);
+        $posSalesLifetime = $this->salesForPeriod($shopId, $counterId, null, null, ['sale']);
+        $onlineSalesLifetime = $this->salesForPeriod($shopId, $counterId, null, null, ['web_sale']);
+        $totalSales = $posSalesToday + $onlineSalesToday;
+        $lifetimeSales = $posSalesLifetime + $onlineSalesLifetime;
+        $returns = $this->periodReturns($shopId, $counterId, $dayStart, $dayEnd);
+        $expenses = $this->todayExpenses($shopId, $counterId, $dayStart, $dayEnd);
         $netAmount = $totalSales - $returns - $expenses;
 
         $cash = $this->cashDrawerSummary($shopId, $counterId, $today);
@@ -44,7 +49,12 @@ class DashboardSummaryService
         $emiCollected = $this->todayArCollections($shopId, 'emi_payment', 'EMI-AR', $counterId, $today);
 
         return [
+            'pos_sales' => round($posSalesToday, 2),
+            'online_sales' => round($onlineSalesToday, 2),
             'total_sales' => round($totalSales, 2),
+            'pos_lifetime_sales' => round($posSalesLifetime, 2),
+            'online_lifetime_sales' => round($onlineSalesLifetime, 2),
+            'lifetime_sales' => round($lifetimeSales, 2),
             'returns' => round($returns, 2),
             'expenses' => round($expenses, 2),
             'net_amount' => round($netAmount, 2),
@@ -66,7 +76,12 @@ class DashboardSummaryService
     public function emptySummary(): array
     {
         return [
+            'pos_sales' => 0.0,
+            'online_sales' => 0.0,
             'total_sales' => 0.0,
+            'pos_lifetime_sales' => 0.0,
+            'online_lifetime_sales' => 0.0,
+            'lifetime_sales' => 0.0,
             'returns' => 0.0,
             'expenses' => 0.0,
             'net_amount' => 0.0,
@@ -92,11 +107,13 @@ class DashboardSummaryService
             ->get();
     }
 
-    /** Completed revenue orders (excludes exchanges / refunds / voids). */
+    /**
+     * @deprecated Prefer periodSales() (GL). Kept for callers that still need order filters.
+     */
     public function revenueOrdersQuery(int $shopId, ?int $counterId = null): Builder
     {
         return Order::where('shop_id', $shopId)
-            ->where('status', 'completed')
+            ->whereIn('status', ['completed', 'refunded'])
             ->where(function ($q) {
                 $q->where('is_exchange_receipt', false)
                     ->orWhereNull('is_exchange_receipt');
@@ -104,39 +121,81 @@ class DashboardSummaryService
             ->when($counterId !== null, fn ($q) => $q->where('counter_id', $counterId));
     }
 
-    protected function todaySales(int $shopId, ?int $counterId, Carbon $today): float
-    {
-        return (float) $this->revenueOrdersQuery($shopId, $counterId)
-            ->whereDate('created_at', $today)
-            ->selectRaw('COALESCE(SUM(GREATEST(total_amount - COALESCE(discount_amount, 0) - COALESCE(exchange_credit, 0), 0)), 0) as revenue')
-            ->value('revenue');
+    /**
+     * Recognized sales revenue (Cr REVENUE).
+     * Default: POS + online. Pass ['sale'] or ['web_sale'] to split channels.
+     * Refunded sales stay in this figure; Returns card reverses them on refund day.
+     */
+    public function salesForPeriod(
+        int $shopId,
+        ?int $counterId,
+        ?Carbon $dayStart,
+        ?Carbon $dayEnd,
+        array $txnTypes = ['sale', 'web_sale'],
+    ): float {
+        return $this->accounts->sumAccountByTypes(
+            $shopId,
+            'REVENUE',
+            'credit',
+            $txnTypes,
+            $dayStart,
+            $dayEnd,
+            $counterId,
+        );
     }
 
-    protected function todayReturns(int $shopId, ?int $counterId, Carbon $today): float
+    /**
+     * Revenue reversals (Dr REVENUE on refund / web_refund) — matches postOrderRefund amounts & dates.
+     */
+    public function returnsForPeriod(int $shopId, ?int $counterId, Carbon $dayStart, Carbon $dayEnd): float
     {
-        return (float) Order::where('shop_id', $shopId)
-            ->whereDate('updated_at', $today)
-            ->whereIn('status', ['refunded', 'returned'])
-            ->when($counterId !== null, fn ($q) => $q->where('counter_id', $counterId))
-            ->sum('total_amount');
+        return $this->accounts->sumAccountByTypes(
+            $shopId,
+            'REVENUE',
+            'debit',
+            ['refund', 'web_refund'],
+            $dayStart,
+            $dayEnd,
+            $counterId,
+        );
     }
 
-    protected function todayExpenses(int $shopId, Carbon $dayStart, Carbon $dayEnd): float
+    protected function periodSales(int $shopId, ?int $counterId, ?Carbon $dayStart, ?Carbon $dayEnd): float
     {
-        $expense = Account::where('shop_id', $shopId)->where('code', 'EXPENSE')->first();
-        if (! $expense) {
-            return 0.0;
-        }
+        return $this->salesForPeriod($shopId, $counterId, $dayStart, $dayEnd);
+    }
 
-        return (float) AccountEntry::query()
-            ->where('account_id', $expense->id)
-            ->where('entry_type', 'debit')
-            ->whereHas('transaction', function ($q) use ($shopId, $dayStart, $dayEnd) {
-                $q->where('shop_id', $shopId)
-                    ->where('type', 'petty_cash')
-                    ->whereBetween('transaction_date', [$dayStart->toDateString(), $dayEnd->toDateString()]);
-            })
-            ->sum('amount');
+    protected function periodReturns(int $shopId, ?int $counterId, Carbon $dayStart, Carbon $dayEnd): float
+    {
+        return $this->returnsForPeriod($shopId, $counterId, $dayStart, $dayEnd);
+    }
+
+    /**
+     * Operating expenses today: petty-cash spend (shop-wide) + till shortage (counter-scoped).
+     */
+    protected function todayExpenses(int $shopId, ?int $counterId, Carbon $dayStart, Carbon $dayEnd): float
+    {
+        $petty = $this->accounts->sumAccountByTypes(
+            $shopId,
+            'EXPENSE',
+            'debit',
+            ['petty_cash'],
+            $dayStart,
+            $dayEnd,
+            null, // shop-wide float — always counts toward net
+        );
+
+        $shortage = $this->accounts->sumAccountByTypes(
+            $shopId,
+            'EXPENSE',
+            'debit',
+            ['counter_shortage'],
+            $dayStart,
+            $dayEnd,
+            $counterId,
+        );
+
+        return $petty + $shortage;
     }
 
     protected function pettyCashBalance(int $shopId): float
@@ -156,6 +215,7 @@ class DashboardSummaryService
 
         $openingLedger = 0.0;
         $salesIn = 0.0;
+        $collectionsIn = 0.0;
         $transfersIn = 0.0;
         $transfersOut = 0.0;
         $refundsOut = 0.0;
@@ -165,6 +225,7 @@ class DashboardSummaryService
         foreach ($ledgerRows as $row) {
             $openingLedger += (float) $row['opening'];
             $salesIn += (float) $row['sales_in'];
+            $collectionsIn += (float) ($row['collections_in'] ?? 0);
             $transfersIn += (float) $row['transfers_in'];
             $transfersOut += (float) $row['transfers_out'];
             $refundsOut += (float) $row['refunds_out'];
@@ -198,31 +259,28 @@ class DashboardSummaryService
         $sessionCashOut = 0.0;
 
         foreach ($sessions as $session) {
-            if ($session->status === 'closed' && $session->closing_cash !== null) {
-                $closingSession += (float) $session->closing_cash;
-                $ordersCount += (int) ($session->order_count ?: 0);
-                $stats = $this->sessions->statsAsOf($session, $session->closed_at);
-                $sessionCashIn += (float) ($stats['cash_sales'] ?? 0) + (float) ($stats['transfers_in'] ?? 0);
-                $sessionCashOut += (float) ($stats['cash_refunds'] ?? 0)
-                    + (float) ($stats['transfers_out'] ?? 0)
-                    + (float) ($stats['cash_purchases'] ?? 0);
-            } else {
-                $live = $this->sessions->liveStats($session);
-                $closingSession += $this->sessions->expectedCash($session, $live);
-                $ordersCount += (int) ($live['order_count'] ?? 0);
-                $sessionCashIn += (float) ($live['cash_sales'] ?? 0) + (float) ($live['transfers_in'] ?? 0);
-                $sessionCashOut += (float) ($live['cash_refunds'] ?? 0)
-                    + (float) ($live['transfers_out'] ?? 0)
-                    + (float) ($live['cash_purchases'] ?? 0);
-            }
+            $stats = $session->status === 'closed' && $session->closed_at
+                ? $this->sessions->statsAsOf($session, $session->closed_at)
+                : $this->sessions->liveStats($session);
+
+            // Always expected drawer (Opening + In − Out), never declared count —
+            // variance belongs on the session close screen, not this summary.
+            $closingSession += $this->sessions->expectedCash($session, $stats);
+            $ordersCount += (int) ($stats['order_count'] ?? 0);
+            $sessionCashIn += (float) ($stats['cash_sales'] ?? 0)
+                + (float) ($stats['collections_in'] ?? 0)
+                + (float) ($stats['transfers_in'] ?? 0);
+            $sessionCashOut += (float) ($stats['cash_refunds'] ?? 0)
+                + (float) ($stats['transfers_out'] ?? 0)
+                + (float) ($stats['cash_purchases'] ?? 0);
         }
 
-        // Prefer declared till float when a session exists; otherwise use ledger cash-on-hand
         $opening = $hasSession ? $openingSession : $openingLedger;
         $closing = $hasSession ? $closingSession : $closingLedger;
 
-        // Session stats already include transfers and cash purchases on the till.
-        $cashIn = $hasSession ? $sessionCashIn : ($salesIn + $transfersIn);
+        $cashIn = $hasSession
+            ? $sessionCashIn
+            : ($salesIn + $collectionsIn + $transfersIn);
         $cashOut = $hasSession
             ? $sessionCashOut
             : ($transfersOut + $refundsOut + $purchasesOut);

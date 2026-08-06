@@ -68,22 +68,27 @@ class DashboardController extends Controller
         $prevWeekStart = $today->copy()->subDays(13)->startOfDay();
         $prevWeekEnd = $today->copy()->subDays(7)->endOfDay();
 
-        $todaySales = (float) (clone $queryOrders)->whereDate('created_at', $today)
-            ->selectRaw('COALESCE(SUM(GREATEST(total_amount - COALESCE(discount_amount, 0) - COALESCE(exchange_credit, 0), 0)), 0) as revenue')
-            ->value('revenue');
-        $todayOrdersCount = (int) (clone $queryOrders)->whereDate('created_at', $today)->count();
+        $canReadSales = $isAdmin || $filterCounterId !== null;
 
-        $weekSales = (float) (clone $queryOrders)->where('created_at', '>=', $weekStart)
-            ->selectRaw('COALESCE(SUM(GREATEST(total_amount - COALESCE(discount_amount, 0) - COALESCE(exchange_credit, 0), 0)), 0) as revenue')
-            ->value('revenue');
-        $weekOrders = (int) (clone $queryOrders)->where('created_at', '>=', $weekStart)->count();
-        $prevWeekSales = (float) (clone $queryOrders)
-            ->whereBetween('created_at', [$prevWeekStart, $prevWeekEnd])
-            ->selectRaw('COALESCE(SUM(GREATEST(total_amount - COALESCE(discount_amount, 0) - COALESCE(exchange_credit, 0), 0)), 0) as revenue')
-            ->value('revenue');
-        $prevWeekOrders = (int) (clone $queryOrders)
-            ->whereBetween('created_at', [$prevWeekStart, $prevWeekEnd])
-            ->count();
+        $todaySales = $canReadSales
+            ? (float) ($businessSummary['total_sales'] ?? 0)
+            : 0.0;
+        $todayOrdersCount = $canReadSales
+            ? (int) (clone $queryOrders)->whereDate('created_at', $today)->count()
+            : 0;
+
+        $weekSales = $canReadSales
+            ? $summaryService->salesForPeriod($shopId, $filterCounterId, $weekStart, $today->copy()->endOfDay())
+            : 0.0;
+        $weekOrders = $canReadSales
+            ? (int) (clone $queryOrders)->where('created_at', '>=', $weekStart)->count()
+            : 0;
+        $prevWeekSales = $canReadSales
+            ? $summaryService->salesForPeriod($shopId, $filterCounterId, $prevWeekStart, $prevWeekEnd)
+            : 0.0;
+        $prevWeekOrders = $canReadSales
+            ? (int) (clone $queryOrders)->whereBetween('created_at', [$prevWeekStart, $prevWeekEnd])->count()
+            : 0;
 
         if ($isAdmin && $filterCounterId === null) {
             $totalCustomers = Customer::where('shop_id', $shopId)->count();
@@ -118,12 +123,12 @@ class DashboardController extends Controller
             $day = $today->copy()->subDays($i);
             $prevDay = $day->copy()->subDays(7);
             $salesChartLabels[] = $day->format('M j');
-            $salesChartThisWeek[] = round((float) (clone $queryOrders)->whereDate('created_at', $day)
-                ->selectRaw('COALESCE(SUM(GREATEST(total_amount - COALESCE(discount_amount, 0) - COALESCE(exchange_credit, 0), 0)), 0) as revenue')
-                ->value('revenue'), 2);
-            $salesChartLastWeek[] = round((float) (clone $queryOrders)->whereDate('created_at', $prevDay)
-                ->selectRaw('COALESCE(SUM(GREATEST(total_amount - COALESCE(discount_amount, 0) - COALESCE(exchange_credit, 0), 0)), 0) as revenue')
-                ->value('revenue'), 2);
+            $salesChartThisWeek[] = $canReadSales
+                ? round($summaryService->salesForPeriod($shopId, $filterCounterId, $day->copy()->startOfDay(), $day->copy()->endOfDay()), 2)
+                : 0.0;
+            $salesChartLastWeek[] = $canReadSales
+                ? round($summaryService->salesForPeriod($shopId, $filterCounterId, $prevDay->copy()->startOfDay(), $prevDay->copy()->endOfDay()), 2)
+                : 0.0;
         }
 
         $recentOrders = (clone $queryOrders)

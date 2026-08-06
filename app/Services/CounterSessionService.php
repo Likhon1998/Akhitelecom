@@ -172,6 +172,7 @@ class CounterSessionService
         return round(
             (float) $session->opening_cash
             + (float) ($stats['cash_sales'] ?? 0)
+            + (float) ($stats['collections_in'] ?? 0)
             + (float) ($stats['transfers_in'] ?? 0)
             - (float) ($stats['cash_refunds'] ?? 0)
             - (float) ($stats['transfers_out'] ?? 0)
@@ -261,7 +262,12 @@ class CounterSessionService
         $session->loadMissing('counter');
         $movements = $session->counter
             ? $this->accounts->counterCashSessionMovements($session->counter, $from, $until)
-            : ['transfers_in' => 0.0, 'transfers_out' => 0.0, 'cash_purchases' => 0.0];
+            : [
+                'transfers_in' => 0.0,
+                'transfers_out' => 0.0,
+                'cash_purchases' => 0.0,
+                'collections_in' => 0.0,
+            ];
 
         return [
             'order_count' => $sold->where('status', 'completed')->count(),
@@ -271,6 +277,7 @@ class CounterSessionService
             'mobile_sales' => round($mobileSales, 2),
             'other_sales' => round($otherSales, 2),
             'cash_refunds' => round((float) $cashRefunds, 2),
+            'collections_in' => round((float) ($movements['collections_in'] ?? 0), 2),
             'transfers_in' => round((float) $movements['transfers_in'], 2),
             'transfers_out' => round((float) $movements['transfers_out'], 2),
             'cash_purchases' => round((float) $movements['cash_purchases'], 2),
