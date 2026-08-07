@@ -468,6 +468,10 @@
         /* Critical first-paint loader (before Vite CSS) */
         .gaget-page-loader{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(248,250,252,.94);transition:opacity .38s ease,visibility .38s ease}
         .gaget-page-loader.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
+        /* Safety: brand logos must never render at intrinsic SVG/PNG size */
+        .gaget-store .tn-brand-logo{height:40px!important;max-height:40px!important;max-width:112px!important;width:auto!important;object-fit:contain!important}
+        .gaget-store .tn-brand-logo-frame{height:44px!important;max-width:120px!important;overflow:hidden!important}
+        .gaget-store .pd-brand-logo{height:18px!important;max-height:18px!important;max-width:88px!important;width:auto!important;object-fit:contain!important}
     </style>
 </head>
 <body class="gaget-store bg-white antialiased" id="storefront-root" x-data="storefrontCart()" @keydown.escape.window="cartOpen=false; checkoutOpen=false; mobileOpen=false; mobileCatsOpen=false; mobileBrandsOpen=false">
