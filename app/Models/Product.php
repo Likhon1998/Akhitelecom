@@ -14,8 +14,10 @@ class Product extends Model
     protected $fillable = [
         'shop_id', 'category_id', 'brand_id', 'name', 'barcode', 'sku',
         'variant_group', 'color', 'color_hex', 'storage', 'ram',
+        'requires_imei',
         'cost_price', 'selling_price', 'original_price',
         'sale_price', 'sale_starts_at', 'sale_ends_at',
+        'pos_discount_type', 'pos_discount_value',
         'stock_quantity', 'availability', 'filter_attributes', 'alert_quantity', 'reorder_quantity',
         'image', 'image_2', 'image_3',
         'short_description', 'brand_name', 'rating', 'review_count',
@@ -27,6 +29,7 @@ class Product extends Model
         'selling_price' => 'decimal:2',
         'original_price' => 'decimal:2',
         'sale_price' => 'decimal:2',
+        'pos_discount_value' => 'decimal:2',
         'sale_starts_at' => 'datetime',
         'sale_ends_at' => 'datetime',
         'rating' => 'decimal:1',
@@ -34,6 +37,7 @@ class Product extends Model
         'is_featured' => 'boolean',
         'is_new_arrival' => 'boolean',
         'is_published' => 'boolean',
+        'requires_imei' => 'boolean',
         'filter_attributes' => 'array',
     ];
 
@@ -58,6 +62,56 @@ class Product extends Model
     public function galleryImages()
     {
         return $this->hasMany(ProductImage::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function imeis()
+    {
+        return $this->hasMany(ProductImei::class);
+    }
+
+    public function availableImeis()
+    {
+        return $this->hasMany(ProductImei::class)->available()->orderBy('id');
+    }
+
+    /** Sync IMEI list (available only). Returns count of available IMEIs. */
+    public function syncAvailableImeis(array $imeis): int
+    {
+        $normalized = collect($imeis)
+            ->map(fn ($v) => ProductImei::normalize((string) $v))
+            ->filter(fn ($v) => $v !== '')
+            ->unique()
+            ->values();
+
+        $keep = $normalized->all();
+
+        // Remove available IMEIs no longer in the list (never delete sold history).
+        $query = $this->imeis()->available();
+        if ($keep !== []) {
+            $query->whereNotIn('imei', $keep);
+        }
+        $query->delete();
+
+        foreach ($normalized as $imei) {
+            $existing = ProductImei::where('imei', $imei)->first();
+            if ($existing) {
+                if ((int) $existing->product_id === (int) $this->id && $existing->status === ProductImei::STATUS_AVAILABLE) {
+                    continue;
+                }
+                if ((int) $existing->product_id !== (int) $this->id) {
+                    throw new \InvalidArgumentException("IMEI {$imei} already belongs to another product.");
+                }
+                // Sold/reserved — leave alone
+                continue;
+            }
+
+            $this->imeis()->create([
+                'imei' => $imei,
+                'status' => ProductImei::STATUS_AVAILABLE,
+            ]);
+        }
+
+        return $this->imeis()->available()->count();
     }
 
     public function category()
@@ -99,7 +153,7 @@ class Product extends Model
     }
 
     /** Active timed sale: offer price lower than list price within the window. */
-    public function isOnSale(?CarbonInterface $at = null): bool
+    public function isTimedSaleActive(?CarbonInterface $at = null): bool
     {
         $at = $at ?? now();
 
@@ -115,12 +169,62 @@ class Product extends Model
             && $at->lessThanOrEqualTo($this->sale_ends_at);
     }
 
-    /** Price charged now (sale price when active, otherwise list price). */
+    /**
+     * Permanent product discount price (from product form), or null if none / invalid.
+     */
+    public function permanentDiscountPrice(): ?float
+    {
+        $type = $this->pos_discount_type;
+        if (! in_array($type, ['percent', 'fixed', 'tk'], true) || $this->pos_discount_value === null) {
+            return null;
+        }
+
+        $list = (float) $this->selling_price;
+        if ($list <= 0) {
+            return null;
+        }
+
+        $value = (float) $this->pos_discount_value;
+        if ($value <= 0) {
+            return null;
+        }
+
+        $price = in_array($type, ['fixed', 'tk'], true)
+            ? $list - $value
+            : $list * (1 - min(99.99, $value) / 100);
+
+        $price = round(max(0, $price), 2);
+
+        return $price < $list ? $price : null;
+    }
+
+    public function hasPermanentDiscount(): bool
+    {
+        return $this->permanentDiscountPrice() !== null;
+    }
+
+    /** Discounted / sale pricing active (timed campaign or permanent product discount). */
+    public function isOnSale(?CarbonInterface $at = null): bool
+    {
+        return $this->isTimedSaleActive($at) || $this->hasPermanentDiscount();
+    }
+
+    /** Price charged now (best of timed sale / permanent discount / list). */
     public function currentPrice(): float
     {
-        return $this->isOnSale()
-            ? (float) $this->sale_price
-            : (float) $this->selling_price;
+        $list = (float) $this->selling_price;
+        $prices = [$list];
+
+        if ($this->isTimedSaleActive()) {
+            $prices[] = (float) $this->sale_price;
+        }
+
+        $permanent = $this->permanentDiscountPrice();
+        if ($permanent !== null) {
+            $prices[] = $permanent;
+        }
+
+        return round(min($prices), 2);
     }
 
     /** List / compare-at price shown struck through during an active sale. */
@@ -140,20 +244,49 @@ class Product extends Model
             return 0;
         }
 
-        return (int) round((1 - ((float) $this->sale_price / $base)) * 100);
+        return (int) round((1 - ($this->currentPrice() / $base)) * 100);
+    }
+
+    public function clearPermanentDiscount(): void
+    {
+        $this->forceFill([
+            'pos_discount_type' => null,
+            'pos_discount_value' => null,
+        ])->save();
+    }
+
+    public function applyPermanentDiscount(string $type, float $value): void
+    {
+        $type = $type === 'tk' ? 'fixed' : $type;
+        if (! in_array($type, ['percent', 'fixed'], true)) {
+            throw new \InvalidArgumentException('Invalid discount type.');
+        }
+
+        $this->forceFill([
+            'pos_discount_type' => $type,
+            'pos_discount_value' => round($value, 2),
+        ])->save();
     }
 
     public function scopeOnSale($query, ?CarbonInterface $at = null)
     {
         $at = $at ?? now();
 
-        return $query
-            ->whereNotNull('sale_price')
-            ->whereNotNull('sale_starts_at')
-            ->whereNotNull('sale_ends_at')
-            ->whereRaw('sale_price < selling_price')
-            ->where('sale_starts_at', '<=', $at)
-            ->where('sale_ends_at', '>=', $at);
+        return $query->where(function ($q) use ($at) {
+            $q->where(function ($timed) use ($at) {
+                $timed->whereNotNull('sale_price')
+                    ->whereNotNull('sale_starts_at')
+                    ->whereNotNull('sale_ends_at')
+                    ->whereRaw('sale_price < selling_price')
+                    ->where('sale_starts_at', '<=', $at)
+                    ->where('sale_ends_at', '>=', $at);
+            })->orWhere(function ($permanent) {
+                $permanent->whereNotNull('pos_discount_type')
+                    ->whereNotNull('pos_discount_value')
+                    ->where('pos_discount_value', '>', 0)
+                    ->whereIn('pos_discount_type', ['percent', 'fixed', 'tk']);
+            });
+        });
     }
 
     public function clearSale(): void

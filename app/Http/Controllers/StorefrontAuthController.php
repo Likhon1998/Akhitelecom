@@ -276,6 +276,7 @@ class StorefrontAuthController extends Controller
 
         return response()->json([
             'success' => true,
+            'csrf_token' => csrf_token(),
             'user' => $this->profilePayload($user),
         ]);
     }
@@ -367,6 +368,7 @@ class StorefrontAuthController extends Controller
         return response()->json([
             'success' => true,
             'requires_login' => true,
+            'csrf_token' => csrf_token(),
             'email' => $user->email,
             'message' => 'Account created successfully. Please sign in to continue.',
         ]);

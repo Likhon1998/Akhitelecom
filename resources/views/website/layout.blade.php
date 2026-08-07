@@ -4,6 +4,60 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script>
+        // Available before Vite loads — prevents CSRF mismatch on fast register/login/checkout.
+        (function () {
+            window.syncCsrfToken = window.syncCsrfToken || function (tokenFromServer) {
+                const meta = document.head.querySelector('meta[name="csrf-token"]');
+                const token = tokenFromServer || meta?.content;
+                if (!token) return null;
+                if (meta) meta.content = token;
+                document.querySelectorAll('input[name="_token"]').forEach((input) => { input.value = token; });
+                return token;
+            };
+            window.currentCsrfToken = window.currentCsrfToken || function () {
+                return document.head.querySelector('meta[name="csrf-token"]')?.content || '';
+            };
+            window.refreshCsrfToken = window.refreshCsrfToken || async function () {
+                try {
+                    const res = await fetch(@json(route('csrf.token')), {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+                        cache: 'no-store',
+                    });
+                    if (!res.ok) return window.syncCsrfToken();
+                    const data = await res.json();
+                    return window.syncCsrfToken(data?.csrf_token);
+                } catch (e) {
+                    return window.syncCsrfToken();
+                }
+            };
+            window.fetchJsonWithCsrf = window.fetchJsonWithCsrf || async function (url, options = {}, retried = false) {
+                const method = (options.method || 'GET').toUpperCase();
+                const headers = {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    ...(options.headers || {}),
+                };
+                if (method !== 'GET' && method !== 'HEAD') {
+                    if (!headers['Content-Type'] && !(options.body instanceof FormData)) {
+                        headers['Content-Type'] = 'application/json';
+                    }
+                    headers['X-CSRF-TOKEN'] = window.currentCsrfToken();
+                }
+                const res = await fetch(url, { credentials: 'same-origin', ...options, method, headers });
+                if (res.status === 419 && !retried) {
+                    let token = null;
+                    try { token = (await res.clone().json())?.csrf_token || null; } catch (e) {}
+                    if (token) window.syncCsrfToken(token);
+                    else await window.refreshCsrfToken();
+                    return window.fetchJsonWithCsrf(url, options, true);
+                }
+                return res;
+            };
+        })();
+    </script>
     <title>@yield('title', $settings->store_name ?? config('app.name', 'Akhi Telecom'))</title>
     @include('partials.favicon', ['settings' => $settings ?? null])
     <link rel="preconnect" href="https://fonts.bunny.net">
@@ -228,14 +282,17 @@
                     this.authMessageOk = false;
                     if (window.GagetLoader) window.GagetLoader.show('Signing you in');
                     try {
-                        const res = await fetch(@json(route('website.account.login')), {
+                        if (typeof window.refreshCsrfToken === 'function') {
+                            await window.refreshCsrfToken();
+                        }
+                        const res = await this.csrfFetch(@json(route('website.account.login')), {
                             method: 'POST',
-                            headers: this.jsonHeaders(),
                             body: JSON.stringify(this.authLogin),
                         });
-                        const data = await res.json();
+                        const data = await res.json().catch(() => ({}));
+                        this.applyCsrfFromResponse(data);
                         if (!res.ok) {
-                            this.authMessage = data.message || data.errors?.email?.[0] || 'Sign in failed.';
+                            this.authMessage = data.message || data.errors?.email?.[0] || (res.status === 419 ? 'Session expired. Please try signing in again.' : 'Sign in failed.');
                             if (window.GagetLoader) window.GagetLoader.hide();
                             return;
                         }
@@ -258,15 +315,18 @@
                     this.authMessageOk = false;
                     if (window.GagetLoader) window.GagetLoader.show('Creating your account');
                     try {
-                        const res = await fetch(@json(route('website.account.register')), {
+                        if (typeof window.refreshCsrfToken === 'function') {
+                            await window.refreshCsrfToken();
+                        }
+                        const res = await this.csrfFetch(@json(route('website.account.register')), {
                             method: 'POST',
-                            headers: this.jsonHeaders(),
                             body: JSON.stringify(this.authRegister),
                         });
-                        const data = await res.json();
+                        const data = await res.json().catch(() => ({}));
+                        this.applyCsrfFromResponse(data);
                         if (!res.ok) {
                             const err = data.errors || {};
-                            this.authMessage = err.name?.[0] || err.email?.[0] || err.phone?.[0] || err.password?.[0] || data.message || 'Registration failed.';
+                            this.authMessage = err.name?.[0] || err.email?.[0] || err.phone?.[0] || err.password?.[0] || data.message || (res.status === 419 ? 'Session expired. Please try again.' : 'Registration failed.');
                             return;
                         }
                         // Registration only creates the account — user must sign in to order.
@@ -299,9 +359,11 @@
                     this.orderMessage = '';
                     if (window.GagetLoader) window.GagetLoader.show('Placing your order');
                     try {
-                        const res = await fetch(@json(route('website.checkout')), {
+                        if (typeof window.refreshCsrfToken === 'function') {
+                            await window.refreshCsrfToken();
+                        }
+                        const res = await this.csrfFetch(@json(route('website.checkout')), {
                             method: 'POST',
-                            headers: this.jsonHeaders(),
                             body: JSON.stringify({
                                 cart: this.cart,
                                 customer_name: this.checkout.name,
@@ -309,7 +371,13 @@
                                 customer_address: this.checkout.address,
                             }),
                         });
-                        const data = await res.json();
+                        const data = await res.json().catch(() => ({}));
+                        this.applyCsrfFromResponse(data);
+                        if (res.status === 419) {
+                            this.orderSuccess = false;
+                            this.orderMessage = 'Session expired. Please try placing the order again.';
+                            return;
+                        }
                         if (res.status === 401 || data.auth_required) {
                             this.isLoggedIn = false;
                             this.checkoutStep = 'auth';
@@ -372,9 +440,23 @@
                 jsonHeaders() {
                     return {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                        'X-CSRF-TOKEN': (window.currentCsrfToken && window.currentCsrfToken())
+                            || document.querySelector('meta[name=csrf-token]')?.content
+                            || '',
                         'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
                     };
+                },
+                async csrfFetch(url, options = {}) {
+                    if (typeof window.fetchJsonWithCsrf === 'function') {
+                        return window.fetchJsonWithCsrf(url, options);
+                    }
+                    return fetch(url, { credentials: 'same-origin', ...options, headers: { ...this.jsonHeaders(), ...(options.headers || {}) } });
+                },
+                applyCsrfFromResponse(data) {
+                    if (data?.csrf_token && typeof window.syncCsrfToken === 'function') {
+                        window.syncCsrfToken(data.csrf_token);
+                    }
                 },
             };
         }

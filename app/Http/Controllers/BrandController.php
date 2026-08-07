@@ -45,7 +45,7 @@ class BrandController extends Controller
         ];
 
         if ($request->hasFile('logo')) {
-            $data['logo_path'] = $request->file('logo')->store('brands', 'public');
+            $data['logo_path'] = app(\App\Services\BrandLogoService::class)->storeUploaded($request->file('logo'));
         }
 
         $brand = Brand::create($data);
@@ -107,7 +107,7 @@ class BrandController extends Controller
             if ($brand->logo_path) {
                 Storage::disk('public')->delete($brand->logo_path);
             }
-            $data['logo_path'] = $request->file('logo')->store('brands', 'public');
+            $data['logo_path'] = app(\App\Services\BrandLogoService::class)->storeUploaded($request->file('logo'));
         }
 
         $brand->update($data);

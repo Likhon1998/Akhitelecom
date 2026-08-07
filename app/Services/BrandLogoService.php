@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Models\Brand;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class BrandLogoService
 {
@@ -40,16 +42,42 @@ class BrandLogoService
         return $this->domains[$slug] ?? ($slug.'.com');
     }
 
-    public function externalLogoUrl(string $name): string
+    /**
+     * Store an uploaded brand logo: crop empty padding and fit for the Gadget Lovers strip.
+     */
+    public function storeUploaded(UploadedFile $file): string
     {
-        // Prefer local premium SVG if already generated under a predictable path.
-        $slug = Str::slug($name);
-        $svg = 'brands/'.$slug.'.svg';
-        if (Storage::disk('public')->exists($svg)) {
-            return public_storage_url($svg) ?? '';
+        $ext = strtolower($file->getClientOriginalExtension() ?: '');
+        $mime = strtolower((string) $file->getMimeType());
+
+        // Keep SVG as-is (vector stays crisp).
+        if ($ext === 'svg' || str_contains($mime, 'svg')) {
+            return $file->store('brands', 'public');
         }
 
-        return public_storage_url($this->writePremiumSvg($name)) ?? '';
+        $tmp = $file->getRealPath();
+        if (! $tmp || ! is_file($tmp)) {
+            throw new RuntimeException('Uploaded brand logo could not be read.');
+        }
+
+        $filename = Str::uuid()->toString().'.png';
+        $relative = 'brands/'.$filename;
+        $absolute = Storage::disk('public')->path($relative);
+        $dir = dirname($absolute);
+        if (! is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+
+        app(SiteLogoNormalizer::class)->normalizeToPng(
+            $tmp,
+            $absolute,
+            square: false,
+            padding: 10,
+            threshold: 42,
+            maxSize: 640,
+        );
+
+        return $relative;
     }
 
     public function resolveUrl(?Brand $brand): ?string
@@ -58,14 +86,21 @@ class BrandLogoService
             return null;
         }
 
-        // Always serve crisp premium SVG marks on the storefront.
-        $path = $this->writePremiumSvg($brand->name);
+        // Prefer the logo staff uploaded — never replace it with a generated mark.
+        if ($brand->logo_path && $this->isUserLogo($brand->logo_path) && Storage::disk('public')->exists($brand->logo_path)) {
+            return public_storage_url($brand->logo_path);
+        }
 
-        if ($path && $brand->logo_path !== $path) {
+        if ($brand->logo_path && Storage::disk('public')->exists($brand->logo_path)) {
+            return public_storage_url($brand->logo_path);
+        }
+
+        $path = $this->writePremiumSvg($brand->name);
+        if ($path && empty($brand->logo_path)) {
             try {
                 $brand->forceFill(['logo_path' => $path])->saveQuietly();
             } catch (\Throwable $e) {
-                // Ignore transient DB issues; file is already on disk.
+                // ignore
             }
         }
 
@@ -74,15 +109,8 @@ class BrandLogoService
 
     public function ensureStored(Brand $brand): ?string
     {
-        $slug = Str::slug($brand->name);
-        $svg = 'brands/'.$slug.'.svg';
-
-        if (Storage::disk('public')->exists($svg) && Storage::disk('public')->size($svg) > 80) {
-            if ($brand->logo_path !== $svg) {
-                $brand->update(['logo_path' => $svg]);
-            }
-
-            return $svg;
+        if ($brand->logo_path && Storage::disk('public')->exists($brand->logo_path)) {
+            return $brand->logo_path;
         }
 
         $path = $this->writePremiumSvg($brand->name);
@@ -98,9 +126,6 @@ class BrandLogoService
         return $this->writePremiumSvg($name);
     }
 
-    /**
-     * Write a crisp SVG wordmark/logo for storefront cards.
-     */
     public function writePremiumSvg(string $name): ?string
     {
         $slug = Str::slug($name) ?: 'brand';
@@ -114,6 +139,15 @@ class BrandLogoService
         Storage::disk('public')->put($path, $svg);
 
         return $path;
+    }
+
+    /** Uploaded files use UUID PNG / random store names — not slug.svg wordmarks. */
+    protected function isUserLogo(string $path): bool
+    {
+        $base = basename($path);
+
+        return ! str_ends_with(strtolower($base), '.svg')
+            || preg_match('/^[0-9a-f-]{36}\./i', $base);
     }
 
     protected function svgFor(string $slug, string $name): string
@@ -140,7 +174,6 @@ SVG;
             return $cache;
         }
 
-        // Same marks used by installer — keep storefront crisp & on-brand.
         $cache = [
             'apple' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40" role="img"><path fill="#111111" d="M28.6 12.3c1.5-1.9 2.5-4.5 2.2-7.1-2.2.1-4.8 1.5-6.3 3.4-1.4 1.6-2.6 4.3-2.3 6.8 2.5.2 4.9-1.2 6.4-3.1zm5.9 1.5c-3.8-.2-7 2.2-8.8 2.2-1.8 0-4.6-2.1-7.6-2-3.9.1-7.5 2.3-9.5 5.8-4.1 7.1-1 17.6 2.9 23.4 1.9 2.8 4.2 6 7.2 5.9 2.9-.1 4-1.9 7.5-1.9s4.5 1.9 7.6 1.8c3.1-.1 5.1-2.9 7-5.7 2.2-3.2 3.1-6.3 3.1-6.5-.1 0-6-2.3-6.1-9.2-.1-5.7 4.7-8.5 4.9-8.6-2.7-4-6.9-4.4-8.2-4.5z"/></svg>',
             'samsung' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40"><text x="100" y="27" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="20" font-weight="700" letter-spacing="2.2" fill="#1428A0">SAMSUNG</text></svg>',

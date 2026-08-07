@@ -132,19 +132,36 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $shopId = Auth::user()->shop_id;
+        $isGadget = $request->input('product_mode') === 'gadget';
 
-        $validated = $request->validate([
+        if ($isGadget && is_array($request->input('variants'))) {
+            $variants = $request->input('variants', []);
+            foreach ($variants as $i => $row) {
+                foreach (['cost_price', 'selling_price', 'stock_quantity'] as $key) {
+                    if (array_key_exists($key, $row) && $row[$key] === '') {
+                        $variants[$i][$key] = null;
+                    }
+                }
+            }
+            $request->merge(['variants' => $variants]);
+        }
+
+        $rules = [
+            'product_mode' => 'required|in:simple,gadget',
             'name' => 'required|string|max:255',
-            'barcode' => ['required', 'string', 'max:100', Rule::unique('products', 'barcode')],
             'sku' => 'nullable|string|max:100',
             'variant_group' => 'nullable|string|max:120',
             'color' => 'nullable|string|max:80',
             'color_hex' => 'nullable|string|max:7',
             'storage' => 'nullable|string|max:40',
             'ram' => 'nullable|string|max:40',
+            'requires_imei' => 'nullable|boolean',
+            'imei_list' => 'nullable|string|max:10000',
             'availability' => 'nullable|in:in_stock,pre_order,up_coming,out_of_stock',
             'cost_price' => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',
+            'pos_discount_type' => 'nullable|in:percent,fixed',
+            'pos_discount_value' => 'nullable|numeric|min:0.01|required_with:pos_discount_type',
             'short_description' => 'nullable|string|max:2000',
             'category_id' => [
                 'nullable',
@@ -163,51 +180,182 @@ class ProductController extends Controller
             'stock_quantity' => 'nullable|integer|min:0',
             'alert_quantity' => 'nullable|integer|min:0',
             'return_to' => 'nullable|in:opening-inventory',
-        ]);
+        ];
+
+        if ($isGadget) {
+            $rules['barcode'] = 'nullable|string|max:100';
+            $rules['variants'] = 'required|array|min:1';
+            $rules['variants.*.barcode'] = ['required', 'string', 'max:100', Rule::unique('products', 'barcode')];
+            $rules['variants.*.color'] = 'nullable|string|max:80';
+            $rules['variants.*.color_hex'] = 'nullable|string|max:7';
+            $rules['variants.*.ram'] = 'nullable|string|max:40';
+            $rules['variants.*.storage'] = 'nullable|string|max:40';
+            $rules['variants.*.cost_price'] = 'nullable|numeric|min:0';
+            $rules['variants.*.selling_price'] = 'nullable|numeric|min:0';
+            $rules['variants.*.stock_quantity'] = 'nullable|integer|min:0';
+            $rules['variants.*.imei_list'] = 'nullable|string|max:10000';
+            $rules['variants.*.images'] = 'nullable|array|max:20';
+            $rules['variants.*.images.*'] = 'image|mimes:jpeg,png,jpg,webp,gif|max:5120';
+        } else {
+            $rules['barcode'] = ['required', 'string', 'max:100', Rule::unique('products', 'barcode')];
+        }
+
+        $validated = $request->validate($rules);
+
+        if ($isGadget) {
+            $barcodes = collect($validated['variants'])->pluck('barcode')->map(fn ($b) => trim((string) $b));
+            if ($barcodes->filter()->count() !== $barcodes->unique()->count()) {
+                return back()->withErrors(['variants' => 'Each variant must have a unique barcode.'])->withInput();
+            }
+        }
 
         $openingQty = (int) ($validated['stock_quantity'] ?? 0);
         $uploadedPaths = [];
+        $requiresImei = $request->boolean('requires_imei');
+
+        if (! empty($validated['pos_discount_type'])) {
+            $list = (float) $validated['selling_price'];
+            $offer = $validated['pos_discount_type'] === 'percent'
+                ? $list * (1 - (float) $validated['pos_discount_value'] / 100)
+                : $list - (float) $validated['pos_discount_value'];
+            if ($offer <= 0 || $offer >= $list) {
+                return back()->withErrors([
+                    'pos_discount_value' => 'Discount must leave an offer price below the selling price.',
+                ])->withInput();
+            }
+        } else {
+            $validated['pos_discount_type'] = null;
+            $validated['pos_discount_value'] = null;
+        }
 
         try {
-            $product = DB::transaction(function () use ($request, $validated, $shopId, $openingQty, &$uploadedPaths) {
-                $data = [
+            $created = DB::transaction(function () use ($request, $validated, $shopId, $openingQty, $isGadget, $requiresImei, &$uploadedPaths) {
+                $shared = [
                     'shop_id' => $shopId,
                     'name' => $validated['name'],
-                    'barcode' => trim($validated['barcode']),
                     'sku' => $validated['sku'] ?? null,
                     'variant_group' => $validated['variant_group'] ?? null,
-                    'color' => $validated['color'] ?? null,
-                    'color_hex' => $validated['color_hex'] ?? null,
-                    'storage' => $validated['storage'] ?? null,
-                    'ram' => $validated['ram'] ?? null,
                     'availability' => $validated['availability'] ?? 'in_stock',
                     'cost_price' => $validated['cost_price'],
                     'selling_price' => $validated['selling_price'],
+                    'pos_discount_type' => $validated['pos_discount_type'] ?? null,
+                    'pos_discount_value' => ! empty($validated['pos_discount_type'])
+                        ? ($validated['pos_discount_value'] ?? null)
+                        : null,
                     'short_description' => $validated['short_description'] ?? null,
                     'category_id' => $validated['category_id'] ?? null,
                     'brand_id' => $validated['brand_id'] ?? null,
                     'stock_quantity' => 0,
                     'alert_quantity' => $validated['alert_quantity'] ?? 5,
+                    'requires_imei' => $requiresImei,
                     'is_published' => $request->boolean('is_published', true),
                     'is_new_arrival' => $request->boolean('is_new_arrival'),
                     'is_best_seller' => $request->boolean('is_best_seller'),
                     'is_featured' => $request->boolean('is_featured'),
                 ];
+                $shared = $this->applyBrandData($shared);
+                $shared = $this->normalizeVariantFields($shared);
 
-                $data = $this->applyBrandData($data);
-                $data = $this->normalizeVariantFields($data);
+                if (! $isGadget) {
+                    $data = array_merge($shared, [
+                        'barcode' => trim($validated['barcode']),
+                        'color' => $validated['color'] ?? null,
+                        'color_hex' => $validated['color_hex'] ?? null,
+                        'storage' => $validated['storage'] ?? null,
+                        'ram' => $validated['ram'] ?? null,
+                    ]);
+                    $data = $this->normalizeVariantFields($data);
+                    $product = Product::create($data);
+                    $uploadedPaths = $this->storeGalleryImages($request, $product);
+                    $this->syncPrimaryImageFromGallery($product);
 
-                $product = Product::create($data);
-                $uploadedPaths = $this->storeGalleryImages($request, $product);
-                $this->syncPrimaryImageFromGallery($product);
+                    $imeiCount = 0;
+                    if ($requiresImei) {
+                        $imeiCount = $this->applyImeiList($product, (string) ($validated['imei_list'] ?? ''));
+                    }
 
-                if ($openingQty > 0) {
-                    $this->stock->ensureDefaultLocations($product->shop_id);
-                    $movement = $this->stock->setOpeningStock($product, $openingQty);
-                    $this->accounts->postOpeningInventory($movement);
+                    $qty = $requiresImei && $imeiCount > 0 ? $imeiCount : $openingQty;
+                    if ($qty > 0) {
+                        $this->stock->ensureDefaultLocations($product->shop_id);
+                        $movement = $this->stock->setOpeningStock($product, $qty);
+                        $this->accounts->postOpeningInventory($movement);
+                    }
+
+                    return ['count' => 1, 'opening' => $qty, 'product' => $product->fresh(['galleryImages'])];
                 }
 
-                return $product->fresh(['galleryImages']);
+                // Gadget: one Product per variant — own barcode, optional own price & photos.
+                $products = [];
+                $totalOpening = 0;
+                $first = null;
+                $gallerySource = null;
+                foreach ($validated['variants'] as $index => $row) {
+                    $cost = isset($row['cost_price']) && $row['cost_price'] !== '' && $row['cost_price'] !== null
+                        ? (float) $row['cost_price']
+                        : (float) $validated['cost_price'];
+                    $sell = isset($row['selling_price']) && $row['selling_price'] !== '' && $row['selling_price'] !== null
+                        ? (float) $row['selling_price']
+                        : (float) $validated['selling_price'];
+
+                    $data = array_merge($shared, [
+                        'barcode' => trim($row['barcode']),
+                        'color' => $row['color'] ?? null,
+                        'color_hex' => $row['color_hex'] ?? null,
+                        'storage' => $row['storage'] ?? null,
+                        'ram' => $row['ram'] ?? null,
+                        'cost_price' => $cost,
+                        'selling_price' => $sell,
+                    ]);
+                    $data = $this->normalizeVariantFields($data);
+                    if (empty($data['variant_group'])) {
+                        $data['variant_group'] = $this->normalizeVariantFields([
+                            'variant_group' => $validated['name'],
+                        ])['variant_group'] ?? null;
+                    }
+
+                    $product = Product::create($data);
+                    if ($index === 0) {
+                        $first = $product;
+                    }
+
+                    $variantFiles = $request->file("variants.{$index}.images");
+                    $hasVariantImages = is_array($variantFiles) && collect($variantFiles)->filter()->isNotEmpty();
+
+                    if ($hasVariantImages) {
+                        $paths = $this->storeGalleryFiles($product, $variantFiles);
+                        $uploadedPaths = array_merge($uploadedPaths, $paths);
+                        $this->syncPrimaryImageFromGallery($product);
+                        $gallerySource = $product;
+                    } elseif ($index === 0 && $request->hasFile('images')) {
+                        $paths = $this->storeGalleryImages($request, $product);
+                        $uploadedPaths = array_merge($uploadedPaths, $paths);
+                        $this->syncPrimaryImageFromGallery($product);
+                        $gallerySource = $product;
+                    } elseif ($gallerySource) {
+                        $this->cloneGalleryToProduct($gallerySource, $product);
+                    }
+
+                    $imeiCount = 0;
+                    if ($requiresImei) {
+                        $imeiCount = $this->applyImeiList($product, (string) ($row['imei_list'] ?? ''));
+                    }
+                    $qty = $requiresImei && $imeiCount > 0
+                        ? $imeiCount
+                        : (int) ($row['stock_quantity'] ?? 0);
+                    if ($qty > 0) {
+                        $this->stock->ensureDefaultLocations($product->shop_id);
+                        $movement = $this->stock->setOpeningStock($product, $qty);
+                        $this->accounts->postOpeningInventory($movement);
+                    }
+                    $totalOpening += $qty;
+                    $products[] = $product;
+                }
+
+                return [
+                    'count' => count($products),
+                    'opening' => $totalOpening,
+                    'product' => $first?->fresh(['galleryImages']),
+                ];
             });
         } catch (\Throwable $e) {
             foreach ($uploadedPaths as $path) {
@@ -223,18 +371,27 @@ class ProductController extends Controller
                 ]);
         }
 
+        $openingQty = (int) ($created['opening'] ?? 0);
+        $count = (int) ($created['count'] ?? 1);
+
         if ($request->input('return_to') === 'opening-inventory') {
             return redirect()->route('supply.opening-inventory.index')->with(
                 'success',
-                $openingQty > 0
-                    ? "Product added with {$openingQty} units in stock."
-                    : 'Product added. Enter the opening quantity below.'
+                $count > 1
+                    ? "{$count} variants added".($openingQty > 0 ? " with {$openingQty} total units." : '.')
+                    : ($openingQty > 0
+                        ? "Product added with {$openingQty} units in stock."
+                        : 'Product added. Enter the opening quantity below.')
             );
         }
 
-        $message = $openingQty > 0
-            ? "Product added with {$openingQty} units in stock. It can appear in POS and the online store."
-            : 'Product added with 0 stock. Set quantity here next time, or use Opening Inventory / Stock Adjustment.';
+        if ($count > 1) {
+            $message = "{$count} gadget variants created (each with its own barcode)".($openingQty > 0 ? ", {$openingQty} units stocked." : '.');
+        } else {
+            $message = $openingQty > 0
+                ? "Product added with {$openingQty} units in stock. It can appear in POS and the online store."
+                : 'Product added with 0 stock. Set quantity here next time, or use Opening Inventory / Stock Adjustment.';
+        }
 
         return redirect()->route('products.index')->with('success', $message);
     }
@@ -247,7 +404,7 @@ class ProductController extends Controller
 
         $categories = Category::where('shop_id', Auth::user()->shop_id)->orderBy('name')->get();
         $brands = Brand::where('shop_id', Auth::user()->shop_id)->orderBy('name')->get();
-        $product->load('galleryImages');
+        $product->load(['galleryImages', 'availableImeis']);
 
         return view('products.edit', compact('product', 'categories', 'brands'));
     }
@@ -267,9 +424,13 @@ class ProductController extends Controller
             'color_hex' => 'nullable|string|max:7',
             'storage' => 'nullable|string|max:40',
             'ram' => 'nullable|string|max:40',
+            'requires_imei' => 'nullable|boolean',
+            'imei_list' => 'nullable|string|max:10000',
             'availability' => 'nullable|in:in_stock,pre_order,up_coming,out_of_stock',
             'cost_price' => 'required|numeric',
             'selling_price' => 'required|numeric',
+            'pos_discount_type' => 'nullable|in:percent,fixed',
+            'pos_discount_value' => 'nullable|numeric|min:0.01|required_with:pos_discount_type',
             'short_description' => 'nullable|string|max:2000',
             'category_id' => 'nullable|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
@@ -287,19 +448,46 @@ class ProductController extends Controller
             'image', 'image_2', 'image_3', 'images', 'remove_images', 'stock_quantity',
             'remove_image', 'remove_image_2', 'remove_image_3',
             'is_published', 'is_new_arrival', 'is_best_seller', 'is_featured',
+            'product_mode', 'imei_list', 'variants',
         ]);
         $data['is_published'] = $request->boolean('is_published');
         $data['is_new_arrival'] = $request->boolean('is_new_arrival');
         $data['is_best_seller'] = $request->boolean('is_best_seller');
         $data['is_featured'] = $request->boolean('is_featured');
+        $data['requires_imei'] = $request->boolean('requires_imei');
         $data['availability'] = $request->input('availability', $product->availability ?? 'in_stock');
+        if (empty($data['pos_discount_type'])) {
+            $data['pos_discount_type'] = null;
+            $data['pos_discount_value'] = null;
+        }
         $data = $this->applyBrandData($data);
         $data = $this->normalizeVariantFields($data);
 
-        $product->update($data);
-        $this->removeGalleryImages($product, (array) $request->input('remove_images', []));
-        $this->storeGalleryImages($request, $product);
-        $this->syncPrimaryImageFromGallery($product);
+        if (! empty($data['pos_discount_type']) && isset($data['pos_discount_value'], $data['selling_price'])) {
+            $offer = $data['pos_discount_type'] === 'percent'
+                ? (float) $data['selling_price'] * (1 - (float) $data['pos_discount_value'] / 100)
+                : (float) $data['selling_price'] - (float) $data['pos_discount_value'];
+            if ($offer <= 0 || $offer >= (float) $data['selling_price']) {
+                return back()->withErrors([
+                    'pos_discount_value' => 'Discount must leave an offer price below the selling price.',
+                ])->withInput();
+            }
+        }
+
+        try {
+            DB::transaction(function () use ($request, $product, $data) {
+                $product->update($data);
+                $this->removeGalleryImages($product, (array) $request->input('remove_images', []));
+                $this->storeGalleryImages($request, $product);
+                $this->syncPrimaryImageFromGallery($product);
+
+                if ($product->requires_imei) {
+                    $this->applyImeiList($product, (string) $request->input('imei_list', ''));
+                }
+            });
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['imei_list' => $e->getMessage()])->withInput();
+        }
 
         return redirect()->route('products.index')->with('success', 'Product updated successfully!');
     }
@@ -1026,6 +1214,59 @@ class ProductController extends Controller
         } catch (\Throwable) {
             // Image is optional — product row still imports without it.
         }
+    }
+
+    private function applyImeiList(Product $product, string $rawList): int
+    {
+        $lines = preg_split('/[\r\n,;]+/', $rawList) ?: [];
+
+        return $product->syncAvailableImeis($lines);
+    }
+
+    /**
+     * @param  array<int, \Illuminate\Http\UploadedFile|null>  $files
+     * @return list<string>
+     */
+    private function storeGalleryFiles(Product $product, array $files): array
+    {
+        $existingCount = $product->galleryImages()->count();
+        $remaining = max(0, 20 - $existingCount);
+        if ($remaining === 0) {
+            return [];
+        }
+
+        $sort = (int) ($product->galleryImages()->max('sort_order') ?? -1);
+        $paths = [];
+        $count = 0;
+
+        foreach ($files as $file) {
+            if ($count >= $remaining) {
+                break;
+            }
+            if (! $file || ! $file->isValid()) {
+                continue;
+            }
+            $path = $file->store('products', 'public');
+            $paths[] = $path;
+            $product->galleryImages()->create([
+                'path' => $path,
+                'sort_order' => ++$sort,
+            ]);
+            $count++;
+        }
+
+        return $paths;
+    }
+
+    private function cloneGalleryToProduct(Product $from, Product $to): void
+    {
+        foreach ($from->galleryImages()->orderBy('sort_order')->orderBy('id')->get() as $image) {
+            $to->galleryImages()->create([
+                'path' => $image->path,
+                'sort_order' => $image->sort_order,
+            ]);
+        }
+        $this->syncPrimaryImageFromGallery($to);
     }
 
     /**

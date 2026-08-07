@@ -67,7 +67,7 @@ document.addEventListener('click', function (event) {
 }, true);
 </script>
 
-<div class="max-w-7xl mx-auto px-4 py-5 sm:py-6"
+<div class="max-w-7xl mx-auto px-4 py-3 sm:py-4"
      data-product-live-root
      x-data="productLive()"
      :class="{ 'pd-live-loading': loading }"

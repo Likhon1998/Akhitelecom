@@ -14,6 +14,7 @@ use App\Http\Controllers\ExchangeController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\OnlineOrderController;
 use App\Http\Controllers\PosController;
+use App\Http\Controllers\PosSettingsController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
@@ -60,6 +61,17 @@ Route::get('/brand/{slug}', [WebsiteController::class, 'brand'])->name('website.
 Route::get('/product/{product}', [WebsiteController::class, 'product'])->name('website.product');
 Route::get('/track-order', [WebsiteController::class, 'trackOrder'])->name('website.track');
 Route::post('/track-order', [WebsiteController::class, 'trackOrderLookup'])->name('website.track.lookup');
+
+/*
+| Public CSRF refresh — storefront customers + guests need this after login / tab sleep.
+| Staff also have /refresh-session inside the admin group.
+*/
+Route::get('/csrf-token', function () {
+    return response()->json([
+        'csrf_token' => csrf_token(),
+    ])->header('Cache-Control', 'no-store, no-cache, must-revalidate');
+})->name('csrf.token');
+
 Route::post('/account/login', [StorefrontAuthController::class, 'login'])->name('website.account.login');
 Route::post('/account/register', [StorefrontAuthController::class, 'register'])->name('website.account.register');
 Route::post('/account/logout', [StorefrontAuthController::class, 'logout'])->name('website.account.logout');
@@ -92,8 +104,8 @@ Route::middleware([
         return response()->json([
             'status' => 'Nexa POS Active',
             'csrf_token' => csrf_token(),
-        ]);
-    });
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate');
+    })->name('session.refresh');
 
     Route::prefix('cms')->name('cms.')->middleware('can:manage website')->group(function () {
         Route::get('/landing', [LandingPageController::class, 'edit'])->name('landing.edit');
@@ -126,6 +138,8 @@ Route::middleware([
     Route::get('/pos/receipt/{order}', [PosController::class, 'receipt'])->name('pos.receipt');
     Route::get('/pos/customer-lookup', [PosController::class, 'lookupCustomer'])->name('pos.customer-lookup');
     Route::post('/pos/sync-offline', [PosController::class, 'syncOffline'])->name('pos.sync');
+    Route::get('/pos/settings', [PosSettingsController::class, 'edit'])->name('pos.settings.edit');
+    Route::put('/pos/settings', [PosSettingsController::class, 'update'])->name('pos.settings.update');
 
     Route::resource('customers', CustomerController::class);
     Route::get('/customers-baki', [CustomerBakiController::class, 'index'])->name('customers.baki.index');

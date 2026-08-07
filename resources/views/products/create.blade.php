@@ -24,7 +24,7 @@
             </div>
         @endif
 
-        <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data" class="space-y-0"
+        <form id="product-create-form" action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data" class="space-y-0"
               x-data="{ submitting: false }"
               @submit="if (submitting) { $event.preventDefault(); return; } submitting = true">
             @csrf
@@ -43,7 +43,8 @@
                     Cancel
                 </a>
                 <button type="submit" :disabled="submitting"
-                        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 inline-flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed">
+                        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 inline-flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
+                        form="product-create-form">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
                     <span x-text="submitting ? 'Saving…' : 'Save product'"></span>
                 </button>

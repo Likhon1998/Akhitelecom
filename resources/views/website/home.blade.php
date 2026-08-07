@@ -220,22 +220,25 @@
                 @foreach($brands as $brand)
                     @php
                         $brandSlug = \Illuminate\Support\Str::slug($brand->name);
-                        $logoUrl = $brand->logo_url;
+                        $logoUrl = $brand->logo_url
+                            ?: ($brand->logo_path ? public_storage_url($brand->logo_path) : null);
                     @endphp
                     <a href="{{ route('website.brand', $brandSlug) }}"
                        class="tn-brand-card"
                        title="Shop {{ $brand->name }}">
-                        @if($logoUrl)
-                            <img src="{{ $logoUrl }}"
-                                 alt="{{ $brand->name }}"
-                                 class="tn-brand-logo"
-                                 loading="lazy"
-                                 decoding="async"
-                                 onerror="this.classList.add('is-broken'); this.nextElementSibling?.classList.add('is-visible');">
-                            <span class="tn-brand-fallback">{{ $brand->name }}</span>
-                        @else
-                            <span class="tn-brand-fallback is-visible">{{ $brand->name }}</span>
-                        @endif
+                        <span class="tn-brand-logo-frame">
+                            @if($logoUrl)
+                                <img src="{{ $logoUrl }}"
+                                     alt="{{ $brand->name }}"
+                                     class="tn-brand-logo"
+                                     loading="lazy"
+                                     decoding="async"
+                                     onerror="this.classList.add('is-broken'); this.nextElementSibling?.classList.add('is-visible');">
+                                <span class="tn-brand-fallback">{{ $brand->name }}</span>
+                            @else
+                                <span class="tn-brand-fallback is-visible">{{ $brand->name }}</span>
+                            @endif
+                        </span>
                     </a>
                 @endforeach
             </div>

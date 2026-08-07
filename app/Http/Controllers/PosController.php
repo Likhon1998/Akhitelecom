@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\ProductImei;
 use App\Models\Category;
 use App\Models\Brand;
 use App\Models\Counter;
 use App\Models\Customer;
+use App\Models\Shop;
 use App\Models\User;
 use App\Services\AccountService;
 use App\Services\BakiService;
@@ -48,6 +50,11 @@ class PosController extends Controller
         }
 
         $shopId = $user->shop_id;
+        $shop = Shop::query()->find($shopId);
+        $posEmiEnabled = (bool) ($shop?->pos_emi_enabled ?? true);
+        $posBakiEnabled = (bool) ($shop?->pos_baki_enabled ?? true);
+        $posSaleEnabled = (bool) ($shop?->pos_sale_enabled ?? true);
+
         $categories = Category::where('shop_id', $shopId)->orderBy('name')->get(['id', 'name', 'icon']);
         $brands = Brand::where('shop_id', $shopId)
             ->where('is_active', true)
@@ -61,10 +68,10 @@ class PosController extends Controller
         $website = app(\App\Services\WebsiteService::class);
 
         $products = Product::where('shop_id', $shopId)
-            ->with(['category:id,name', 'brand:id,name', 'galleryImages'])
+            ->with(['category:id,name', 'brand:id,name', 'galleryImages', 'availableImeis'])
             ->orderBy('name')
             ->get()
-            ->map(function (Product $product) use ($brandById, $brandsSortedByNameLength, $website) {
+            ->map(function (Product $product) use ($brandById, $brandsSortedByNameLength, $website, $posSaleEnabled) {
                 [$brandId, $brandName] = $this->resolvePosBrand($product, $brandById, $brandsSortedByNameLength);
 
                 $imagePath = $product->image ?: ($product->imagePaths()[0] ?? null);
@@ -78,16 +85,28 @@ class PosController extends Controller
                     }
                 }
 
+                $listPrice = (float) $product->selling_price;
+                $onSale = $posSaleEnabled && $product->isOnSale();
+                $chargePrice = $onSale ? $product->currentPrice() : $listPrice;
+                $availableImeis = $product->requires_imei
+                    ? $product->availableImeis->pluck('imei')->values()->all()
+                    : [];
+
                 return [
                     'id' => $product->id,
                     'name' => $product->name,
                     'barcode' => $product->barcode,
                     'sku' => $product->sku,
-                    'selling_price' => $product->currentPrice(),
-                    'list_price' => (float) $product->selling_price,
-                    'on_sale' => $product->isOnSale(),
-                    'sale_percent' => $product->discountPercent(),
+                    'color' => $product->color,
+                    'ram' => $product->ram,
+                    'storage' => $product->storage,
+                    'selling_price' => $chargePrice,
+                    'list_price' => $listPrice,
+                    'on_sale' => $onSale,
+                    'sale_percent' => $onSale ? $product->discountPercent() : 0,
                     'stock_quantity' => $product->stock_quantity,
+                    'requires_imei' => (bool) $product->requires_imei,
+                    'available_imeis' => $availableImeis,
                     'image' => $imagePath,
                     'image_url' => $imageUrl,
                     'category_id' => $product->category_id,
@@ -144,6 +163,9 @@ class PosController extends Controller
             'openSession',
             'posCounters',
             'defaultPosCounterId',
+            'posEmiEnabled',
+            'posBakiEnabled',
+            'posSaleEnabled',
         ));
     }
 
@@ -187,6 +209,8 @@ class PosController extends Controller
             'cart' => 'required|array',
             'cart.*.id' => 'required|exists:products,id',
             'cart.*.qty' => 'required|integer|min:1',
+            'cart.*.imeis' => 'nullable|array',
+            'cart.*.imeis.*' => 'nullable|string|max:32',
             'payment_method' => 'required|string',
             'paid_amount' => 'required|numeric|min:0',
             'cash_paid' => 'nullable|numeric|min:0',
@@ -204,6 +228,23 @@ class PosController extends Controller
 
         $isBaki = $request->boolean('is_baki');
         $isEmi = $request->boolean('is_emi');
+        $shop = Shop::query()->find($user->shop_id);
+        $posEmiEnabled = (bool) ($shop?->pos_emi_enabled ?? true);
+        $posBakiEnabled = (bool) ($shop?->pos_baki_enabled ?? true);
+        $posSaleEnabled = (bool) ($shop?->pos_sale_enabled ?? true);
+
+        if ($isEmi && ! $posEmiEnabled) {
+            return response()->json([
+                'success' => false,
+                'message' => 'EMI checkout is turned off for this store.',
+            ], 422);
+        }
+        if ($isBaki && ! $posBakiEnabled) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Baki checkout is turned off for this store.',
+            ], 422);
+        }
         if ($isBaki && $isEmi) {
             return response()->json([
                 'success' => false,
@@ -241,16 +282,27 @@ class PosController extends Controller
             $chargeTotal = 0;
             $includesSale = false;
 
-            // 1. Subtotal at list price; charge uses active sale price when in window
+            // 1. Subtotal at list price; charge uses product discount / sale when enabled
             foreach ($request->cart as $item) {
                 $product = Product::where('shop_id', $shopId)->findOrFail($item['id']);
                 if ($product->stock_quantity < $item['qty']) {
                     throw new \Exception("Not enough stock for {$product->name}");
                 }
+                if ($product->requires_imei) {
+                    $imeis = collect($item['imeis'] ?? [])
+                        ->map(fn ($v) => ProductImei::normalize((string) $v))
+                        ->filter()
+                        ->unique()
+                        ->values();
+                    if ($imeis->count() !== (int) $item['qty']) {
+                        throw new \Exception("Select {$item['qty']} IMEI(s) for {$product->name}.");
+                    }
+                }
                 $qty = (int) $item['qty'];
                 $list = (float) $product->selling_price;
-                $charge = $product->currentPrice();
-                if ($product->isOnSale()) {
+                $onSale = $posSaleEnabled && $product->isOnSale();
+                $charge = $onSale ? $product->currentPrice() : $list;
+                if ($onSale) {
                     $includesSale = true;
                 }
                 $totalAmount += $list * $qty;
@@ -260,9 +312,7 @@ class PosController extends Controller
             $chargeTotal = round($chargeTotal, 2);
             $autoSaleDiscount = max(0, round($totalAmount - $chargeTotal, 2));
 
-            if ($includesSale && ($isBaki || $isEmi)) {
-                throw new \Exception('BAKI and EMI are not available when the cart contains sale products.');
-            }
+            // Sale / product discounts may be combined with Baki or EMI (financed on net bill).
 
             // 🚀 EXCHANGE MATH & SECURITY
             $isExchange = $request->is_exchange ?? false;
@@ -468,18 +518,47 @@ class PosController extends Controller
             ]);
 
             // 5. Save Items & Decrease Inventory
+            // 5. Create Order Items + reduce stock
+            $touchedProductIds = [];
             foreach ($request->cart as $item) {
                 $product = Product::where('shop_id', $shopId)->findOrFail($item['id']);
                 $list = (float) $product->selling_price;
                 $subtotal = $list * $item['qty'];
 
-                OrderItem::create([
+                $orderItem = OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $product->id,
                     'quantity' => $item['qty'],
                     'unit_price' => $list,
                     'subtotal' => $subtotal,
                 ]);
+
+                if ($product->requires_imei) {
+                    $imeis = collect($item['imeis'] ?? [])
+                        ->map(fn ($v) => ProductImei::normalize((string) $v))
+                        ->filter()
+                        ->unique()
+                        ->values();
+                    if ($imeis->count() !== (int) $item['qty']) {
+                        throw new \Exception("Select {$item['qty']} IMEI(s) for {$product->name}.");
+                    }
+                    foreach ($imeis as $imei) {
+                        $row = ProductImei::query()
+                            ->where('product_id', $product->id)
+                            ->where('imei', $imei)
+                            ->available()
+                            ->lockForUpdate()
+                            ->first();
+                        if (! $row) {
+                            throw new \Exception("IMEI {$imei} is not available for {$product->name}.");
+                        }
+                        $row->update([
+                            'status' => ProductImei::STATUS_SOLD,
+                            'order_id' => $order->id,
+                            'order_item_id' => $orderItem->id,
+                        ]);
+                    }
+                }
 
                 $this->stock->recordSale(
                     $product,
@@ -489,6 +568,7 @@ class PosController extends Controller
                     'order',
                     $order->id,
                 );
+                $touchedProductIds[] = (int) $product->id;
             }
 
             // 6. Restock returned item on exchange
@@ -504,6 +584,7 @@ class PosController extends Controller
                         'exchange_return',
                         $user->id,
                     );
+                    $touchedProductIds[] = (int) $returnProduct->id;
                 }
             }
 
@@ -547,6 +628,20 @@ class PosController extends Controller
 
             $customer?->refresh();
 
+            $stockUpdates = Product::where('shop_id', $shopId)
+                ->whereIn('id', array_values(array_unique($touchedProductIds)))
+                ->with('availableImeis')
+                ->get()
+                ->map(fn (Product $p) => [
+                    'id' => (int) $p->id,
+                    'stock_quantity' => (int) $p->stock_quantity,
+                    'available_imeis' => $p->requires_imei
+                        ? $p->availableImeis->pluck('imei')->values()->all()
+                        : [],
+                ])
+                ->values()
+                ->all();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Payment completed successfully!',
@@ -564,6 +659,7 @@ class PosController extends Controller
                 'emi_balance' => $customer ? (float) $customer->emi_balance : 0,
                 'baki_balance' => $customer ? (float) $customer->baki_balance : 0,
                 'receipt_url' => route('pos.receipt', $order),
+                'stock_updates' => $stockUpdates,
             ]);
 
         } catch (\Exception $e) {
@@ -718,6 +814,7 @@ class PosController extends Controller
                 $lineGross = 0.0;
                 $chargeGross = 0.0;
                 $includesSale = false;
+                $posSaleEnabled = (bool) (Shop::query()->find($shopId)?->pos_sale_enabled ?? true);
                 $resolvedItems = [];
                 foreach (($offlineOrder['items'] ?? []) as $item) {
                     $product = Product::where('shop_id', $shopId)->find($item['id'] ?? 0);
@@ -729,8 +826,9 @@ class PosController extends Controller
                         throw new \Exception("Insufficient stock for {$product->name} during offline sync.");
                     }
                     $list = (float) $product->selling_price;
-                    $charge = $product->currentPrice();
-                    if ($product->isOnSale()) {
+                    $onSale = $posSaleEnabled && $product->isOnSale();
+                    $charge = $onSale ? $product->currentPrice() : $list;
+                    if ($onSale) {
                         $includesSale = true;
                     }
                     $subtotal = $list * $qty;

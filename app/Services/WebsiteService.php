@@ -192,12 +192,13 @@ class WebsiteService
             ->get()
             ->values();
 
-        // Prefer brands that already have products, but still show newly added active brands.
-        if ($brands->contains(fn (Brand $b) => (int) $b->products_count > 0)) {
-            $withProducts = $brands->filter(fn (Brand $b) => (int) $b->products_count > 0);
-            $newWithoutProducts = $brands->filter(fn (Brand $b) => (int) $b->products_count === 0);
-            $brands = $withProducts->concat($newWithoutProducts)->values();
-        }
+        // Prefer brands with a logo + products first (Gadget Lovers strip).
+        $brands = $brands->sortBy([
+            fn (Brand $b) => filled($b->logo_path) ? 0 : 1,
+            fn (Brand $b) => ((int) $b->products_count > 0) ? 0 : 1,
+            fn (Brand $b) => (int) $b->sort_order,
+            fn (Brand $b) => mb_strtolower($b->name),
+        ])->values();
 
         return [
             'settings' => $settings,
@@ -656,10 +657,13 @@ class WebsiteService
             $colors[] = [
                 'label' => $label,
                 'hex' => $match->swatchHex(),
-                'url' => $available ? route('website.product', $match) : null,
+                'url' => route('website.product', $match),
+                'image' => $this->productImageUrl($match),
                 'active' => $colorKey($product->color) === $key,
                 'product_id' => $match->id,
                 'available' => $available,
+                'barcode' => $match->barcode,
+                'price' => $match->currentPrice(),
             ];
         }
 
@@ -699,22 +703,23 @@ class WebsiteService
 
             $parts = [];
             if ($hasRam) {
-                $parts[] = normalize_memory_size($row->ram) ?? $row->ram;
+                $parts[] = str_replace(' ', '', normalize_memory_size($row->ram) ?? (string) $row->ram);
             }
             if ($hasStorage) {
-                $parts[] = normalize_memory_size($row->storage) ?? $row->storage;
+                $parts[] = str_replace(' ', '', normalize_memory_size($row->storage) ?? (string) $row->storage);
             }
 
             $combos[] = [
-                'label' => implode(' / ', $parts),
+                'label' => implode('/', $parts),
                 'ram' => $hasRam ? (normalize_memory_size($row->ram) ?? $row->ram) : null,
                 'storage' => $hasStorage ? (normalize_memory_size($row->storage) ?? $row->storage) : null,
-                'url' => $available ? route('website.product', $match) : null,
+                'url' => route('website.product', $match),
                 'active' => $ramKey($product->ram) === $ramKey($row->ram)
                     && $storageKey($product->storage) === $storageKey($row->storage),
                 'product_id' => $match->id,
                 'available' => $available,
                 'price' => $match->currentPrice(),
+                'barcode' => $match->barcode,
             ];
         }
 
@@ -738,11 +743,12 @@ class WebsiteService
                 $available = $twins->contains($inStock);
 
                 $storages[] = [
-                    'label' => normalize_memory_size($row->storage) ?? $row->storage,
-                    'url' => $available ? route('website.product', $match) : null,
+                    'label' => str_replace(' ', '', normalize_memory_size($row->storage) ?? (string) $row->storage),
+                    'url' => route('website.product', $match),
                     'active' => $storageKey($product->storage) === $compact,
                     'product_id' => $match->id,
                     'available' => $available,
+                    'price' => $match->currentPrice(),
                 ];
             }
 
@@ -763,11 +769,12 @@ class WebsiteService
                 $available = $twins->contains($inStock);
 
                 $rams[] = [
-                    'label' => normalize_memory_size($row->ram) ?? $row->ram,
-                    'url' => $available ? route('website.product', $match) : null,
+                    'label' => str_replace(' ', '', normalize_memory_size($row->ram) ?? (string) $row->ram),
+                    'url' => route('website.product', $match),
                     'active' => $ramKey($product->ram) === $compact,
                     'product_id' => $match->id,
                     'available' => $available,
+                    'price' => $match->currentPrice(),
                 ];
             }
         }

@@ -42,8 +42,14 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             if ($request->expectsJson() || $request->ajax()) {
+                if ($request->hasSession()) {
+                    $request->session()->regenerateToken();
+                }
+
                 return response()->json([
-                    'message' => 'Your session expired. Please refresh the page and try again.',
+                    'message' => 'Your session expired. Please try again.',
+                    'csrf_mismatch' => true,
+                    'csrf_token' => csrf_token(),
                 ], 419);
             }
 

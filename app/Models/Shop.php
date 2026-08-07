@@ -12,10 +12,14 @@ class Shop extends Model
 
     protected $fillable = [
         'name', 'email', 'phone', 'address', 'is_active',
+        'pos_emi_enabled', 'pos_baki_enabled', 'pos_sale_enabled',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'pos_emi_enabled' => 'boolean',
+        'pos_baki_enabled' => 'boolean',
+        'pos_sale_enabled' => 'boolean',
     ];
 
     protected static function booted(): void

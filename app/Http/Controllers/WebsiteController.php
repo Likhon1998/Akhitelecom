@@ -543,7 +543,7 @@ class WebsiteController extends Controller
     {
         $shopId = $this->website->shopId();
         $published = $product->is_published !== false;
-        abort_unless($shopId && $product->shop_id === $shopId && $product->stock_quantity > 0 && $published, 404);
+        abort_unless($shopId && $product->shop_id === $shopId && $published, 404);
 
         $product->loadMissing(['category', 'brand']);
 

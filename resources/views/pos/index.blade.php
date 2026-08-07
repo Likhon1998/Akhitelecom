@@ -1837,7 +1837,12 @@
                             <span x-text="item.name" :title="item.name"></span>
                             <span class="ci-sale-tag" x-show="item.on_sale" x-cloak>SALE</span>
                         </div>
+                        <div class="ci-sku" x-show="item.color || item.ram || item.storage" x-cloak
+                             x-text="[item.color, [item.ram, item.storage].filter(Boolean).join('/')].filter(Boolean).join(' · ')"></div>
                         <div class="ci-sku" x-show="item.sku || item.barcode" x-text="item.sku || item.barcode" x-cloak></div>
+                        <div class="ci-sku" x-show="item.requires_imei && item.imeis && item.imeis.length" x-cloak
+                             style="color:#c2410c;font-weight:600"
+                             x-text="'IMEI: ' + (item.imeis || []).join(', ')"></div>
                         <div class="ci-unit">
                             <span x-show="item.on_sale && Number(item.list_price) > Number(item.sale_price)" x-cloak style="text-decoration:line-through;color:var(--text-3);margin-right:6px">
                                 Tk<span x-text="formatNumber(item.list_price)"></span>
@@ -1895,49 +1900,47 @@
 
                 <div class="field-label" style="margin-top:4px">Credit mode</div>
                 <div class="credit-mode-grid">
-                    <div class="credit-mode-card"
-                         :class="{ 'is-baki-on': isBaki, 'is-disabled': hasSaleItems() }">
+                    <div class="credit-mode-card" x-show="posBakiEnabled" x-cloak
+                         :class="{ 'is-baki-on': isBaki }">
                         <div class="credit-mode-top">
                             <div>
                                 <div class="credit-mode-title">Baki</div>
-                                <div class="credit-mode-sub" x-text="hasSaleItems() ? 'Not for sale items' : (isBaki ? 'Pay later credit' : 'Off')"></div>
+                                <div class="credit-mode-sub" x-text="isBaki ? 'Pay later credit' : 'Off'"></div>
                             </div>
                             <button type="button"
                                     class="credit-toggle"
                                     :class="{ 'is-on-baki': isBaki }"
-                                    :disabled="hasSaleItems()"
                                     @click="toggleBaki()"
                                     x-text="isBaki ? 'ON' : 'OFF'"></button>
                         </div>
-                        <div x-show="customerBakiBalance > 0 && !hasSaleItems()" x-cloak style="font-size:11px;font-weight:700;color:#b45309">
+                        <div x-show="customerBakiBalance > 0" x-cloak style="font-size:11px;font-weight:700;color:#b45309">
                             Due: Tk<span x-text="formatNumber(customerBakiBalance)"></span>
                         </div>
                     </div>
 
-                    <div class="credit-mode-card"
-                         :class="{ 'is-emi-on': isEmi, 'is-disabled': hasSaleItems() }">
+                    <div class="credit-mode-card" x-show="posEmiEnabled" x-cloak
+                         :class="{ 'is-emi-on': isEmi }">
                         <div class="credit-mode-top">
                             <div>
                                 <div class="credit-mode-title">EMI</div>
-                                <div class="credit-mode-sub" x-text="hasSaleItems() ? 'Not for sale items' : (isEmi ? 'Installment plan' : 'Off')"></div>
+                                <div class="credit-mode-sub" x-text="isEmi ? 'Installment plan' : 'Off'"></div>
                             </div>
                             <button type="button"
                                     class="credit-toggle"
                                     :class="{ 'is-on-emi': isEmi }"
-                                    :disabled="hasSaleItems()"
                                     @click="toggleEmi()"
                                     x-text="isEmi ? 'ON' : 'OFF'"></button>
                         </div>
-                        <div x-show="customerEmiBalance > 0 && !hasSaleItems()" x-cloak style="font-size:11px;font-weight:700;color:#4338ca">
+                        <div x-show="customerEmiBalance > 0" x-cloak style="font-size:11px;font-weight:700;color:#4338ca">
                             Due: Tk<span x-text="formatNumber(customerEmiBalance)"></span>
                         </div>
                     </div>
                 </div>
-                <p class="credit-mode-note" x-show="hasSaleItems()" x-cloak>
-                    Sale products cannot use BAKI or EMI. Remove sale items to enable.
+                <p class="credit-mode-note" x-show="!posEmiEnabled && !posBakiEnabled" x-cloak>
+                    EMI and Baki are turned off in POS Modes.
                 </p>
 
-                <div class="emi-options" x-show="isEmi && !hasSaleItems()" x-cloak>
+                <div class="emi-options" x-show="isEmi && posEmiEnabled" x-cloak>
                     <div class="emi-options-grid">
                         <div>
                             <label class="field-label" style="margin-bottom:4px">Months</label>
@@ -2153,6 +2156,46 @@
                         Pay now
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IMEI PICKER MODAL -->
+    <div x-show="imeiModalOpen" style="display:none" class="modal-overlay"
+         x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div class="modal-bg" @click="cancelImeiPick()"></div>
+        <div class="modal" style="max-width:420px;width:92%"
+             x-show="imeiModalOpen"
+             @keydown.enter.prevent="confirmImeiPick()"
+             x-transition:enter="ease-out duration-250" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
+            <div class="modal-head">
+                <div>
+                    <div class="modal-title">Enter / select IMEI</div>
+                    <div class="modal-subtitle" x-text="imeiPickProduct?.name || ''"></div>
+                </div>
+                <button type="button" @click="cancelImeiPick()" class="modal-close" aria-label="Close">×</button>
+            </div>
+            <div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px">
+                <div x-show="imeiPickOptions.length" x-cloak>
+                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px">Available IMEIs</label>
+                    <select x-model="imeiPickValue" class="form-control" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e2e8f0;font-family:var(--mono)">
+                        <option value="">— Select IMEI —</option>
+                        <template x-for="im in imeiPickOptions" :key="im">
+                            <option :value="im" x-text="im"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px">Or type / scan IMEI</label>
+                    <input type="text" x-model="imeiPickValue" x-ref="imeiInput"
+                           placeholder="15-digit IMEI…"
+                           style="width:100%;padding:10px;border-radius:8px;border:1px solid #e2e8f0;font-family:var(--mono);font-size:14px">
+                </div>
+            </div>
+            <div class="modal-foot" style="display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid #e2e8f0">
+                <button type="button" class="modal-cancel" @click="cancelImeiPick()">Cancel</button>
+                <button type="button" class="modal-confirm" style="background:#ea580c" @click="confirmImeiPick()">Add to cart</button>
             </div>
         </div>
     </div>
@@ -2655,6 +2698,12 @@ function posSystem() {
         products: @json($products),
         cart: [],
         lastAddedId: null,
+        imeiModalOpen: false,
+        imeiPickProduct: null,
+        imeiPickValue: '',
+        imeiPickOptions: [],
+        imeiPickMode: 'add', // add | bump
+        imeiPickCartIndex: null,
 
         /* â”€â”€ Customer â”€â”€ */
         customerName: '',
@@ -2666,6 +2715,9 @@ function posSystem() {
         isEmi: false,
         emiMonths: 3,
         emiDownPayment: 0,
+        posEmiEnabled: @json((bool) ($posEmiEnabled ?? true)),
+        posBakiEnabled: @json((bool) ($posBakiEnabled ?? true)),
+        posSaleEnabled: @json((bool) ($posSaleEnabled ?? true)),
 
         /* â”€â”€ Discount â”€â”€ */
         discountType: 'percent',
@@ -3284,8 +3336,8 @@ function posSystem() {
         },
 
         toggleBaki() {
-            if (this.hasSaleItems()) {
-                this.showToast('BAKI is not available for sale products.', 'warning');
+            if (!this.posBakiEnabled) {
+                this.showToast('Baki is turned off in POS Modes.', 'warning');
                 return;
             }
             this.isBaki = !this.isBaki;
@@ -3296,8 +3348,8 @@ function posSystem() {
         },
 
         toggleEmi() {
-            if (this.hasSaleItems()) {
-                this.showToast('EMI is not available for sale products.', 'warning');
+            if (!this.posEmiEnabled) {
+                this.showToast('EMI is turned off in POS Modes.', 'warning');
                 return;
             }
             this.isEmi = !this.isEmi;
@@ -3318,10 +3370,131 @@ function posSystem() {
                 this.showToast(product.name + ' is out of stock!', 'error');
                 return;
             }
+            if (product.requires_imei) {
+                this.openImeiPicker(product, 'add');
+                return;
+            }
+            this.pushCartLine(product, null);
+        },
+
+        openImeiPicker(product, mode = 'add', cartIndex = null) {
+            const used = this.cartImeisInUse(product.id);
+            const pool = (product.available_imeis || []).filter(im => !used.includes(String(im)));
+            if (pool.length === 0 && !(product.available_imeis || []).length) {
+                // No preloaded list — still allow manual entry
+            } else if (pool.length === 0) {
+                this.playBeep(false);
+                this.showToast('No unused IMEIs left for ' + product.name, 'warning');
+                return;
+            }
+            this.imeiPickProduct = product;
+            this.imeiPickMode = mode;
+            this.imeiPickCartIndex = cartIndex;
+            this.imeiPickOptions = pool;
+            this.imeiPickValue = pool.length === 1 ? pool[0] : '';
+            this.imeiModalOpen = true;
+            this.$nextTick(() => this.$refs.imeiInput?.focus());
+        },
+
+        cancelImeiPick() {
+            this.imeiModalOpen = false;
+            this.imeiPickProduct = null;
+            this.imeiPickValue = '';
+            this.imeiPickOptions = [];
+            this.imeiPickCartIndex = null;
+        },
+
+        confirmImeiPick() {
+            const imei = String(this.imeiPickValue || '').replace(/\s+/g, '').trim();
+            if (!imei) {
+                this.showToast('Enter or select an IMEI', 'warning');
+                return;
+            }
+            if (this.cartImeisInUse().includes(imei)) {
+                this.showToast('IMEI already in cart', 'warning');
+                return;
+            }
+            const product = this.imeiPickProduct;
+            if (!product) return;
+
+            if (this.imeiPickMode === 'bump' && this.imeiPickCartIndex != null) {
+                const item = this.cart[this.imeiPickCartIndex];
+                if (!item) { this.cancelImeiPick(); return; }
+                if (item.qty >= item.max_stock) {
+                    this.showToast('Maximum stock reached for ' + item.name, 'warning');
+                    this.cancelImeiPick();
+                    return;
+                }
+                item.imeis = [...(item.imeis || []), imei];
+                item.qty = item.imeis.length;
+                this.lastAddedId = item.id;
+                this.playBeep(true);
+            } else {
+                this.pushCartLine(product, imei);
+            }
+            this.cancelImeiPick();
+            this.syncSaleDiscount();
+            this.search = '';
+            this.$refs.searchInput?.focus();
+        },
+
+        cartImeisInUse(productId = null) {
+            const list = [];
+            for (const item of this.cart) {
+                if (productId != null && item.id !== productId) continue;
+                for (const im of (item.imeis || [])) list.push(String(im));
+            }
+            return list;
+        },
+
+        pushCartLine(product, imei) {
             const onSale = !!product.on_sale;
             const listPrice = Number(product.list_price ?? product.selling_price) || 0;
             const salePrice = Number(product.selling_price) || 0;
             const existing = this.cart.find(i => i.id === product.id);
+
+            if (product.requires_imei) {
+                if (existing) {
+                    if (existing.qty >= product.stock_quantity) {
+                        this.playBeep(false);
+                        this.showToast('Maximum stock reached for ' + product.name, 'warning');
+                        return;
+                    }
+                    existing.imeis = [...(existing.imeis || []), imei];
+                    existing.qty = existing.imeis.length;
+                    this.lastAddedId = product.id;
+                    this.playBeep(true);
+                } else {
+                    this.cart.push({
+                        id: product.id,
+                        name: product.name,
+                        price: onSale ? listPrice : salePrice,
+                        list_price: listPrice,
+                        sale_price: onSale ? salePrice : salePrice,
+                        on_sale: onSale,
+                        sale_percent: Number(product.sale_percent) || 0,
+                        qty: 1,
+                        max_stock: product.stock_quantity,
+                        image: product.image || null,
+                        image_url: product.image_url || this.productImageSrc(product) || this.fallbackImageFor(product),
+                        sku: product.sku || null,
+                        barcode: product.barcode || null,
+                        category_name: product.category_name || null,
+                        requires_imei: true,
+                        imeis: [imei],
+                        color: product.color || null,
+                        ram: product.ram || null,
+                        storage: product.storage || null,
+                    });
+                    this.lastAddedId = product.id;
+                    this.playBeep(true);
+                }
+                this.syncSaleDiscount();
+                this.search = '';
+                this.$refs.searchInput?.focus();
+                return;
+            }
+
             if (existing) {
                 if (existing.qty < product.stock_quantity) {
                     existing.qty++;
@@ -3348,6 +3521,11 @@ function posSystem() {
                     sku: product.sku || null,
                     barcode: product.barcode || null,
                     category_name: product.category_name || null,
+                    requires_imei: false,
+                    imeis: [],
+                    color: product.color || null,
+                    ram: product.ram || null,
+                    storage: product.storage || null,
                 });
                 this.lastAddedId = product.id;
                 this.playBeep(true);
@@ -3371,7 +3549,7 @@ function posSystem() {
         },
 
         hasSaleItems() {
-            return this.cart.some(i => i.on_sale);
+            return this.posSaleEnabled && this.cart.some(i => i.on_sale);
         },
 
         getSaleSavings() {
@@ -3433,6 +3611,27 @@ function posSystem() {
         updateQty(index, amount) {
             const item   = this.cart[index];
             if (!item) return;
+            if (item.requires_imei) {
+                if (amount > 0) {
+                    const product = this.products.find(p => p.id === item.id);
+                    if (!product) return;
+                    this.openImeiPicker(product, 'bump', index);
+                    return;
+                }
+                // decrease: drop last IMEI
+                const newQty = item.qty + amount;
+                if (newQty <= 0) {
+                    if (this.lastAddedId === item.id) this.lastAddedId = null;
+                    this.cart.splice(index, 1);
+                    if (this.cart.length === 0) this.cartViewModalOpen = false;
+                } else {
+                    item.imeis = (item.imeis || []).slice(0, -1);
+                    item.qty = item.imeis.length;
+                    this.lastAddedId = item.id;
+                }
+                this.syncSaleDiscount();
+                return;
+            }
             const newQty = item.qty + amount;
             if (newQty <= 0) {
                 if (this.lastAddedId === item.id) this.lastAddedId = null;
@@ -3451,6 +3650,10 @@ function posSystem() {
         setCartQty(index, value) {
             const item = this.cart[index];
             if (!item) return;
+            if (item.requires_imei) {
+                this.showToast('Use + / − to add or remove IMEIs for this phone', 'info');
+                return;
+            }
             let qty = Math.floor(Number(value));
             if (!Number.isFinite(qty) || qty < 1) qty = 1;
             if (qty > item.max_stock) {
@@ -3754,16 +3957,14 @@ openCheckout() {
                     this.showToast('EMI cannot be combined with exchange.', 'error');
                     return;
                 }
-                if (this.hasSaleItems()) {
-                    this.showToast('EMI is not available for sale products.', 'error');
+            }
+            if (this.hasLowStockItems()) this.showToast('! Some items are at stock limit - check before confirming', 'warning');
+            for (const item of this.cart) {
+                if (item.requires_imei && (!item.imeis || item.imeis.length !== item.qty)) {
+                    this.showToast('IMEI missing for ' + item.name, 'error');
                     return;
                 }
             }
-            if (this.isBaki && this.hasSaleItems()) {
-                this.showToast('BAKI is not available for sale products.', 'error');
-                return;
-            }
-            if (this.hasLowStockItems()) this.showToast('! Some items are at stock limit - check before confirming', 'warning');
             // Leave cash empty so cashier types what the customer pays; Exact fills bill total
             this.payCash  = '';
             this.payCard  = 0;
@@ -3839,6 +4040,13 @@ openCheckout() {
 
                     if (res.ok && data.success) {
                         this.playBeep(true);
+                        const soldItems = JSON.parse(JSON.stringify(this.cart));
+                        // Instant local stock update — no page reload needed
+                        this.applyStockUpdates(data.stock_updates, soldItems, {
+                            return_product_id: this.isExchangeMode ? this.returnProductId : null,
+                            return_qty: this.isExchangeMode ? this.returnQty : 0,
+                        });
+
                         const paidSnap = this.getPaidAmount();
                         const lessSnap = this.getLessAmount();
                         const bakiLeftSnap = data.baki_balance ?? this.getBakiLeft();
@@ -3910,6 +4118,55 @@ openCheckout() {
             this.isProcessing = false;
         },
 
+        /**
+         * Keep product grid stock in sync after a sale without reloading POS.
+         * Prefer server stock_updates when present; otherwise deduct from sold cart lines.
+         */
+        applyStockUpdates(serverUpdates, soldItems = [], exchange = {}) {
+            const byId = {};
+
+            (soldItems || []).forEach((item) => {
+                const id = Number(item.id);
+                if (!id) return;
+                byId[id] = (byId[id] || 0) + (Number(item.qty) || 0);
+            });
+
+            Object.entries(byId).forEach(([id, qty]) => {
+                const product = this.products.find(p => Number(p.id) === Number(id));
+                if (!product) return;
+                product.stock_quantity = Math.max(0, (Number(product.stock_quantity) || 0) - qty);
+            });
+
+            const returnId = Number(exchange?.return_product_id || 0);
+            const returnQty = Number(exchange?.return_qty || 0);
+            if (returnId && returnQty > 0) {
+                const returned = this.products.find(p => Number(p.id) === returnId);
+                if (returned) {
+                    returned.stock_quantity = (Number(returned.stock_quantity) || 0) + returnQty;
+                }
+            }
+
+            if (Array.isArray(serverUpdates) && serverUpdates.length) {
+                serverUpdates.forEach((row) => {
+                    const product = this.products.find(p => Number(p.id) === Number(row.id));
+                    if (!product || row.stock_quantity == null) return;
+                    product.stock_quantity = Math.max(0, Number(row.stock_quantity) || 0);
+                    if (Array.isArray(row.available_imeis)) {
+                        product.available_imeis = row.available_imeis;
+                    }
+                });
+            }
+
+            // Keep open cart line limits honest if same SKU is still in another held cart later
+            this.cart.forEach((item) => {
+                const product = this.products.find(p => Number(p.id) === Number(item.id));
+                if (product) {
+                    item.max_stock = Number(product.stock_quantity) || 0;
+                    if (item.qty > item.max_stock) item.qty = item.max_stock;
+                }
+            });
+        },
+
         saveOfflineSale(payload) {
             if (this.isExchangeMode) {
                 this.showToast('Cannot process exchanges while offline.', 'error');
@@ -3933,12 +4190,7 @@ openCheckout() {
             this.offlinePendingTick++;
 
             // Reduce local stock so POS stays accurate until sync
-            cartSnap.forEach(item => {
-                const product = this.products.find(p => p.id === item.id);
-                if (product) {
-                    product.stock_quantity = Math.max(0, (Number(product.stock_quantity) || 0) - (Number(item.qty) || 0));
-                }
-            });
+            this.applyStockUpdates(null, cartSnap);
 
             const receiptHtml = this.buildOfflineReceiptHtml({
                 invoiceNo,
