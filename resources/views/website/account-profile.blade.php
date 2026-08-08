@@ -80,9 +80,9 @@
                         </button>
                     </div>
                     <div class="ap-identity-meta min-w-0">
-                        <h3 class="truncate" x-text="previewName"></h3>
-                        <p class="truncate" x-text="previewEmail"></p>
-                        <p class="truncate" x-text="previewPhone"></p>
+                        <h3 x-text="previewName"></h3>
+                        <p x-text="previewEmail"></p>
+                        <p x-text="previewPhone"></p>
                     </div>
                 </div>
                 <button type="button" class="ap-btn-secondary w-full" @click="document.getElementById('avatar').click()">

@@ -18,10 +18,10 @@
                 @endif
             </div>
             <div class="acct-sidebar-meta min-w-0">
-                <p class="acct-sidebar-name truncate">{{ $displayName }}</p>
-                <p class="acct-sidebar-email truncate">{{ auth()->user()->email }}</p>
+                <p class="acct-sidebar-name">{{ $displayName }}</p>
+                <p class="acct-sidebar-email">{{ auth()->user()->email }}</p>
                 @if($customer?->phone)
-                    <p class="acct-sidebar-phone truncate">{{ $customer->phone_country_code ? $customer->phone_country_code.' ' : '' }}{{ $customer->phone }}</p>
+                    <p class="acct-sidebar-phone">{{ $customer->phone_country_code ? $customer->phone_country_code.' ' : '' }}{{ $customer->phone }}</p>
                 @endif
             </div>
         </div>

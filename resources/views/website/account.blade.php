@@ -116,17 +116,18 @@
         setInterval(() => { if (document.visibilityState === 'visible' && !detailOpen) window.location.reload(); }, 30000)
      "
      @keydown.escape.window="closeDetail()">
-    <div class="grid gap-4 xl:grid-cols-[250px_minmax(0,1fr)]">
-        <div class="space-y-4">
+    <div class="acct-page max-w-[1280px] mx-auto px-3 sm:px-4 md:px-5 py-4 sm:py-6">
+    <div class="grid gap-4 xl:grid-cols-[250px_minmax(0,1fr)] min-w-0">
+        <div class="space-y-4 min-w-0 order-2 xl:order-1">
             @include('website.partials.account-sidebar', ['activeMenu' => 'dashboard', 'customer' => $customer, 'activeOrder' => $activeOrder])
-            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hidden sm:block">
                 <p class="text-[15px] font-bold text-slate-900">Exclusive Member Benefits</p>
                 <p class="mt-1 text-[11px] text-slate-500">Get special offers and faster checkout.</p>
                 <a href="{{ route('website.shop') }}" class="mt-3 inline-flex text-[13px] font-semibold text-blue-600 hover:text-blue-700">Explore Benefits →</a>
             </div>
         </div>
 
-        <section class="space-y-4">
+        <section class="space-y-4 min-w-0 order-1 xl:order-2">
             @if(session('profile_success'))
                 <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[12px] font-semibold text-emerald-700">
                     {{ session('profile_success') }}
@@ -151,8 +152,8 @@
                 </div>
             @endif
 
-            <div>
-                <h1 class="text-[31px] font-extrabold tracking-tight text-slate-900">Welcome back, {{ $firstName }}!</h1>
+            <div class="min-w-0">
+                <h1 class="acct-welcome-title">Welcome back, {{ $firstName }}!</h1>
                 <p class="mt-0.5 text-[13px] text-slate-500">Here’s what’s happening with your account today.</p>
             </div>
 
@@ -614,6 +615,7 @@
                 </div>
             </template>
         </div>
+    </div>
     </div>
 </div>
 @endsection
