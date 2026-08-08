@@ -3385,6 +3385,33 @@ body.gaget-store {
 .acct-page .gaget-progress__label {
     overflow-wrap: anywhere;
 }
+
+/* Order details popup — full width bottom sheet on phones */
+.acct-order-modal {
+    max-width: 100%;
+}
+@media (max-width: 639px) {
+    .gaget-progress--modal .gaget-progress__dot {
+        width: 26px;
+        height: 26px;
+        font-size: 10px;
+        box-shadow: 0 0 0 3px #fff;
+    }
+    .gaget-progress--modal .gaget-progress__step.is-active .gaget-progress__dot {
+        box-shadow: 0 0 0 3px #fff, 0 0 0 5px rgba(245, 158, 11, 0.22);
+    }
+    .gaget-progress--modal .gaget-progress__rail { top: 15px; }
+    .gaget-progress--modal .gaget-progress__label {
+        font-size: 8.5px;
+        line-height: 1.2;
+        margin-top: 8px;
+        padding: 0 1px;
+    }
+    .gaget-progress--modal .gaget-progress__meta {
+        font-size: 7.5px;
+        line-height: 1.2;
+    }
+}
 .acct-sidebar-edit { display: inline-flex; margin-top: 0.75rem; font-size: 0.6875rem; font-weight: 700; color: #2563eb; text-decoration: none; }
 .acct-sidebar-edit:hover { color: #1d4ed8; }
 .acct-nav-wrap { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #f1f5f9; }

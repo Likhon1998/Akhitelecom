@@ -568,39 +568,41 @@
     </div>
 
     {{-- Order details modal --}}
-    <div x-show="detailOpen" x-cloak class="fixed inset-0 z-[80] flex items-center justify-center p-4" @keydown.escape.window="closeDetail()">
+    <div x-show="detailOpen" x-cloak
+         class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4"
+         @keydown.escape.window="closeDetail()">
         <div class="absolute inset-0 bg-slate-900/50" @click="closeDetail()"></div>
-        <div class="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
+        <div class="acct-order-modal relative w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl"
              @click.outside="closeDetail()"
              x-show="detailOpen"
              x-transition:enter="transition ease-out duration-150"
-             x-transition:enter-start="opacity-0 translate-y-2"
+             x-transition:enter-start="opacity-0 translate-y-3 sm:translate-y-2"
              x-transition:enter-end="opacity-100 translate-y-0">
             <template x-if="detail">
-                <div>
-                    <div class="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-100 bg-white px-5 py-4">
+                <div class="min-w-0">
+                    <div class="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-100 bg-white px-4 sm:px-5 py-4">
                         <div class="min-w-0">
                             <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Order ID</p>
-                            <h3 class="mt-0.5 truncate text-[18px] font-extrabold text-slate-900" x-text="detail.invoice"></h3>
+                            <h3 class="mt-0.5 break-all text-[17px] sm:text-[18px] font-extrabold text-slate-900" x-text="detail.invoice"></h3>
                             <p class="text-[11px] text-slate-500" x-show="detail.id" x-text="'Ref #' + detail.id"></p>
                             <p class="mt-0.5 text-[12px] text-slate-500" x-text="'Placed ' + detail.datetime"></p>
                         </div>
-                        <button type="button" @click="closeDetail()" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
+                        <button type="button" @click="closeDetail()" class="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </div>
 
-                    <div class="space-y-4 px-5 py-4">
+                    <div class="space-y-4 px-4 sm:px-5 py-4 min-w-0">
                         <div class="flex flex-wrap items-center justify-between gap-2">
                             <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold" :class="statusClass(detail.status)" x-text="detail.status_label"></span>
                             <p class="text-[15px] font-extrabold text-slate-900" x-text="'{{ $currency }}' + detail.total"></p>
                         </div>
 
-                        <p class="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-[12px] font-medium text-blue-800" x-text="detail.where" x-show="detail.where"></p>
+                        <p class="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-[12px] font-medium text-blue-800 break-words" x-text="detail.where" x-show="detail.where"></p>
 
-                        <div class="rounded-xl border border-slate-100 bg-white p-3">
+                        <div class="rounded-xl border border-slate-100 bg-white p-3 min-w-0 overflow-hidden">
                             <p class="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-400">Tracking</p>
-                            <div class="gaget-progress" aria-label="Order progress">
+                            <div class="gaget-progress gaget-progress--modal" aria-label="Order progress">
                                 <div class="gaget-progress__rail" aria-hidden="true">
                                     <div class="gaget-progress__fill" :style="'width:' + progressPct(detail) + '%'"></div>
                                 </div>
@@ -617,13 +619,13 @@
                             </div>
                         </div>
 
-                        <div>
+                        <div class="min-w-0">
                             <p class="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">Items</p>
                             <div class="divide-y divide-slate-100 rounded-xl border border-slate-100">
                                 <template x-for="(item, i) in detail.items" :key="'item-' + i">
-                                    <div class="flex items-start justify-between gap-3 px-3 py-2.5 text-[13px]">
-                                        <div class="min-w-0">
-                                            <p class="font-semibold text-slate-900" x-text="item.name"></p>
+                                    <div class="flex items-start justify-between gap-3 px-3 py-2.5 text-[13px] min-w-0">
+                                        <div class="min-w-0 flex-1">
+                                            <p class="font-semibold text-slate-900 break-words" x-text="item.name"></p>
                                             <p class="text-[11px] text-slate-500" x-text="'Qty ' + item.qty"></p>
                                         </div>
                                         <p class="shrink-0 font-bold text-slate-900" x-text="'{{ $currency }}' + item.subtotal"></p>
@@ -632,20 +634,20 @@
                             </div>
                         </div>
 
-                        <div class="grid gap-2 sm:grid-cols-2">
-                            <div class="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+                        <div class="grid gap-2 grid-cols-1 sm:grid-cols-2 min-w-0">
+                            <div class="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 min-w-0">
                                 <p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Courier</p>
-                                <p class="mt-1 text-[12px] font-semibold text-slate-800" x-text="detail.courier || 'Our store / packing desk'"></p>
-                                <p class="mt-0.5 font-mono text-[11px] text-slate-500" x-show="detail.tracking_no" x-text="detail.tracking_no"></p>
+                                <p class="mt-1 text-[12px] font-semibold text-slate-800 break-words" x-text="detail.courier || 'Our store / packing desk'"></p>
+                                <p class="mt-0.5 font-mono text-[11px] text-slate-500 break-all" x-show="detail.tracking_no" x-text="detail.tracking_no"></p>
                             </div>
-                            <div class="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+                            <div class="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 min-w-0">
                                 <p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Delivery address</p>
-                                <p class="mt-1 line-clamp-3 text-[12px] font-semibold text-slate-800" x-text="detail.address"></p>
+                                <p class="mt-1 text-[12px] font-semibold text-slate-800 break-words" x-text="detail.address"></p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="sticky bottom-0 flex flex-wrap gap-2 border-t border-slate-100 bg-white px-5 py-3">
+                    <div class="sticky bottom-0 flex flex-wrap gap-2 border-t border-slate-100 bg-white px-4 sm:px-5 py-3">
                         <button type="button" @click="closeDetail()" class="gaget-btn-primary flex-1 text-[13px] py-2.5">Close</button>
                     </div>
                 </div>
