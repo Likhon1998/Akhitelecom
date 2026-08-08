@@ -113,7 +113,6 @@
                 document.getElementById('recent-orders')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 120);
         @endif
-        setInterval(() => { if (document.visibilityState === 'visible' && !detailOpen) window.location.reload(); }, 30000)
      "
      @keydown.escape.window="closeDetail()">
     <div class="acct-page max-w-[1280px] mx-auto px-3 sm:px-4 md:px-5 py-4 sm:py-6">
@@ -208,9 +207,9 @@
                 </div>
             </div>
 
-            <div class="grid gap-4 xl:grid-cols-[minmax(0,1.52fr)_340px]">
-                <div class="space-y-4">
-                    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+            <div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.52fr)_minmax(0,340px)] min-w-0">
+                <div class="space-y-4 min-w-0">
+                    <div class="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-w-0"
                          x-data="{
                             slides: @js($activeOrderSlides ?? []),
                             index: 0,
@@ -386,22 +385,59 @@
                     </div>
                     </div>
 
-                    <div id="recent-orders" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div class="mb-3 flex items-center justify-between gap-4">
-                    <div>
+                    <div id="recent-orders" class="acct-orders rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-w-0">
+                <div class="mb-3 flex items-center justify-between gap-3 min-w-0">
+                    <div class="min-w-0">
                         <h2 class="text-[15px] font-bold text-slate-900">Recent Orders</h2>
                     </div>
-                    <a href="#recent-orders" class="text-[11px] font-bold text-blue-600 hover:text-blue-700">View All Orders →</a>
+                    <a href="#recent-orders" class="shrink-0 text-[11px] font-bold text-blue-600 hover:text-blue-700">View all</a>
                 </div>
 
                 @if($recentOrders->isEmpty())
-                    <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center">
+                    <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
                         <p class="text-[13px] font-semibold text-slate-700">No orders yet.</p>
                         <p class="mt-1 text-xs text-slate-500">When you place a website order, it will appear here immediately.</p>
                     </div>
                 @else
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full text-[13px]">
+                    {{-- Mobile cards --}}
+                    <div class="acct-order-cards space-y-3 md:hidden">
+                        @foreach($recentOrders as $order)
+                            @php $track = $orderTracking[$order->id] ?? null; @endphp
+                            <div class="acct-order-card {{ $highlightOrderId && (int) $highlightOrderId === (int) $order->id ? 'gaget-order-row-highlight' : '' }}">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <p class="text-[13px] font-bold text-slate-900 break-all">{{ $order->invoice_no }}</p>
+                                        <p class="text-[10px] text-slate-400">#{{ $order->id }} · {{ asian_date($order->created_at, 'M j, Y') }}</p>
+                                    </div>
+                                    <span class="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-extrabold
+                                        @if($order->status === 'completed') bg-emerald-100 text-emerald-700
+                                        @elseif($order->status === 'shipped') bg-sky-100 text-sky-800
+                                        @elseif($order->status === 'processing') bg-amber-100 text-amber-800
+                                        @elseif($order->status === 'pending') bg-orange-100 text-orange-800
+                                        @elseif(in_array($order->status, ['cancelled', 'returned', 'refunded'])) bg-rose-100 text-rose-700
+                                        @else bg-slate-100 text-slate-700 @endif">
+                                        {{ $track['status_label'] ?? ucfirst($order->status) }}
+                                    </span>
+                                </div>
+                                <p class="mt-2 text-[12px] font-medium text-slate-700 break-words">
+                                    {{ $order->items->first()?->product?->name ?? 'Product' }}
+                                    <span class="text-slate-400">· {{ $order->items->sum('quantity') }} item(s)</span>
+                                </p>
+                                <div class="mt-3 flex items-center justify-between gap-2">
+                                    <p class="text-[14px] font-extrabold text-slate-900">{{ $currency }}{{ number_format($order->total_amount, 2) }}</p>
+                                    <button type="button"
+                                            @click="openDetail({{ $order->id }})"
+                                            class="shrink-0 inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700">
+                                        View Details
+                                    </button>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    {{-- Desktop table --}}
+                    <div class="hidden md:block overflow-x-auto max-w-full">
+                        <table class="w-full text-[13px]">
                             <thead class="border-b border-slate-100 text-[10px] uppercase tracking-wide text-slate-400">
                                 <tr>
                                     <th class="px-2 py-2.5 text-left">Order ID</th>
@@ -417,20 +453,20 @@
                                     @php $track = $orderTracking[$order->id] ?? null; @endphp
                                     <tr class="{{ $highlightOrderId && (int) $highlightOrderId === (int) $order->id ? 'gaget-order-row-highlight' : '' }}">
                                         <td class="px-2 py-3 font-semibold text-slate-900">
-                                            <span class="block">{{ $order->invoice_no }}</span>
+                                            <span class="block break-all">{{ $order->invoice_no }}</span>
                                             <span class="text-[10px] font-medium text-slate-400">#{{ $order->id }}</span>
                                         </td>
-                                        <td class="px-2 py-3 text-slate-600">{{ asian_date($order->created_at, 'M j, Y') }}</td>
+                                        <td class="px-2 py-3 text-slate-600 whitespace-nowrap">{{ asian_date($order->created_at, 'M j, Y') }}</td>
                                         <td class="px-2 py-3">
-                                            <div class="flex items-center gap-2.5">
-                                                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-50 text-base">📦</div>
+                                            <div class="flex items-center gap-2.5 min-w-0">
+                                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-base">📦</div>
                                                 <div class="min-w-0">
                                                     <p class="truncate font-medium text-slate-800">{{ $order->items->first()?->product?->name ?? 'Product' }}</p>
                                                     <p class="text-[11px] text-slate-500">{{ $order->items->sum('quantity') }} item(s)</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="px-2 py-3 text-right font-bold text-slate-900">{{ $currency }}{{ number_format($order->total_amount, 2) }}</td>
+                                        <td class="px-2 py-3 text-right font-bold text-slate-900 whitespace-nowrap">{{ $currency }}{{ number_format($order->total_amount, 2) }}</td>
                                         <td class="px-2 py-3">
                                             <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-extrabold
                                                 @if($order->status === 'completed') bg-emerald-100 text-emerald-700
@@ -439,9 +475,6 @@
                                                 @elseif($order->status === 'pending') bg-orange-100 text-orange-800
                                                 @elseif(in_array($order->status, ['cancelled', 'returned', 'refunded'])) bg-rose-100 text-rose-700
                                                 @else bg-slate-100 text-slate-700 @endif">
-                                                @if(in_array($order->status, ['pending', 'processing', 'shipped'], true))
-                                                    <span class="h-1.5 w-1.5 rounded-full bg-current animate-pulse"></span>
-                                                @endif
                                                 {{ $track['status_label'] ?? ucfirst($order->status) }}
                                             </span>
                                         </td>
@@ -461,70 +494,70 @@
             </div>
                 </div>
 
-                <div class="space-y-4">
-                    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div class="space-y-4 min-w-0">
+                    <div class="acct-info-card rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-w-0">
                         <h2 class="text-[15px] font-bold text-slate-900">Account Overview</h2>
                         <div class="mt-3 space-y-3 text-[13px]">
-                            <div class="flex items-start justify-between gap-4 border-b border-slate-100 pb-3">
-                                <div>
+                            <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 min-w-0">
+                                <div class="min-w-0">
                                     <p class="text-[10px] uppercase tracking-wide text-slate-400">Name</p>
-                                    <p class="mt-1 font-semibold text-slate-900">{{ $customer?->name ?? auth()->user()->name }}</p>
+                                    <p class="mt-1 font-semibold text-slate-900 break-words">{{ $customer?->name ?? auth()->user()->name }}</p>
                                 </div>
-                                <a href="{{ route('website.account.profile.edit') }}" class="text-slate-400 hover:text-blue-600" title="Edit">✎</a>
+                                <a href="{{ route('website.account.profile.edit') }}" class="shrink-0 text-slate-400 hover:text-blue-600" title="Edit">✎</a>
                             </div>
-                            <div class="flex items-start justify-between gap-4 border-b border-slate-100 pb-3">
-                                <div>
+                            <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 min-w-0">
+                                <div class="min-w-0">
                                     <p class="text-[10px] uppercase tracking-wide text-slate-400">Email</p>
-                                    <p class="mt-1 font-semibold text-slate-900">{{ auth()->user()->email }}</p>
+                                    <p class="mt-1 font-semibold text-slate-900 break-all">{{ auth()->user()->email }}</p>
                                 </div>
-                                <a href="{{ route('website.account.profile.edit') }}" class="text-slate-400 hover:text-blue-600" title="Edit">✎</a>
+                                <a href="{{ route('website.account.profile.edit') }}" class="shrink-0 text-slate-400 hover:text-blue-600" title="Edit">✎</a>
                             </div>
-                            <div class="flex items-start justify-between gap-4 border-b border-slate-100 pb-3">
-                                <div>
+                            <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 min-w-0">
+                                <div class="min-w-0">
                                     <p class="text-[10px] uppercase tracking-wide text-slate-400">Phone</p>
-                                    <p class="mt-1 font-semibold text-slate-900">{{ $customer?->phone ?: 'Not added yet' }}</p>
+                                    <p class="mt-1 font-semibold text-slate-900 break-all">{{ $customer?->phone ?: 'Not added yet' }}</p>
                                 </div>
-                                <a href="{{ route('website.account.profile.edit') }}" class="text-slate-400 hover:text-blue-600" title="Edit">✎</a>
+                                <a href="{{ route('website.account.profile.edit') }}" class="shrink-0 text-slate-400 hover:text-blue-600" title="Edit">✎</a>
                             </div>
-                            <div>
+                            <div class="min-w-0">
                                 <p class="text-[10px] uppercase tracking-wide text-slate-400">Member Since</p>
                                 <p class="mt-1 font-semibold text-slate-900">{{ $memberSince ?? now()->format('M j, Y') }}</p>
                             </div>
                         </div>
-                        <a href="{{ route('website.account.profile.edit') }}" class="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-[13px] font-semibold text-slate-700 hover:bg-slate-50">View Account Details</a>
+                        <a href="{{ route('website.account.profile.edit') }}" class="acct-info-btn mt-4">View Account Details</a>
                     </div>
 
-                    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <div class="mb-4 flex items-center justify-between">
+                    <div class="acct-info-card rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-w-0">
+                        <div class="mb-3 flex items-center justify-between gap-2 min-w-0">
                             <h2 class="text-[15px] font-bold text-slate-900">Shipping Addresses</h2>
-                            <span class="text-[11px] font-semibold text-blue-600">+ Add New</span>
+                            <span class="shrink-0 text-[11px] font-semibold text-blue-600">+ Add</span>
                         </div>
-                        <div class="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
-                            <div class="mb-2 flex items-center justify-between">
+                        <div class="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 min-w-0">
+                            <div class="mb-2 flex items-center justify-between gap-2">
                                 <p class="text-[13px] font-bold text-slate-900">Home</p>
-                                <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Default</span>
+                                <span class="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Default</span>
                             </div>
-                            <p class="text-[13px] text-slate-700">{{ $customer?->address ?: 'No address saved yet. It will be saved on your next checkout.' }}</p>
+                            <p class="text-[13px] text-slate-700 break-words whitespace-normal">{{ $customer?->address ?: 'No address saved yet. It will be saved on your next checkout.' }}</p>
                             @if($customer?->phone)
-                                <p class="mt-2 text-[11px] font-medium text-slate-600">{{ $customer->phone }}</p>
+                                <p class="mt-2 text-[11px] font-medium text-slate-600 break-all">{{ $customer->phone }}</p>
                             @endif
                         </div>
-                        <button type="button" class="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-[13px] font-semibold text-slate-700 hover:bg-slate-50">View All Addresses</button>
+                        <button type="button" class="acct-info-btn mt-4">View All Addresses</button>
                     </div>
 
-                    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <div class="mb-4 flex items-center justify-between">
+                    <div class="acct-info-card rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-w-0">
+                        <div class="mb-3 flex items-center justify-between gap-2 min-w-0">
                             <h2 class="text-[15px] font-bold text-slate-900">Payment Methods</h2>
-                            <span class="text-[11px] font-semibold text-blue-600">+ Add New</span>
+                            <span class="shrink-0 text-[11px] font-semibold text-blue-600">+ Add</span>
                         </div>
-                        <div class="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
-                            <div class="mb-2 flex items-center justify-between">
+                        <div class="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 min-w-0">
+                            <div class="mb-2 flex items-center justify-between gap-2">
                                 <p class="text-[13px] font-bold text-slate-900">Cash on Delivery</p>
-                                <span class="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">Active</span>
+                                <span class="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">Active</span>
                             </div>
-                            <p class="text-[11px] text-slate-500">Used for current website checkout and synced with admin order updates.</p>
+                            <p class="text-[11px] text-slate-500 break-words whitespace-normal">Used for current website checkout and synced with admin order updates.</p>
                         </div>
-                        <button type="button" class="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-[13px] font-semibold text-slate-700 hover:bg-slate-50">View All Payment Methods</button>
+                        <button type="button" class="acct-info-btn mt-4">View All Payment Methods</button>
                     </div>
                 </div>
             </div>

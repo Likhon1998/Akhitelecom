@@ -3325,7 +3325,18 @@ body.gaget-store {
 }
 
 /* Account page shell */
-.acct-page { min-width: 0; max-width: 100%; }
+.acct-page {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+.acct-page *,
+.acct-page *::before,
+.acct-page *::after {
+    box-sizing: border-box;
+}
 .acct-welcome-title {
     margin: 0;
     font-size: clamp(1.35rem, 5vw, 1.95rem);
@@ -3335,6 +3346,36 @@ body.gaget-store {
     line-height: 1.2;
     word-break: break-word;
 }
+.acct-order-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 0.875rem;
+    background: #f8fafc;
+    padding: 0.875rem;
+    min-width: 0;
+}
+.acct-info-card {
+    overflow: hidden;
+    max-width: 100%;
+}
+.acct-info-btn {
+    display: inline-flex;
+    width: 100%;
+    max-width: 100%;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    background: #fff;
+    padding: 0.55rem 1rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #334155;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: normal;
+    text-align: center;
+}
+.acct-info-btn:hover { background: #f8fafc; }
 .acct-sidebar-edit { display: inline-flex; margin-top: 0.75rem; font-size: 0.6875rem; font-weight: 700; color: #2563eb; text-decoration: none; }
 .acct-sidebar-edit:hover { color: #1d4ed8; }
 .acct-nav-wrap { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #f1f5f9; }
