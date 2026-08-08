@@ -3376,6 +3376,15 @@ body.gaget-store {
     text-align: center;
 }
 .acct-info-btn:hover { background: #f8fafc; }
+
+/* Active order product + CTA — never overflow on mobile */
+.acct-page .gaget-progress {
+    max-width: 100%;
+    overflow: hidden;
+}
+.acct-page .gaget-progress__label {
+    overflow-wrap: anywhere;
+}
 .acct-sidebar-edit { display: inline-flex; margin-top: 0.75rem; font-size: 0.6875rem; font-weight: 700; color: #2563eb; text-decoration: none; }
 .acct-sidebar-edit:hover { color: #1d4ed8; }
 .acct-nav-wrap { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #f1f5f9; }
