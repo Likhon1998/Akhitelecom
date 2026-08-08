@@ -11,7 +11,13 @@
         $shop = $order->shop ?? Auth::user()->shop ?? null;
         $shopName = $shop->name ?? config('app.name', 'Akhi Telecom');
         $isOnline = $order->isOnlineOrder();
-        $isVoid = in_array($order->status, ['refunded', 'cancelled', 'returned'], true);
+        $paymentState = $order->receiptPaymentState();
+        $isVoid = $paymentState['is_void'];
+        $isFullyPaid = $paymentState['is_paid'];
+        $hasOpenDue = $paymentState['is_due'];
+        $dueLabel = $paymentState['due_label'];
+        $amountDue = $paymentState['amount_due'];
+        $amountPaid = $paymentState['amount_paid'];
         $channel = $isOnline
             ? 'Online Store'
             : ($order->counter->name ?? ($order->user->name ?? 'POS'));
@@ -22,8 +28,7 @@
             $itemsSubtotal = max(0, (float) $order->total_amount - (float) ($order->delivery_charge ?? 0));
         }
         $creditDue = round((float) ($order->credit_amount ?? 0), 2);
-        $isFullyPaid = ! $isVoid && $creditDue <= 0.009;
-        $hasOpenCredit = ! $isVoid && $creditDue > 0.009;
+        $hasOpenCredit = $creditDue > 0.009;
     @endphp
     <style>
         :root {
@@ -171,6 +176,25 @@
             white-space: nowrap;
             box-shadow: inset 0 0 0 2px rgba(22, 163, 74, .4);
         }
+        .due-seal {
+            position: absolute;
+            top: 42%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-18deg);
+            border: 5px solid #d97706;
+            color: #d97706;
+            font-size: 40px;
+            font-weight: 900;
+            letter-spacing: .1em;
+            padding: 8px 14px;
+            border-radius: 14px;
+            opacity: .22;
+            pointer-events: none;
+            z-index: 8;
+            text-transform: uppercase;
+            white-space: nowrap;
+            box-shadow: inset 0 0 0 2px rgba(217, 119, 6, .35);
+        }
         .section-label {
             font-size: 9px;
             font-weight: 800;
@@ -202,10 +226,21 @@
             font-size: 11px;
         }
         table.items tr:last-child td { border-bottom: 0; }
+        .item-name {
+            font-weight: 700;
+            line-height: 1.3;
+        }
+        .item-specs {
+            margin-top: 3px;
+            font-size: 9.5px;
+            font-weight: 600;
+            color: var(--muted);
+            line-height: 1.35;
+        }
+        .item-specs div { margin: 0; }
         .text-left { text-align: left; }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
-        .item-name { font-weight: 700; line-height: 1.25; }
         .totals {
             width: 100%;
             border-collapse: collapse;
@@ -298,12 +333,22 @@
     <div class="sheet">
         @if($isFullyPaid)
             <div class="paid-seal" aria-hidden="true">PAID</div>
+        @elseif($hasOpenDue)
+            <div class="due-seal" aria-hidden="true">{{ $dueLabel }}</div>
         @endif
 
         <header class="brand">
             <div class="doc-type">{{ $isOnline ? 'Tax Invoice / Online Order' : 'Sales Invoice / POS Receipt' }}</div>
             <h1>{{ $shopName }}</h1>
-            <p class="tagline">{{ $isOnline ? 'Online order confirmation' : 'Point of sale receipt' }}</p>
+            <p class="tagline">
+                @if($isOnline && $hasOpenDue && $order->isCashOnDelivery())
+                    COD order — payment due on delivery
+                @elseif($isOnline)
+                    Online order confirmation
+                @else
+                    Point of sale receipt
+                @endif
+            </p>
         </header>
 
         <table class="meta">
@@ -361,8 +406,8 @@
             <div class="badge void">*** VOID / {{ strtoupper($order->status) }} ***</div>
         @elseif($isFullyPaid)
             <div class="badge paid">*** PAID ***</div>
-        @elseif($hasOpenCredit)
-            <div class="badge due">*** {{ ($order->is_emi ?? false) ? 'EMI DUE' : (($order->is_baki ?? false) ? 'BAKI DUE' : 'DUE') }} ***</div>
+        @elseif($hasOpenDue)
+            <div class="badge due">*** {{ $dueLabel }} ***</div>
         @endif
 
         @if($order->is_exchange_receipt)
@@ -378,7 +423,19 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td class="item-name">{{ $returnProduct->name ?? 'Returned item' }}</td>
+                        <td class="item-name">
+                            {{ $returnProduct?->receiptDisplayName() ?? ($returnProduct->name ?? 'Returned item') }}
+                            @if($returnProduct)
+                                @php $returnSpecs = $returnProduct->receiptSpecLines(); @endphp
+                                @if(count($returnSpecs))
+                                    <div class="item-specs">
+                                        @foreach($returnSpecs as $spec)
+                                            <div>{{ $spec['label'] }}: {{ $spec['value'] }}</div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            @endif
+                        </td>
                         <td class="text-center">{{ $order->return_qty }}</td>
                         <td class="text-right">- ৳{{ number_format((float) $order->exchange_credit, 2) }}</td>
                     </tr>
@@ -400,8 +457,22 @@
             </thead>
             <tbody>
                 @foreach($order->items as $item)
+                    @php
+                        $product = $item->product;
+                        $title = $product?->receiptDisplayName() ?? ($product?->name ?? 'Product');
+                        $detailLines = $item->receiptDetailLines();
+                    @endphp
                     <tr>
-                        <td class="item-name">{{ $item->product->name ?? 'Product' }}</td>
+                        <td class="item-name">
+                            {{ $title }}
+                            @if(count($detailLines))
+                                <div class="item-specs">
+                                    @foreach($detailLines as $line)
+                                        <div>{{ $line }}</div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </td>
                         <td class="text-center">{{ $item->quantity }}</td>
                         <td class="text-right">{{ number_format((float) $item->unit_price, 2) }}</td>
                         <td class="text-right">{{ number_format((float) $item->subtotal, 2) }}</td>
@@ -502,13 +573,13 @@
                 <tr>
                     <td class="lbl">Amount paid</td>
                     <td class="text-right" style="font-weight:700">
-                        ৳{{ number_format($isVoid ? 0 : (float) $order->paid_amount, 2) }}
+                        ৳{{ number_format($isVoid ? 0 : $amountPaid, 2) }}
                     </td>
                 </tr>
-                @if(($order->credit_amount ?? 0) > 0 && ! $isVoid)
+                @if($hasOpenDue && ! $isVoid)
                     <tr>
-                        <td class="lbl">{{ ($order->is_emi ?? false) ? 'EMI remaining' : 'Due / Baki' }}</td>
-                        <td class="text-right" style="font-weight:800">৳{{ number_format((float) $order->credit_amount, 2) }}</td>
+                        <td class="lbl">{{ $dueLabel === 'COD DUE' ? 'COD due (collect on delivery)' : ($hasOpenCredit ? (($order->is_emi ?? false) ? 'EMI remaining' : 'Due / Baki') : 'Amount due') }}</td>
+                        <td class="text-right" style="font-weight:800">৳{{ number_format($amountDue, 2) }}</td>
                     </tr>
                 @endif
                 @if(($order->is_emi ?? false) && ($order->customer?->emi_balance ?? 0) > 0 && ! $isVoid)
@@ -546,6 +617,7 @@
             <p class="thanks">Thank you for your business</p>
             <p class="note">Please retain this invoice for your records.</p>
             <p class="stamp">Printed: {{ $printedAt->format('d M Y, h:i A') }} · Asia/Dhaka</p>
+            @include('partials.powered-by', ['variant' => 'print'])
         </footer>
     </div>
 </body>

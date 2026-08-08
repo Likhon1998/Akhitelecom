@@ -192,7 +192,7 @@
                 </form>
             </div>
 
-            <p class="nexa-right-foot">&copy; {{ date('Y') }} {{ $brandName }}. All rights reserved.</p>
+            <p class="nexa-right-foot">&copy; {{ date('Y') }} {{ $brandName }}. All rights reserved.<br><span style="display:inline-block;margin-top:6px;font-size:11px;opacity:.85;">Powered by <strong>{{ config('app.powered_by', 'Bynnas') }}</strong></span></p>
         </section>
     </div>
 </x-login-layout>

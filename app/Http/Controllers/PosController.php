@@ -680,12 +680,20 @@ class PosController extends Controller
             abort(403, 'Unauthorized Access');
         }
         
-        $order->load('items.product', 'user', 'customer', 'shop', 'counter');
+        $order->load([
+            'items.product.brand',
+            'items.product.category',
+            'items.soldImeis',
+            'user',
+            'customer',
+            'shop',
+            'counter',
+        ]);
         
         // 🚀 FETCH THE EXACT RETURNED PRODUCT FOR THE RECEIPT
         $returnProduct = null;
         if ($order->is_exchange_receipt && $order->return_product_id) {
-            $returnProduct = Product::find($order->return_product_id);
+            $returnProduct = Product::with(['brand', 'category'])->find($order->return_product_id);
         }
 
         return view('pos.receipt', compact('order', 'returnProduct'));

@@ -37,6 +37,9 @@
             <div class="w-full sm:max-w-md bg-white px-6 py-8 shadow-xl sm:rounded-lg border border-gray-100">
                 {{ $slot }}
             </div>
+            <div class="mt-6">
+                @include('partials.powered-by')
+            </div>
         </div>
 
     </div>

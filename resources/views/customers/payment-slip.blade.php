@@ -307,6 +307,7 @@
             <p class="thanks">Payment received — thank you</p>
             <p class="note">Please keep this slip with your invoice records.</p>
             <p class="stamp">Printed: {{ $printedAt->format('d M Y, h:i A') }}</p>
+            @include('partials.powered-by', ['variant' => 'print'])
         </footer>
     </div>
 </body>

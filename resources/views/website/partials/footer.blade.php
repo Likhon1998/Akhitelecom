@@ -214,4 +214,7 @@
             </div>
         </div>
     </div>
+    <div class="tn-footer-credit">
+        @include('partials.powered-by', ['variant' => 'footer'])
+    </div>
 </footer>

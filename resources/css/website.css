@@ -2376,13 +2376,25 @@
 .tn-blog-meta { font-size: 12px; color: #94a3b8; margin: 0; }
 
 /* Footer — mockup identical (no newsletter) */
-.tn-footer {
-    position: relative;
-    overflow: hidden;
-    margin-top: 0;
-    background: #f8f9fc;
-    color: #6b7280;
+.tn-footer-credit {
     border-top: 1px solid #eef2f7;
+    padding: 14px 16px 18px;
+    text-align: center;
+    background: #f8f9fc;
+}
+.powered-by,
+.powered-by--footer {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: .02em;
+    color: #94a3b8;
+}
+.powered-by strong,
+.powered-by--footer strong {
+    color: #0f172a;
+    font-weight: 800;
+    letter-spacing: .01em;
 }
 .tn-footer-shell {
     position: relative;

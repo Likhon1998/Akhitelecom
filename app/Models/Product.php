@@ -337,6 +337,53 @@ class Product extends Model
         return $name !== '' ? $name : (string) $this->name;
     }
 
+    /** Clean product title for receipts (without admin “— Color / Storage” suffix). */
+    public function receiptDisplayName(): string
+    {
+        return $this->storefrontDisplayName();
+    }
+
+    /**
+     * Configuration lines shown under each item on POS / online receipts.
+     *
+     * @return array<int, array{label: string, value: string}>
+     */
+    public function receiptSpecLines(): array
+    {
+        $lines = [];
+
+        $brand = trim((string) ($this->brand_name ?: $this->brand?->name ?: ''));
+        if ($brand !== '') {
+            $lines[] = ['label' => 'Brand', 'value' => $brand];
+        }
+
+        if (filled($this->color)) {
+            $lines[] = ['label' => 'Color', 'value' => (string) $this->color];
+        }
+
+        $ram = normalize_memory_size($this->ram) ?? (filled($this->ram) ? (string) $this->ram : null);
+        $storage = normalize_memory_size($this->storage) ?? (filled($this->storage) ? (string) $this->storage : null);
+
+        if ($ram && $storage) {
+            $lines[] = ['label' => 'Memory', 'value' => $ram.'/'.$storage];
+        } else {
+            if ($ram) {
+                $lines[] = ['label' => 'RAM', 'value' => $ram];
+            }
+            if ($storage) {
+                $lines[] = ['label' => 'Storage', 'value' => $storage];
+            }
+        }
+
+        if (filled($this->barcode)) {
+            $lines[] = ['label' => 'Code', 'value' => (string) $this->barcode];
+        } elseif (filled($this->sku)) {
+            $lines[] = ['label' => 'SKU', 'value' => (string) $this->sku];
+        }
+
+        return $lines;
+    }
+
     public function displayColor(): ?string
     {
         return $this->color ?: null;

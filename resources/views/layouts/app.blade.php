@@ -12,7 +12,21 @@
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <style>[x-cloak]{display:none!important}</style>
+    <style>
+        [x-cloak]{display:none!important}
+        .powered-by-admin{
+            flex-shrink:0;
+            padding:10px 16px 14px;
+            text-align:center;
+            font-size:11px;
+            font-weight:500;
+            letter-spacing:.03em;
+            color:#94a3b8;
+            border-top:1px solid #eef2f7;
+            background:rgba(255,255,255,.7);
+        }
+        .powered-by-admin strong{color:#0f172a;font-weight:800}
+    </style>
 </head>
 <body class="admin-panel font-sans antialiased text-slate-900 bg-[#F4F6FB]">
     @php
@@ -52,6 +66,7 @@
                     {{ $slot }}
                 </div>
             </main>
+            @include('partials.powered-by', ['variant' => 'admin'])
         </div>
     </div>
 

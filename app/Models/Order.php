@@ -166,6 +166,82 @@ class Order extends Model
         return $this->counter_id === null && str_starts_with((string) $this->invoice_no, 'WEB-');
     }
 
+    public function isCashOnDelivery(): bool
+    {
+        $method = strtolower(trim((string) ($this->payment_method ?? '')));
+
+        return in_array($method, ['cash_on_delivery', 'cod', 'cash on delivery'], true)
+            || str_contains($method, 'cash_on_delivery')
+            || str_contains($method, 'cash on delivery');
+    }
+
+    /**
+     * Amount still owed on this invoice (baki/emi credit, or unpaid online COD).
+     */
+    public function amountDue(): float
+    {
+        $credit = max(0, round((float) ($this->credit_amount ?? 0), 2));
+        if ($credit > 0.009) {
+            return $credit;
+        }
+
+        // Online COD / unpaid web orders: paid_amount stays 0 until delivery/collection.
+        if ($this->isOnlineOrder()) {
+            $net = round($this->netPayable(), 2);
+            $paid = max(0, round((float) ($this->paid_amount ?? 0), 2));
+
+            return max(0, round($net - $paid, 2));
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * Receipt / UI payment badge state.
+     *
+     * @return array{is_void: bool, is_paid: bool, is_due: bool, due_label: string, amount_due: float, amount_paid: float}
+     */
+    public function receiptPaymentState(): array
+    {
+        $isVoid = in_array((string) $this->status, ['refunded', 'cancelled', 'returned'], true);
+        $amountDue = $this->amountDue();
+        $amountPaid = max(0, round((float) ($this->paid_amount ?? 0), 2));
+
+        if ($isVoid) {
+            return [
+                'is_void' => true,
+                'is_paid' => false,
+                'is_due' => false,
+                'due_label' => '',
+                'amount_due' => 0.0,
+                'amount_paid' => 0.0,
+            ];
+        }
+
+        $isDue = $amountDue > 0.009;
+        $dueLabel = 'DUE';
+        if ($isDue) {
+            if ($this->is_emi) {
+                $dueLabel = 'EMI DUE';
+            } elseif ($this->is_baki) {
+                $dueLabel = 'BAKI DUE';
+            } elseif ($this->isOnlineOrder() && $this->isCashOnDelivery()) {
+                $dueLabel = 'COD DUE';
+            } elseif ($this->isOnlineOrder()) {
+                $dueLabel = 'PAYMENT DUE';
+            }
+        }
+
+        return [
+            'is_void' => false,
+            'is_paid' => ! $isDue,
+            'is_due' => $isDue,
+            'due_label' => $dueLabel,
+            'amount_due' => $amountDue,
+            'amount_paid' => $amountPaid,
+        ];
+    }
+
     /** Admin / reports: online storefront orders only. */
     public function scopeOnlineOrders($query)
     {
