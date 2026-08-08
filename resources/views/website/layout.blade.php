@@ -71,6 +71,22 @@
                 'address' => auth()->user()->customerProfile?->address ?? '',
             ]
             : null;
+        if (! isset($deliveryConfig) || ! is_array($deliveryConfig)) {
+            try {
+                $deliveryConfig = app(\App\Services\DeliveryChargeService::class)->publicConfig();
+            } catch (\Throwable $e) {
+                $deliveryConfig = [
+                    'inside_dhaka' => 60,
+                    'outside_dhaka' => 120,
+                    'free_enabled' => true,
+                    'free_min_amount' => 10000,
+                    'cod_enabled' => true,
+                    'confirmation_enabled' => false,
+                    'confirmation_amount' => 0,
+                    'currency_symbol' => $settings->currency_symbol ?? '৳',
+                ];
+            }
+        }
     @endphp
     <script>
         function readStorefrontList(key) {
@@ -172,15 +188,7 @@
                 toastVisible: false,
                 isLoggedIn: @json((bool) $storefrontUser),
                 currency: @json($settings->currency_symbol ?? '$'),
-                deliveryConfig: @json($deliveryConfig ?? [
-                    'inside_dhaka' => 60,
-                    'outside_dhaka' => 120,
-                    'free_enabled' => true,
-                    'free_min_amount' => 10000,
-                    'cod_enabled' => true,
-                    'confirmation_enabled' => false,
-                    'confirmation_amount' => 0,
-                ]),
+                deliveryConfig: @json($deliveryConfig),
                 checkout: {
                     name: @json(data_get($storefrontUser, 'name', '')),
                     phone: @json(data_get($storefrontUser, 'phone', '')),
