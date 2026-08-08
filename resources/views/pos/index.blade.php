@@ -1957,32 +1957,30 @@
                     </div>
                 </div>
 
-                <div class="field-label" style="margin-top:2px" x-text="hasSaleItems() ? 'Discount (SALE — locked)' : 'Discount'"></div>
+                <div class="field-label" style="margin-top:2px">Discount</div>
                 <div class="discount-row">
                     <div class="type-toggle">
-                        <button type="button" @click="!hasSaleItems() && (discountType = 'percent')" class="tt-btn" :class="discountType === 'percent' ? 'active' : ''" :disabled="hasSaleItems()">%</button>
-                        <button type="button" @click="!hasSaleItems() && (discountType = 'flat')" class="tt-btn" :class="discountType === 'flat' ? 'active' : ''" :disabled="hasSaleItems()">Tk</button>
+                        <button type="button" @click="discountType = 'percent'" class="tt-btn" :class="discountType === 'percent' ? 'active' : ''">%</button>
+                        <button type="button" @click="discountType = 'flat'" class="tt-btn" :class="discountType === 'flat' ? 'active' : ''">Tk</button>
                     </div>
                     <input type="number"
                            x-model.number="discountValue"
                            class="discount-input"
                            :placeholder="discountType === 'percent' ? '%' : 'Amount'"
                            min="0"
-                           :max="discountType === 'percent' ? 100 : getDiscountBase()"
-                           :readonly="hasSaleItems()"
-                           :style="hasSaleItems() ? 'opacity:.75;cursor:not-allowed;background:#fff7ed' : ''">
-                    <span x-show="getDiscount() > 0" class="discount-badge" :style="hasSaleItems() ? 'background:#fff1f2;color:#be123c;border-color:#fecdd3' : ''" x-cloak>
-                        <span x-show="hasSaleItems()" x-cloak>SALE </span>-Tk<span x-text="formatNumber(getDiscount())"></span>
+                           :max="discountType === 'percent' ? 100 : getDiscountBase()">
+                    <span x-show="getDiscount() > 0" class="discount-badge" x-cloak>
+                        -Tk<span x-text="formatNumber(getDiscount())"></span>
                     </span>
                 </div>
                 <p x-show="hasSaleItems()" x-cloak style="margin:6px 0 0;font-size:11px;font-weight:650;color:#be123c">
-                    Sale discount auto-applied (<span x-text="salePercentLabel()"></span>). Clear sale items to edit discount.
+                    Sale savings included (<span x-text="salePercentLabel()"></span>). You can still add more discount.
                 </p>
-                <div class="coupon-row" x-show="!hasSaleItems()">
+                <div class="coupon-row">
                     <input type="text" x-model="couponCode" @keyup.enter="applyCoupon()" placeholder="Coupon code" class="coupon-input">
                     <button type="button" @click="applyCoupon()" class="coupon-apply-btn">Apply</button>
                 </div>
-                <div x-show="appliedCoupon && !hasSaleItems()" x-cloak class="coupon-applied">
+                <div x-show="appliedCoupon" x-cloak class="coupon-applied">
                     <span>Coupon <strong x-text="appliedCoupon?.code"></strong> applied</span>
                     <button type="button" @click="removeCoupon()" class="coupon-remove">Remove</button>
                 </div>
@@ -1996,7 +1994,7 @@
                     <span class="sum-val">Tk<span x-text="formatNumber(getTotal())"></span></span>
                 </div>
                 <div class="sum-row discount" x-show="getDiscount() > 0">
-                    <span class="sum-label" x-text="hasSaleItems() ? 'SALE discount' : 'Discount'"></span>
+                    <span class="sum-label">Discount</span>
                     <span class="sum-val">-Tk<span x-text="formatNumber(getDiscount())"></span></span>
                 </div>
                 <div class="sum-row exchange" x-show="isExchangeMode && exchangeCredit > 0" style="display:none">
@@ -2241,8 +2239,8 @@
                     <div class="amount-value">
                         <span class="ccy">Tk</span><span x-text="formatNumber(getPayableTotal())"></span>
                     </div>
-                    <div x-show="getDiscount() > 0" class="amount-note" :style="hasSaleItems() ? 'color:#be123c' : 'color:var(--green)'" x-cloak>
-                         <span x-text="hasSaleItems() ? 'SALE discount' : 'Discount'"></span> Tk<span x-text="formatNumber(getDiscount())"></span>
+                    <div x-show="getDiscount() > 0" class="amount-note" style="color:var(--green)" x-cloak>
+                         Discount Tk<span x-text="formatNumber(getDiscount())"></span>
                     </div>
                     <div x-show="isExchangeMode" class="amount-note" style="color:var(--amber)" x-cloak>
                         Exchange credit: -Tk<span x-text="formatNumber(exchangeCredit)"></span>
@@ -2723,6 +2721,7 @@ function posSystem() {
         discountType: 'percent',
         discountValue: 0,
         _saleDiscountActive: false,
+        _lastSaleSavings: 0,
         couponCode: '',
         appliedCoupon: null,
 
@@ -3530,7 +3529,7 @@ function posSystem() {
                 this.lastAddedId = product.id;
                 this.playBeep(true);
                 if (onSale) {
-                    this.showToast('SALE item added — discount locked at sale price', 'info');
+                    this.showToast('SALE item added — sale savings applied (discount still editable)', 'info');
                 }
             }
             this.syncSaleDiscount();
@@ -3576,6 +3575,7 @@ function posSystem() {
                     this.discountValue = 0;
                     this.discountType = 'percent';
                     this._saleDiscountActive = false;
+                    this._lastSaleSavings = 0;
                 }
                 return;
             }
@@ -3585,11 +3585,19 @@ function posSystem() {
                 this.isEmi = false;
                 this.showToast('BAKI / EMI turned off — not allowed with sale products', 'warning');
             }
-            this._saleDiscountActive = true;
-            this.appliedCoupon = null;
-            this.couponCode = '';
-            this.discountType = 'flat';
-            this.discountValue = Math.round(this.getSaleSavings() * 100) / 100;
+            const saleSavings = Math.round(this.getSaleSavings() * 100) / 100;
+            if (!this._saleDiscountActive) {
+                this._saleDiscountActive = true;
+                this.discountType = 'flat';
+                this.discountValue = Math.max(saleSavings, Number(this.discountValue) || 0);
+            } else if (this.discountType === 'flat') {
+                // Keep any extra discount the cashier added above the sale savings.
+                const prevSale = Number(this._lastSaleSavings) || 0;
+                const current = Number(this.discountValue) || 0;
+                const extra = Math.max(0, current - prevSale);
+                this.discountValue = Math.round((saleSavings + extra) * 100) / 100;
+            }
+            this._lastSaleSavings = saleSavings;
         },
 
         cartQty(productId) {
@@ -3701,9 +3709,6 @@ function posSystem() {
         â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         getDiscount() {
             const base = this.getDiscountBase();
-            if (this.hasSaleItems()) {
-                return Math.max(0, Math.min(this.getSaleSavings(), base));
-            }
             let disc = 0;
             // Coupon takes priority over manual discount
             if (this.appliedCoupon) {
@@ -3715,6 +3720,10 @@ function posSystem() {
                     ? (base * Math.min(this.discountValue, 100) / 100)
                     : this.discountValue;
             }
+            // Sale savings are always included; cashier can add more on top.
+            if (this.hasSaleItems()) {
+                disc = Math.max(disc, this.getSaleSavings());
+            }
             return Math.max(0, Math.min(disc, base));
         },
 
@@ -3724,10 +3733,6 @@ function posSystem() {
         },
 
         applyCoupon() {
-            if (this.hasSaleItems()) {
-                this.showToast('Coupons unavailable while sale items are in the cart', 'warning');
-                return;
-            }
             const code = this.couponCode.trim().toUpperCase();
             if (!code) return;
             // Demo coupons - validate server-side in production
@@ -4064,6 +4069,7 @@ openCheckout() {
                         this.emiDownPayment = 0; this.emiMonths = 3;
                         this.discountValue = 0; this.appliedCoupon = null; this.couponCode = '';
                         this._saleDiscountActive = false;
+                        this._lastSaleSavings = 0;
                         this.lastAddedId = null;
                         this.checkoutModalOpen = false;
 
@@ -4211,6 +4217,7 @@ openCheckout() {
             this.cart = []; this.customerName = ''; this.customerPhone = '';
             this.discountValue = 0; this.appliedCoupon = null; this.couponCode = '';
             this._saleDiscountActive = false;
+            this._lastSaleSavings = 0;
             this.lastAddedId = null;
             this.checkoutModalOpen = false;
 
