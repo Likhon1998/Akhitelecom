@@ -29,10 +29,21 @@ class SiteSetting extends Model
         'deals_kicker', 'deals_title', 'deals_title_accent', 'deals_subtitle',
         'contact_email', 'contact_phone',
         'contact_address', 'social_links',
+        'delivery_inside_dhaka', 'delivery_outside_dhaka',
+        'delivery_free_enabled', 'delivery_free_min_amount',
+        'delivery_cod_enabled', 'delivery_confirmation_enabled',
+        'delivery_confirmation_amount',
     ];
 
     protected $casts = [
         'social_links' => 'array',
+        'delivery_inside_dhaka' => 'decimal:2',
+        'delivery_outside_dhaka' => 'decimal:2',
+        'delivery_free_enabled' => 'boolean',
+        'delivery_free_min_amount' => 'decimal:2',
+        'delivery_cod_enabled' => 'boolean',
+        'delivery_confirmation_enabled' => 'boolean',
+        'delivery_confirmation_amount' => 'decimal:2',
     ];
 
     public function defaultShop()

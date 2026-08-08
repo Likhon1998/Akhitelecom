@@ -29,8 +29,13 @@ class Order extends Model
         'payment_method',
         'status',
         'delivery_charge',
+        'delivery_zone',
+        'confirmation_charge',
         'shipping_courier',
+        'courier_service_id',
         'shipping_tracking_no',
+        'courier_collected_at',
+        'courier_collected_amount',
 
         // Exchange & Return tracking fields
         'is_exchange_receipt',
@@ -55,6 +60,9 @@ class Order extends Model
         'mobile_paid' => 'decimal:2',
         'change_amount' => 'decimal:2',
         'delivery_charge' => 'decimal:2',
+        'confirmation_charge' => 'decimal:2',
+        'courier_collected_at' => 'datetime',
+        'courier_collected_amount' => 'decimal:2',
         'exchange_credit' => 'decimal:2',
         'is_exchange_receipt' => 'boolean',
     ];
@@ -63,6 +71,55 @@ class Order extends Model
     public function netPayable(): float
     {
         return max(0, (float) $this->total_amount - (float) ($this->discount_amount ?? 0) - (float) ($this->exchange_credit ?? 0));
+    }
+
+    /** Delivery fee charged to the customer (paid to courier — not shop revenue). */
+    public function deliveryFeeAmount(): float
+    {
+        return max(0, round((float) ($this->delivery_charge ?? 0), 2));
+    }
+
+    /**
+     * Shop merchandise portion of an online order (excludes courier delivery fee).
+     * Used for ledger postings so delivery is never counted as store income.
+     */
+    public function shopCollectableAmount(): float
+    {
+        return max(0, round($this->netPayable() - $this->deliveryFeeAmount(), 2));
+    }
+
+    /** Advance already in the shop before courier remittance (confirmation charge only). */
+    public function shopAdvancePaid(): float
+    {
+        $shop = $this->shopCollectableAmount();
+
+        return min($shop, max(0, round((float) ($this->confirmation_charge ?? 0), 2)));
+    }
+
+    /**
+     * Cash the courier collected for the shop and still owes you
+     * (products only — delivery fee stays with the courier).
+     */
+    public function amountDueFromCourier(): float
+    {
+        if (! $this->isOnlineOrder()) {
+            return 0.0;
+        }
+
+        if ($this->courier_collected_at) {
+            return 0.0;
+        }
+
+        if (! in_array((string) $this->status, ['shipped'], true)) {
+            return 0.0;
+        }
+
+        return max(0, round($this->shopCollectableAmount() - $this->shopAdvancePaid(), 2));
+    }
+
+    public function courierService()
+    {
+        return $this->belongsTo(CourierService::class);
     }
 
     /**
@@ -227,6 +284,8 @@ class Order extends Model
                 $dueLabel = 'BAKI DUE';
             } elseif ($this->isOnlineOrder() && $this->isCashOnDelivery()) {
                 $dueLabel = 'COD DUE';
+            } elseif ($this->isOnlineOrder() && (float) ($this->confirmation_charge ?? 0) > 0.009) {
+                $dueLabel = 'BALANCE DUE';
             } elseif ($this->isOnlineOrder()) {
                 $dueLabel = 'PAYMENT DUE';
             }

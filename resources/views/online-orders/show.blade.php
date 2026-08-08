@@ -117,21 +117,40 @@
                             <dd class="font-semibold text-slate-800">{{ $order->items->sum('quantity') }}</dd>
                         </div>
                         <div class="flex justify-between gap-3">
-                            <dt class="text-slate-500">Subtotal</dt>
-                            <dd class="font-semibold text-slate-800">Tk {{ number_format((float) $order->total_amount - (float) ($order->delivery_charge ?? 0), 2) }}</dd>
+                            <dt class="text-slate-500">Subtotal (shop)</dt>
+                            <dd class="font-semibold text-slate-800">Tk {{ number_format($order->shopCollectableAmount(), 2) }}</dd>
                         </div>
                         <div class="flex justify-between gap-3">
-                            <dt class="text-slate-500">Delivery</dt>
+                            <dt class="text-slate-500">Delivery (courier keeps)</dt>
                             <dd class="font-semibold text-slate-800">{{ ($order->delivery_charge ?? 0) > 0 ? 'Tk '.number_format((float) $order->delivery_charge, 2) : 'Free' }}</dd>
                         </div>
+                        @if(($order->confirmation_charge ?? 0) > 0)
+                            <div class="flex justify-between gap-3">
+                                <dt class="text-slate-500">Confirmation (in shop)</dt>
+                                <dd class="font-semibold text-emerald-700">Tk {{ number_format((float) $order->confirmation_charge, 2) }}</dd>
+                            </div>
+                        @endif
                         <div class="flex justify-between gap-3 border-t border-slate-100 pt-2">
-                            <dt class="font-bold text-slate-900">Total</dt>
+                            <dt class="font-bold text-slate-900">Customer total</dt>
                             <dd class="text-[15px] font-extrabold text-slate-900">Tk {{ number_format((float) $order->total_amount, 2) }}</dd>
                         </div>
                         <div class="flex justify-between gap-3">
-                            <dt class="text-slate-500">Paid</dt>
+                            <dt class="text-slate-500">Paid (recorded)</dt>
                             <dd class="font-semibold text-slate-800">Tk {{ number_format((float) $order->paid_amount, 2) }}</dd>
                         </div>
+                        @if(($dueFromCourier ?? 0) > 0.009)
+                            <div class="mt-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5">
+                                <p class="text-[10px] font-bold uppercase tracking-wide text-sky-600">Due from courier</p>
+                                <p class="text-lg font-black text-sky-900">Tk {{ number_format($dueFromCourier, 2) }}</p>
+                                <p class="text-[11px] text-sky-700">{{ $order->courierService?->name ?: ($order->shipping_courier ?: 'Courier') }} holds this product COD</p>
+                            </div>
+                        @elseif($order->courier_collected_at)
+                            <div class="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+                                <p class="text-[10px] font-bold uppercase tracking-wide text-emerald-600">Collected from courier</p>
+                                <p class="text-sm font-bold text-emerald-900">Tk {{ number_format((float) ($order->courier_collected_amount ?? 0), 2) }}</p>
+                                <p class="text-[11px] text-emerald-700">{{ $order->courier_collected_at->format('d M Y, h:i A') }}</p>
+                            </div>
+                        @endif
                     </dl>
                 </div>
             </div>
@@ -186,6 +205,26 @@
         </div>
 
         <div class="space-y-4 xl:sticky xl:top-24 xl:self-start">
+            @if(($dueFromCourier ?? 0) > 0.009 && $order->status === 'shipped')
+                <div class="rounded-2xl border border-sky-300 bg-sky-50 p-4 shadow-sm">
+                    <h3 class="text-[13px] font-bold text-sky-950">Collect cash from courier</h3>
+                    <p class="mt-1 text-[12px] text-sky-800 leading-relaxed">
+                        {{ $order->courierService?->name ?: 'Courier' }} should bring you
+                        <span class="font-extrabold">Tk {{ number_format($dueFromCourier, 2) }}</span>
+                        (products). Delivery fee stays with them.
+                    </p>
+                    <form method="POST" action="{{ route('online-orders.collect-from-courier', $order) }}" class="mt-3"
+                          data-confirm="Confirm you received Tk {{ number_format($dueFromCourier, 2) }} from the courier?"
+                          data-confirm-title="Collect from courier"
+                          data-confirm-ok="Yes, cash received">
+                        @csrf
+                        <button type="submit" class="w-full rounded-xl bg-sky-600 px-4 py-2.5 text-[13px] font-bold text-white hover:bg-sky-700">
+                            Cash received · mark completed
+                        </button>
+                    </form>
+                </div>
+            @endif
+
             <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <h3 class="text-[13px] font-bold text-slate-900">Update order status</h3>
                 <p class="mt-0.5 text-[11px] text-slate-500">Saves instantly to the customer account</p>
@@ -200,7 +239,7 @@
                                     'pending' => 'Pending — Order received',
                                     'processing' => 'Processing — Packing',
                                     'shipped' => 'Shipped — Out for delivery',
-                                    'completed' => 'Completed — Delivered',
+                                    'completed' => 'Completed — Delivered & cash from courier',
                                     'cancelled' => 'Cancelled',
                                     'returned' => 'Returned',
                                     'refunded' => 'Refunded',
@@ -223,9 +262,22 @@
 
                     <div x-show="status === 'shipped'" x-cloak class="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3">
                         <div>
-                            <label class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Courier / delivery partner *</label>
-                            <input type="text" name="courier_name" value="{{ old('courier_name', $order->shipping_courier) }}" placeholder="e.g. Pathao, Steadfast"
-                                   class="mt-1 w-full rounded-xl border-slate-200 text-[13px] focus:border-indigo-400 focus:ring-indigo-400">
+                            <label class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Courier service *</label>
+                            @if(($courierServices ?? collect())->isEmpty())
+                                <p class="mt-1 text-[12px] text-rose-600 font-semibold">
+                                    No active courier services.
+                                    <a href="{{ route('cms.couriers.index') }}" class="underline">Add one in CMS</a>
+                                </p>
+                            @else
+                                <select name="courier_service_id" class="mt-1 w-full rounded-xl border-slate-200 text-[13px] focus:border-indigo-400 focus:ring-indigo-400">
+                                    <option value="">Select courier…</option>
+                                    @foreach($courierServices as $service)
+                                        <option value="{{ $service->id }}" @selected((int) old('courier_service_id', $order->courier_service_id) === (int) $service->id)>
+                                            {{ $service->name }}{{ $service->phone ? ' · '.$service->phone : '' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            @endif
                         </div>
                         <div>
                             <label class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Tracking number</label>
@@ -246,10 +298,10 @@
                 </form>
             </div>
 
-            @if($order->shipping_courier)
+            @if($order->courierService || $order->shipping_courier)
                 <div class="rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
                     <p class="text-[11px] font-bold uppercase tracking-wide text-indigo-500">Live shipment</p>
-                    <p class="mt-1 text-[14px] font-bold text-indigo-950">{{ $order->shipping_courier }}</p>
+                    <p class="mt-1 text-[14px] font-bold text-indigo-950">{{ $order->courierService?->name ?: $order->shipping_courier }}</p>
                     @if($order->shipping_tracking_no)
                         <p class="mt-1 font-mono text-[12px] text-indigo-700">{{ $order->shipping_tracking_no }}</p>
                     @endif

@@ -256,17 +256,40 @@ class AccountService
         $this->ensureShopAccounts($order->shop_id);
 
         $receivable = $this->getAccount($order->shop_id, 'WEB-COD');
+        $cash = $this->getAccount($order->shop_id, 'WEB-CASH');
         $revenue = $this->getAccount($order->shop_id, 'REVENUE');
         $cogs = $this->calculateCogs($order);
 
-        $lines = [
-            ['account' => $receivable, 'debit' => $order->total_amount, 'credit' => 0, 'counter_id' => null],
-            ['account' => $revenue, 'debit' => 0, 'credit' => $order->total_amount, 'counter_id' => null],
-        ];
+        // Delivery belongs to the courier — never post it as shop revenue/COD.
+        $shopAmount = $order->shopCollectableAmount();
+        $advance = $order->shopAdvancePaid();
+        $due = max(0, round($shopAmount - $advance, 2));
+
+        if ($shopAmount <= 0.009 && $cogs <= 0) {
+            return;
+        }
+
+        $lines = [];
+        if ($advance > 0.009) {
+            $lines[] = ['account' => $cash, 'debit' => $advance, 'credit' => 0, 'counter_id' => null];
+        }
+        if ($due > 0.009) {
+            $lines[] = ['account' => $receivable, 'debit' => $due, 'credit' => 0, 'counter_id' => null];
+        }
+        if ($shopAmount > 0.009 && $lines === []) {
+            $lines[] = ['account' => $receivable, 'debit' => $shopAmount, 'credit' => 0, 'counter_id' => null];
+        }
+        if ($shopAmount > 0.009) {
+            $lines[] = ['account' => $revenue, 'debit' => 0, 'credit' => $shopAmount, 'counter_id' => null];
+        }
 
         if ($cogs > 0) {
             $lines[] = ['account' => $this->getAccount($order->shop_id, 'COGS'), 'debit' => $cogs, 'credit' => 0, 'counter_id' => null];
             $lines[] = ['account' => $this->getAccount($order->shop_id, 'INVENTORY'), 'debit' => 0, 'credit' => $cogs, 'counter_id' => null];
+        }
+
+        if ($lines === []) {
+            return;
         }
 
         $this->createTransaction(
@@ -292,6 +315,15 @@ class AccountService
         $cash = $this->getAccount($order->shop_id, 'WEB-CASH');
         $receivable = $this->getAccount($order->shop_id, 'WEB-COD');
 
+        // Settle only shop merchandise remaining — delivery is paid to the courier separately.
+        $shopAmount = $order->shopCollectableAmount();
+        $alreadyPaid = $order->shopAdvancePaid();
+        $remaining = max(0, round($shopAmount - $alreadyPaid, 2));
+
+        if ($remaining <= 0.009) {
+            return;
+        }
+
         $this->createTransaction(
             shopId: $order->shop_id,
             type: 'web_settlement',
@@ -300,8 +332,8 @@ class AccountService
             description: 'COD Collected - ' . $order->invoice_no,
             date: now(),
             lines: [
-                ['account' => $cash, 'debit' => $order->total_amount, 'credit' => 0, 'counter_id' => null],
-                ['account' => $receivable, 'debit' => 0, 'credit' => $order->total_amount, 'counter_id' => null],
+                ['account' => $cash, 'debit' => $remaining, 'credit' => 0, 'counter_id' => null],
+                ['account' => $receivable, 'debit' => 0, 'credit' => $remaining, 'counter_id' => null],
             ],
             userId: Auth::id(),
         );
@@ -320,9 +352,9 @@ class AccountService
 
         $revenue = $this->getAccount($order->shop_id, 'REVENUE');
         $cogs = $this->calculateCogs($order);
-        // Web sale/settlement post total_amount; reverse the same amount for GL balance.
+        // Web sale/settlement post shop merchandise only (delivery is courier money).
         $netAmount = $order->isOnlineOrder()
-            ? (float) $order->total_amount
+            ? $order->shopCollectableAmount()
             : $order->netPayable();
 
         $lines = [

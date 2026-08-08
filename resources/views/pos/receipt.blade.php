@@ -524,10 +524,27 @@
                     <td class="lbl">Subtotal</td>
                     <td class="text-right">৳{{ number_format($itemsSubtotal, 2) }}</td>
                 </tr>
-                @if(($order->delivery_charge ?? 0) > 0)
+                @if(($order->delivery_charge ?? 0) > 0 || ($isOnline && filled($order->delivery_zone)))
                     <tr>
-                        <td class="lbl">Delivery</td>
-                        <td class="text-right">+ ৳{{ number_format((float) $order->delivery_charge, 2) }}</td>
+                        <td class="lbl">
+                            Delivery
+                            @if(filled($order->delivery_zone))
+                                ({{ $order->delivery_zone === 'outside_dhaka' ? 'Outside Dhaka' : 'Inside Dhaka' }})
+                            @endif
+                        </td>
+                        <td class="text-right">
+                            @if(($order->delivery_charge ?? 0) > 0)
+                                + ৳{{ number_format((float) $order->delivery_charge, 2) }}
+                            @else
+                                FREE
+                            @endif
+                        </td>
+                    </tr>
+                @endif
+                @if(($order->confirmation_charge ?? 0) > 0)
+                    <tr>
+                        <td class="lbl">Confirmation paid</td>
+                        <td class="text-right">৳{{ number_format((float) $order->confirmation_charge, 2) }}</td>
                     </tr>
                 @endif
                 @if(($order->discount_amount ?? 0) > 0)
@@ -540,6 +557,13 @@
                     <td>Grand total</td>
                     <td class="text-right">৳{{ number_format($order->netPayable(), 2) }}</td>
                 </tr>
+                @if($isOnline && ($order->delivery_charge ?? 0) > 0)
+                    <tr>
+                        <td colspan="2" style="padding-top:4px;font-size:9px;color:#64748b;font-weight:600;line-height:1.35">
+                            * Delivery charge is paid to the delivery person (not store income).
+                        </td>
+                    </tr>
+                @endif
                 @if(($order->credit_amount ?? 0) > 0)
                     <tr>
                         <td class="lbl">Paid now</td>

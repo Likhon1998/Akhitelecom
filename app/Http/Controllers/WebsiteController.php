@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Services\AccountService;
+use App\Services\DeliveryChargeService;
 use App\Services\OnlineOrderTrackingService;
 use App\Services\StockService;
 use App\Services\WebsiteService;
@@ -23,6 +24,7 @@ class WebsiteController extends Controller
         private AccountService $accounts,
         private StockService $stock,
         private OnlineOrderTrackingService $tracking,
+        private DeliveryChargeService $delivery,
     ) {}
 
     public function home()
@@ -754,6 +756,8 @@ class WebsiteController extends Controller
             'customer_name' => 'required|string|max:255',
             'customer_phone' => 'required|string|max:20',
             'customer_address' => 'required|string|max:1000',
+            'delivery_zone' => 'nullable|string|in:inside_dhaka,outside_dhaka',
+            'payment_method' => 'nullable|string|in:cash_on_delivery,confirmation_charge',
         ]);
 
         $customer = Customer::where('shop_id', $shopId)
@@ -779,8 +783,6 @@ class WebsiteController extends Controller
         }
 
         $user->update(['name' => $request->customer_name]);
-
-        $deliveryFee = 0; // Server-controlled; free COD delivery for now (ignore client fee).
 
         $shopAdmin = \App\Models\User::where('shop_id', $shopId)->whereIn('role', ['admin', 'shop_owner', 'Shop Owner'])->first();
         $fallbackUserId = $shopAdmin?->id ?? $user->id;
@@ -823,7 +825,17 @@ class WebsiteController extends Controller
             return response()->json(['success' => false, 'message' => 'Cart is empty or store unavailable.']);
         }
 
-        $finalTotal = $subtotal + $deliveryFee;
+        $quote = $this->delivery->quote(
+            $subtotal,
+            $request->input('delivery_zone'),
+            $request->input('payment_method'),
+        );
+
+        $deliveryFee = $quote['delivery_fee'];
+        $finalTotal = $quote['grand_total'];
+        $paidNow = $quote['amount_paid_now'];
+        $confirmationCharge = $quote['confirmation_amount'];
+        $paymentMethod = $quote['payment_method'];
 
         try {
             DB::beginTransaction();
@@ -840,8 +852,10 @@ class WebsiteController extends Controller
                 'customer_id' => $customer->id,
                 'total_amount' => $finalTotal,
                 'delivery_charge' => $deliveryFee,
-                'paid_amount' => 0,
-                'payment_method' => 'cash_on_delivery',
+                'delivery_zone' => $quote['zone'],
+                'confirmation_charge' => $confirmationCharge,
+                'paid_amount' => $paidNow,
+                'payment_method' => $paymentMethod,
                 'status' => 'pending',
                 'counter_id' => null,
             ]);
@@ -867,11 +881,20 @@ class WebsiteController extends Controller
 
             DB::commit();
 
+            $payNote = $paymentMethod === DeliveryChargeService::PAY_CONFIRMATION
+                ? 'Confirmation charge ৳'.number_format($paidNow, 2).' · balance due on delivery ৳'.number_format($quote['amount_due_later'], 2)
+                : 'Cash on delivery · total due ৳'.number_format($finalTotal, 2);
+
             return response()->json([
                 'success' => true,
                 'order_id' => $order->id,
                 'invoice' => $order->invoice_no,
-                'message' => 'Order placed successfully. Your Order ID is '.$order->invoice_no.'.',
+                'delivery_fee' => $deliveryFee,
+                'grand_total' => $finalTotal,
+                'payment_method' => $paymentMethod,
+                'amount_paid_now' => $paidNow,
+                'amount_due_later' => $quote['amount_due_later'],
+                'message' => 'Order placed successfully. Your Order ID is '.$order->invoice_no.'. '.$payNote,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();

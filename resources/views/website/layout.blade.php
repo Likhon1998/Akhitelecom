@@ -172,15 +172,61 @@
                 toastVisible: false,
                 isLoggedIn: @json((bool) $storefrontUser),
                 currency: @json($settings->currency_symbol ?? '$'),
+                deliveryConfig: @json($deliveryConfig ?? [
+                    'inside_dhaka' => 60,
+                    'outside_dhaka' => 120,
+                    'free_enabled' => true,
+                    'free_min_amount' => 10000,
+                    'cod_enabled' => true,
+                    'confirmation_enabled' => false,
+                    'confirmation_amount' => 0,
+                ]),
                 checkout: {
                     name: @json(data_get($storefrontUser, 'name', '')),
                     phone: @json(data_get($storefrontUser, 'phone', '')),
                     address: @json(data_get($storefrontUser, 'address', '')),
+                    zone: 'inside_dhaka',
+                    payment_method: 'cash_on_delivery',
                 },
                 authLogin: { email: '', password: '' },
                 authRegister: { name: '', phone: '', email: '', password: '', address: '' },
                 get cartCount() { return this.cart.reduce((s, i) => s + (Number(i.qty) || 0), 0); },
                 get cartTotal() { return this.cart.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.qty) || 0), 0); },
+                get deliveryQuote() {
+                    const cfg = this.deliveryConfig || {};
+                    const subtotal = Number(this.cartTotal) || 0;
+                    const zone = this.checkout.zone === 'outside_dhaka' ? 'outside_dhaka' : 'inside_dhaka';
+                    const base = zone === 'outside_dhaka'
+                        ? Number(cfg.outside_dhaka) || 0
+                        : Number(cfg.inside_dhaka) || 0;
+                    const freeMin = Number(cfg.free_min_amount) || 0;
+                    const isFree = !!cfg.free_enabled && subtotal + 0.009 >= freeMin;
+                    const deliveryFee = isFree ? 0 : Math.max(0, base);
+                    const grand = Math.round((subtotal + deliveryFee) * 100) / 100;
+                    let method = this.checkout.payment_method;
+                    const codOk = !!cfg.cod_enabled;
+                    const confOk = !!cfg.confirmation_enabled && Number(cfg.confirmation_amount) > 0.009;
+                    if (method === 'confirmation_charge' && !confOk) method = codOk ? 'cash_on_delivery' : 'confirmation_charge';
+                    if (method === 'cash_on_delivery' && !codOk && confOk) method = 'confirmation_charge';
+                    const confirmAmt = method === 'confirmation_charge'
+                        ? Math.min(grand, Math.max(0, Number(cfg.confirmation_amount) || 0))
+                        : 0;
+                    return {
+                        zone,
+                        zoneLabel: zone === 'outside_dhaka' ? 'Outside Dhaka' : 'Inside Dhaka',
+                        subtotal,
+                        baseFee: base,
+                        deliveryFee,
+                        isFree,
+                        freeReason: isFree ? ('Free delivery over ' + (cfg.currency_symbol || this.currency) + Number(freeMin).toLocaleString()) : null,
+                        grandTotal: grand,
+                        paymentMethod: method,
+                        confirmationAmount: confirmAmt,
+                        amountDueLater: Math.max(0, Math.round((grand - confirmAmt) * 100) / 100),
+                        codEnabled: codOk,
+                        confirmationEnabled: confOk,
+                    };
+                },
                 get wishlistCount() { return this.wishlist.length; },
                 save() { localStorage.setItem('gaget_cart', JSON.stringify(this.cart)); },
                 saveWishlist() { localStorage.setItem('gaget_wishlist', JSON.stringify(this.wishlist)); },
@@ -245,6 +291,12 @@
                     this.orderSuccess = false;
                     this.authMessage = '';
                     this.authMessageOk = false;
+                    const cfg = this.deliveryConfig || {};
+                    if (!cfg.cod_enabled && cfg.confirmation_enabled && Number(cfg.confirmation_amount) > 0) {
+                        this.checkout.payment_method = 'confirmation_charge';
+                    } else if (cfg.cod_enabled) {
+                        this.checkout.payment_method = 'cash_on_delivery';
+                    }
                     if (this.isLoggedIn) {
                         this.checkoutStep = 'order';
                     } else {
@@ -369,6 +421,8 @@
                                 customer_name: this.checkout.name,
                                 customer_phone: this.checkout.phone,
                                 customer_address: this.checkout.address,
+                                delivery_zone: this.checkout.zone,
+                                payment_method: this.deliveryQuote.paymentMethod,
                             }),
                         });
                         const data = await res.json().catch(() => ({}));
@@ -599,14 +653,76 @@
         {{-- Order step --}}
         <div x-show="checkoutStep==='order'" x-cloak>
             <h3 class="text-xl font-bold text-slate-900 pr-8">Place order</h3>
-            <p class="text-sm text-slate-500 mt-1 mb-5">Cash on delivery · <span x-text="cartCount"></span> item(s) · <span class="font-semibold text-slate-800" x-text="currency+cartTotal.toFixed(2)"></span></p>
+            <p class="text-sm text-slate-500 mt-1 mb-4"><span x-text="cartCount"></span> item(s) · Subtotal <span class="font-semibold text-slate-800" x-text="currency+cartTotal.toFixed(2)"></span></p>
 
             <div class="space-y-3">
                 <input x-model="checkout.name" type="text" placeholder="Full name" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm">
                 <input x-model="checkout.phone" type="text" placeholder="Phone number" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm">
                 <textarea x-model="checkout.address" placeholder="Delivery address" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm" rows="2"></textarea>
+
+                <div>
+                    <p class="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">Delivery area</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" @click="checkout.zone='inside_dhaka'"
+                                class="rounded-xl border px-3 py-2.5 text-left text-xs font-semibold transition"
+                                :class="checkout.zone==='inside_dhaka' ? 'border-orange-500 bg-orange-50 text-slate-900 ring-1 ring-orange-200' : 'border-slate-200 bg-white text-slate-600'">
+                            <span class="block">Inside Dhaka</span>
+                            <span class="mt-0.5 block text-[11px] font-medium text-slate-500" x-text="currency+Number(deliveryConfig.inside_dhaka||0).toFixed(0)"></span>
+                        </button>
+                        <button type="button" @click="checkout.zone='outside_dhaka'"
+                                class="rounded-xl border px-3 py-2.5 text-left text-xs font-semibold transition"
+                                :class="checkout.zone==='outside_dhaka' ? 'border-orange-500 bg-orange-50 text-slate-900 ring-1 ring-orange-200' : 'border-slate-200 bg-white text-slate-600'">
+                            <span class="block">Outside Dhaka</span>
+                            <span class="mt-0.5 block text-[11px] font-medium text-slate-500" x-text="currency+Number(deliveryConfig.outside_dhaka||0).toFixed(0)"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-xs space-y-1.5">
+                    <div class="flex justify-between"><span class="text-slate-500">Subtotal</span><span class="font-semibold" x-text="currency+deliveryQuote.subtotal.toFixed(2)"></span></div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Delivery (<span x-text="deliveryQuote.zoneLabel"></span>)</span>
+                        <span class="font-semibold" x-text="deliveryQuote.isFree ? 'FREE' : (currency+deliveryQuote.deliveryFee.toFixed(2))"></span>
+                    </div>
+                    <p x-show="deliveryQuote.freeReason" x-text="deliveryQuote.freeReason" class="text-[11px] text-emerald-600 font-medium"></p>
+                    <p x-show="!deliveryQuote.isFree && deliveryQuote.deliveryFee > 0" class="text-[11px] text-slate-500">Delivery is paid to the delivery person.</p>
+                    <div class="flex justify-between border-t border-slate-200 pt-1.5 text-sm">
+                        <span class="font-bold text-slate-800">Total</span>
+                        <span class="font-bold text-slate-900" x-text="currency+deliveryQuote.grandTotal.toFixed(2)"></span>
+                    </div>
+                </div>
+
+                <div x-show="deliveryQuote.codEnabled || deliveryQuote.confirmationEnabled">
+                    <p class="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">Payment</p>
+                    <div class="space-y-2">
+                        <label x-show="deliveryQuote.codEnabled" class="flex items-start gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer"
+                               :class="checkout.payment_method==='cash_on_delivery' ? 'border-orange-500 bg-orange-50/70' : 'border-slate-200 bg-white'">
+                            <input type="radio" class="mt-0.5" value="cash_on_delivery" x-model="checkout.payment_method">
+                            <span>
+                                <span class="block text-xs font-bold text-slate-900">Cash on delivery</span>
+                                <span class="block text-[11px] text-slate-500">Pay full amount when your order arrives</span>
+                            </span>
+                        </label>
+                        <label x-show="deliveryQuote.confirmationEnabled" class="flex items-start gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer"
+                               :class="checkout.payment_method==='confirmation_charge' ? 'border-orange-500 bg-orange-50/70' : 'border-slate-200 bg-white'">
+                            <input type="radio" class="mt-0.5" value="confirmation_charge" x-model="checkout.payment_method">
+                            <span>
+                                <span class="block text-xs font-bold text-slate-900">Confirmation charge</span>
+                                <span class="block text-[11px] text-slate-500">
+                                    Pay <span class="font-semibold" x-text="currency+Number(deliveryConfig.confirmation_amount||0).toFixed(0)"></span> now ·
+                                    balance <span class="font-semibold" x-text="currency+deliveryQuote.amountDueLater.toFixed(2)"></span> on delivery
+                                </span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
                 <button type="button" @click="placeOrder()" :disabled="ordering" class="w-full gaget-btn-primary text-center disabled:opacity-50">
-                    <span x-text="ordering ? 'Placing order...' : 'Confirm order (Cash on delivery)'"></span>
+                    <span x-text="ordering
+                        ? 'Placing order...'
+                        : (deliveryQuote.paymentMethod==='confirmation_charge'
+                            ? ('Confirm · pay ' + currency + deliveryQuote.confirmationAmount.toFixed(0) + ' now')
+                            : 'Confirm order (Cash on delivery)')"></span>
                 </button>
             </div>
 
@@ -624,7 +740,7 @@
                 </svg>
             </div>
             <h3 class="text-xl font-extrabold text-slate-900">Order placed successfully!</h3>
-            <p class="mt-2 text-sm text-slate-500">Thank you — your order is confirmed and cash on delivery.</p>
+            <p class="mt-2 text-sm text-slate-500">Thank you — your order is confirmed.</p>
             <div class="mt-5 rounded-2xl border border-emerald-200 bg-gradient-to-b from-emerald-50 to-white px-4 py-4 shadow-sm">
                 <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Your Order ID</p>
                 <p class="mt-1.5 font-mono text-[17px] font-extrabold tracking-wide text-emerald-950" x-text="lastOrderInvoice || ('#' + lastOrderId)"></p>

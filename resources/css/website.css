@@ -2879,12 +2879,9 @@
     .gs-sidebar { position: static; }
 }
 @media (max-width: 700px) {
-    .gs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .gs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .gs-title { font-size: 22px; }
     .gs-grid--list .gs-card { grid-template-columns: 120px minmax(0, 1fr); }
-}
-@media (max-width: 420px) {
-    .gs-grid { grid-template-columns: 1fr; }
 }
 
 /* ── Joyful page loader ── */
@@ -3424,8 +3421,8 @@
     .tn-features-grid--5,
     .tn-features-grid--4,
     .tn-features-grid--3,
-    .tn-features-grid--2 { grid-template-columns: 1fr; }
-    .tn-feature { padding: 10px 4px; }
+    .tn-features-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tn-feature { padding: 10px 6px; }
     .tn-product-card { border-radius: 14px; }
     .tn-product-img { aspect-ratio: 1 / 1; }
     .tn-product-add { width: 100%; justify-content: center; }
@@ -3447,7 +3444,7 @@
 
 @media (max-width: 380px) {
     .tn-flash-grid,
-    .tn-product-grid { grid-template-columns: 1fr; }
+    .tn-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .tn-cat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 

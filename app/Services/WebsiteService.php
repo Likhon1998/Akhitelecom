@@ -222,6 +222,7 @@ class WebsiteService
             'featuredReviews' => CmsReview::where('shop_id', $shopId)->where('is_published', true)->where('is_featured', true)->orderBy('sort_order')->take(6)->get(),
             'footerPages' => CmsPage::where('shop_id', $shopId)->where('is_published', true)->where('show_in_footer', true)->orderBy('sort_order')->get(),
             'latestBlogs' => CmsBlog::where('shop_id', $shopId)->published()->with('category')->latest('published_at')->take(3)->get(),
+            'deliveryConfig' => app(\App\Services\DeliveryChargeService::class)->publicConfig(),
         ];
     }
 
@@ -246,6 +247,7 @@ class WebsiteService
             'featuredReviews' => collect(),
             'footerPages' => collect(),
             'latestBlogs' => collect(),
+            'deliveryConfig' => app(\App\Services\DeliveryChargeService::class)->publicConfig(),
         ];
     }
 

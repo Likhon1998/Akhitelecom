@@ -40,6 +40,8 @@ use App\Http\Controllers\Cms\BlogCategoryController as CmsBlogCategoryController
 use App\Http\Controllers\Cms\FaqController as CmsFaqController;
 use App\Http\Controllers\Cms\FaqCategoryController as CmsFaqCategoryController;
 use App\Http\Controllers\Cms\ContactController as CmsContactController;
+use App\Http\Controllers\Cms\DeliverySettingsController;
+use App\Http\Controllers\Cms\CourierServiceController;
 use App\Http\Controllers\Cms\ReviewController as CmsReviewController;
 use Illuminate\Support\Facades\Route;
 
@@ -110,6 +112,9 @@ Route::middleware([
     Route::prefix('cms')->name('cms.')->middleware('can:manage website')->group(function () {
         Route::get('/landing', [LandingPageController::class, 'edit'])->name('landing.edit');
         Route::put('/landing', [LandingPageController::class, 'update'])->name('landing.update');
+        Route::get('/delivery', [DeliverySettingsController::class, 'edit'])->name('delivery.edit');
+        Route::put('/delivery', [DeliverySettingsController::class, 'update'])->name('delivery.update');
+        Route::resource('couriers', CourierServiceController::class)->except(['show', 'create', 'edit']);
         Route::resource('slides', HomeSlideController::class)->except(['show']);
         Route::resource('pages', CmsPageController::class)->except(['show']);
         Route::put('/blogs-settings', [CmsBlogController::class, 'updateSettings'])->name('blogs.settings');
@@ -279,6 +284,7 @@ Route::middleware([
     Route::post('/online-orders/notifications/seen', [OnlineOrderController::class, 'markNotificationsSeen'])->name('online-orders.notifications.seen');
     Route::get('/online-orders/{order}', [OnlineOrderController::class, 'show'])->name('online-orders.show');
     Route::post('/online-orders/{order}/status', [OnlineOrderController::class, 'updateStatus'])->name('online-orders.update-status');
+    Route::post('/online-orders/{order}/collect-from-courier', [OnlineOrderController::class, 'collectFromCourier'])->name('online-orders.collect-from-courier');
 });
 
 require __DIR__.'/auth.php';

@@ -75,7 +75,7 @@
                 </div>
                 <div class="bg-sky-50 px-3.5 py-3 rounded-xl shadow-sm border border-sky-200 flex items-center justify-between gap-2">
                     <div class="min-w-0">
-                        <p class="text-[10px] font-bold text-sky-600 uppercase tracking-widest mb-0.5">Money with courier</p>
+                        <p class="text-[10px] font-bold text-sky-600 uppercase tracking-widest mb-0.5">Due from couriers</p>
                         <h3 class="text-lg sm:text-xl font-black text-sky-900 leading-none truncate">৳{{ number_format($courierReceivables ?? 0, 2) }}</h3>
                     </div>
                     <div class="w-9 h-9 bg-sky-100 text-sky-500 rounded-full flex items-center justify-center shrink-0 text-base">💸</div>
@@ -90,6 +90,27 @@
                     </div>
                 </div>
             </div>
+
+            @if(!empty($dueByCourier))
+                <div class="rounded-xl border border-sky-200 bg-white shadow-sm overflow-hidden">
+                    <div class="px-4 py-2.5 border-b border-sky-100 bg-sky-50/80 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <p class="text-[12px] font-bold text-sky-900">Cash to collect by courier service</p>
+                            <p class="text-[11px] text-sky-700/80">Product COD only — delivery fee stays with the courier</p>
+                        </div>
+                        <a href="{{ route('cms.couriers.index') }}" class="text-[11px] font-bold text-indigo-600 hover:underline">Manage courier services →</a>
+                    </div>
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+                        @foreach($dueByCourier as $row)
+                            <div class="px-4 py-3">
+                                <p class="text-[13px] font-bold text-slate-900">{{ $row['name'] }}</p>
+                                <p class="mt-0.5 text-lg font-black text-sky-800">৳{{ $row['amount_fmt'] }}</p>
+                                <p class="text-[11px] text-slate-500">{{ $row['orders'] }} {{ $row['orders'] === 1 ? 'order' : 'orders' }} shipped</p>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
 
             @if(session('success'))
                 <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-2.5 rounded-lg shadow-sm text-sm">{{ session('success') }}</div>
@@ -145,6 +166,9 @@
                                         <span class="text-xs font-bold px-2.5 py-1 rounded-full border inline-block"
                                               :class="statusBadgeClass(order.status)"
                                               x-text="statusLabel(order.status)"></span>
+                                        <template x-if="order.status === 'shipped' && order.due_from_courier > 0">
+                                            <div class="text-[10px] font-bold text-sky-700 mt-1" x-text="'Due from courier ৳' + order.due_from_courier_fmt"></div>
+                                        </template>
                                         <template x-if="order.status === 'shipped' && order.shipping_courier">
                                             <div>
                                                 <p class="text-[10px] text-purple-700 font-bold mt-1" x-text="order.shipping_courier"></p>
