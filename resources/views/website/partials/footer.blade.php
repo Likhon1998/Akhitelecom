@@ -45,13 +45,6 @@
     $accessoriesCategory = collect($allCategories ?? $categories ?? [])->first(
         fn ($c) => str_contains(strtolower($c->name ?? ''), 'accessor')
     );
-
-    // Mockup product collage: headphones, watch, phone
-    $showcaseImages = [
-        ['src' => 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&q=85', 'alt' => 'Headphones'],
-        ['src' => 'https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?w=500&q=85', 'alt' => 'Smartwatch'],
-        ['src' => 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=500&q=85', 'alt' => 'Smartphone'],
-    ];
 @endphp
 <footer class="tn-footer">
     <div class="tn-container tn-footer-shell">
@@ -201,16 +194,6 @@
                         </a>
                     </li>
                 </ul>
-            </div>
-
-            <div class="tn-footer-visual" aria-hidden="true">
-                <div class="tn-footer-visual-glow"></div>
-                <div class="tn-footer-visual-dots"></div>
-                @foreach($showcaseImages as $i => $img)
-                    <div class="tn-footer-visual-item tn-footer-visual-item--{{ $i + 1 }}">
-                        <img src="{{ $img['src'] }}" alt="{{ $img['alt'] }}" loading="lazy" decoding="async">
-                    </div>
-                @endforeach
             </div>
         </div>
     </div>

@@ -22,6 +22,21 @@
     font-size: 14px;
     line-height: 1.5;
     overflow-x: hidden;
+    max-width: 100%;
+    width: 100%;
+    position: relative;
+}
+html {
+    overflow-x: hidden;
+    max-width: 100%;
+}
+html, body {
+    overscroll-behavior-x: none;
+}
+body.gaget-store {
+    overflow-x: hidden;
+    max-width: 100%;
+    width: 100%;
 }
 .gaget-store main {
     width: 100%;
@@ -2330,10 +2345,11 @@
     align-items: center;
     gap: 12px;
     min-width: 0;
+    max-width: 100%;
     padding: 8px 12px;
     border-radius: 12px;
 }
-.tn-feature-copy { min-width: 0; }
+.tn-feature-copy { min-width: 0; overflow-wrap: anywhere; }
 .tn-feature-icon {
     width: 42px;
     height: 42px;
@@ -2402,7 +2418,7 @@
 }
 .tn-footer-main {
     display: grid;
-    grid-template-columns: 1.25fr 0.78fr 0.78fr 0.9fr 1.15fr;
+    grid-template-columns: 1.4fr 0.9fr 0.9fr 1fr;
     gap: 28px 24px;
     align-items: start;
 }
@@ -2548,82 +2564,9 @@
     letter-spacing: .02em;
 }
 
-.tn-footer-visual {
-    position: relative;
-    min-height: 250px;
-    margin-top: -8px;
-}
-.tn-footer-visual-glow {
-    position: absolute;
-    right: -10%;
-    top: 10%;
-    width: 280px;
-    height: 280px;
-    border-radius: 50%;
-    background:
-        radial-gradient(circle at 45% 45%, rgba(196, 181, 253, .55), transparent 58%),
-        radial-gradient(circle at 65% 35%, rgba(147, 197, 253, .45), transparent 52%),
-        radial-gradient(circle at 40% 70%, rgba(233, 213, 255, .35), transparent 50%);
-    filter: blur(4px);
-}
-.tn-footer-visual-dots {
-    position: absolute;
-    inset: 8% 0 0 8%;
-    background-image: radial-gradient(rgba(255,255,255,.85) 1px, transparent 1px);
-    background-size: 18px 18px;
-    opacity: .55;
-    mask-image: radial-gradient(circle at 60% 50%, #000 20%, transparent 70%);
-    -webkit-mask-image: radial-gradient(circle at 60% 50%, #000 20%, transparent 70%);
-    pointer-events: none;
-}
-.tn-footer-visual-item {
-    position: absolute;
-    border-radius: 22px;
-    overflow: hidden;
-    background: rgba(255,255,255,.65);
-    box-shadow: 0 18px 40px rgba(15, 23, 42, .14);
-    backdrop-filter: blur(2px);
-}
-.tn-footer-visual-item img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-.tn-footer-visual-item--1 {
-    width: 132px;
-    height: 132px;
-    left: 0;
-    top: 42px;
-    z-index: 2;
-    transform: rotate(-10deg);
-}
-.tn-footer-visual-item--2 {
-    width: 108px;
-    height: 108px;
-    right: 18px;
-    top: 8px;
-    z-index: 3;
-    transform: rotate(9deg);
-}
-.tn-footer-visual-item--3 {
-    width: 120px;
-    height: 120px;
-    right: 36px;
-    bottom: 10px;
-    z-index: 4;
-    transform: rotate(-5deg);
-}
-
 @media (max-width: 1180px) {
     .tn-footer-main {
         grid-template-columns: 1.2fr 0.8fr 0.8fr 0.9fr;
-    }
-    .tn-footer-visual {
-        grid-column: 1 / -1;
-        min-height: 210px;
-        max-width: 360px;
-        margin-left: auto;
     }
 }
 @media (max-width: 900px) {
@@ -2636,10 +2579,6 @@
 }
 @media (max-width: 560px) {
     .tn-footer-main { grid-template-columns: 1fr; gap: 28px; }
-    .tn-footer-visual { max-width: 100%; }
-    .tn-footer-visual-item--1 { width: 110px; height: 110px; }
-    .tn-footer-visual-item--2 { width: 92px; height: 92px; }
-    .tn-footer-visual-item--3 { width: 100px; height: 100px; }
 }
 /* ── SHOP PAGE (mockup layout) ── */
 .gs-shop {
@@ -3852,10 +3791,56 @@
     .pd-zoom-hint { display: none !important; }
 }
 
-/* Prevent horizontal page scroll on small screens */
-.gaget-store {
-    overflow-x: hidden;
+/* Prevent horizontal page scroll (especially mobile) */
+html,
+body,
+body.gaget-store,
+.gaget-store,
+#storefront-root {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
 }
+@media (max-width: 768px) {
+    html, body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden !important;
+        overscroll-behavior-x: none;
+        touch-action: pan-y;
+    }
+    .gaget-store,
+    #storefront-root,
+    .gaget-store main {
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+        width: 100%;
+    }
+    .gaget-store .tn-container,
+    .gaget-store .tn-section,
+    .gaget-store .tn-features,
+    .gaget-store .tn-deals,
+    .gaget-store .tn-hero,
+    .gaget-store .gs-shop-inner {
+        max-width: 100%;
+        min-width: 0;
+    }
+    .gaget-store .tn-product-card,
+    .gaget-store .tn-feature,
+    .gaget-store .gs-card,
+    .gaget-store .gaget-product-card {
+        min-width: 0;
+        max-width: 100%;
+    }
+    .gaget-store .tn-features-grid,
+    .gaget-store .tn-product-grid,
+    .gaget-store .tn-flash-grid,
+    .gaget-store .gs-grid {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+}
+
 /* Don't let this global rule blow up brand/product logos (height:auto + full width). */
 .gaget-store img:not(.tn-brand-logo):not(.pd-brand-logo):not(.pd-color-thumb):not(.pd-related-img):not(.pd-zoom-img):not(.gaget-logo-mark):not(.gaget-logo-wordmark),
 .gaget-store video {
