@@ -3,10 +3,15 @@
     $product = $product ?? null;
     $isEdit = $product !== null;
     $defaultVariants = old('variants', [
-        ['barcode' => '', 'color' => 'Black', 'color_hex' => '#1e293b', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 10, 'imei_list' => ''],
-        ['barcode' => '', 'color' => 'White', 'color_hex' => '#f8fafc', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 10, 'imei_list' => ''],
-        ['barcode' => '', 'color' => 'Red', 'color_hex' => '#dc2626', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 5, 'imei_list' => ''],
+        ['barcode' => '', 'color' => 'Black', 'color_hex' => '#1e293b', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 10, 'imeis' => []],
+        ['barcode' => '', 'color' => 'White', 'color_hex' => '#f8fafc', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 10, 'imeis' => []],
+        ['barcode' => '', 'color' => 'Red', 'color_hex' => '#dc2626', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 5, 'imeis' => []],
     ]);
+    $initialImeis = array_values((array) old('imeis', ($isEdit && $product) ? $product->availableImeis()->pluck('imei')->all() : []));
+    $imeiErrors = collect($errors->getMessages())
+        ->filter(fn ($messages, $key) => preg_match('/^(imeis|variants\.\d+\.imeis)\.\d+$/', $key))
+        ->map(fn ($messages) => $messages[0])
+        ->all();
 @endphp
 
 <div class="space-y-5"
@@ -21,11 +26,62 @@
         autoGroup: true,
         productMode: @js(old('product_mode', $isEdit ? 'simple' : '')),
         requiresImei: @js((bool) old('requires_imei', $product?->requires_imei ?? false)),
-        imeiText: @js(old('imei_list', ($isEdit && $product) ? $product->availableImeis()->pluck('imei')->implode("\n") : '')),
+        openingQty: @js((int) old('stock_quantity', 0)),
+        currentStock: @js((int) ($product?->stock_quantity ?? 0)),
+        imeis: @js($initialImeis),
+        imeiErrors: @js((object) $imeiErrors),
         variantUid: {{ count($defaultVariants) }},
         variants: @js(collect($defaultVariants)->values()->map(function ($row, $i) {
-            return array_merge($row, ['_key' => 'v'.($i + 1)]);
+            return array_merge($row, ['_key' => 'v'.($i + 1), 'imeis' => array_values((array) ($row['imeis'] ?? []))]);
         })->all()),
+        normImei(v) { return String(v ?? '').replace(/\s+/g, ''); },
+        resizeImeis(list, n) {
+            n = Math.max(0, Math.min(500, parseInt(n) || 0));
+            while (list.length < n) list.push('');
+            if (list.length > n) list.splice(n);
+        },
+        syncImeiBoxes() {
+            if (!this.requiresImei || {{ $isEdit ? 'true' : 'false' }}) return;
+            this.resizeImeis(this.imeis, this.openingQty);
+            this.variants.forEach((row) => this.resizeImeis(row.imeis, row.stock_quantity));
+        },
+        imeiFilled(list) { return list.filter((v) => this.normImei(v) !== '').length; },
+        imeiAll() {
+            return (this.isMulti ? this.variants.flatMap((row) => row.imeis) : this.imeis).map((v) => this.normImei(v));
+        },
+        luhnOk(digits) {
+            let sum = 0;
+            for (let i = 0; i < digits.length; i++) {
+                let d = +digits[digits.length - 1 - i];
+                if (i % 2 === 1) { d *= 2; if (d > 9) d -= 9; }
+                sum += d;
+            }
+            return sum % 10 === 0;
+        },
+        imeiIssue(value) {
+            const v = this.normImei(value);
+            if (v === '') return { level: '', text: '' };
+            if (/^\d+$/.test(v) && v.length !== 15) return { level: 'error', text: 'An IMEI has 15 digits (' + v.length + ' entered).' };
+            if (!/^\d+$/.test(v) && !/^[A-Za-z0-9-]{6,32}$/.test(v)) return { level: 'error', text: 'Only digits (IMEI) or letters/digits (serial) allowed.' };
+            if (this.imeiAll().filter((x) => x === v).length > 1) return { level: 'error', text: 'This IMEI is entered for more than one phone.' };
+            if (/^\d{15}$/.test(v) && !this.luhnOk(v)) return { level: 'warn', text: 'Check digit looks wrong — please re-check this IMEI.' };
+            return { level: '', text: '' };
+        },
+        imeiNext(event) {
+            const inputs = [...event.target.closest('[data-imei-group]').querySelectorAll('input[data-imei]')];
+            const next = inputs[inputs.indexOf(event.target) + 1];
+            next ? next.focus() : event.target.blur();
+        },
+        imeiPaste(list, index, event, owner, countKey) {
+            const tokens = (event.clipboardData?.getData('text') || '').split(/[\s,;]+/).filter(Boolean);
+            if (tokens.length < 2) return;
+            event.preventDefault();
+            if (list.length < index + tokens.length) {
+                this.resizeImeis(list, index + tokens.length);
+                if (owner && countKey) owner[countKey] = list.length;
+            }
+            tokens.forEach((t, k) => { list[index + k] = t; });
+        },
         categoryModal: false,
         brandModal: false,
         quickName: '',
@@ -62,7 +118,7 @@
             this.variants.push({
                 _key: 'v' + this.variantUid,
                 barcode: '', color: '', color_hex: '#2563eb', ram: '', storage: '',
-                cost_price: '', selling_price: '', stock_quantity: 1, imei_list: '',
+                cost_price: '', selling_price: '', stock_quantity: 1, imeis: this.requiresImei ? [''] : [],
                 _files: [],
             });
         },
@@ -181,7 +237,12 @@
             }
         },
      }"
-     x-init="syncGroup()">
+     x-init="syncGroup(); syncImeiBoxes();
+             $watch('requiresImei', (on) => {
+                 if (!on) return;
+                 if ({{ $isEdit ? 'true' : 'false' }} && imeis.length === 0) resizeImeis(imeis, currentStock);
+                 syncImeiBoxes();
+             })">
 
     @if(!$isEdit)
     {{-- Step 0: choose type first --}}
@@ -540,6 +601,7 @@
                             <div>
                                 <label class="block text-[10px] font-semibold text-slate-500 mb-1">Opening qty</label>
                                 <input type="number" min="0" :name="'variants['+index+'][stock_quantity]'" x-model="row.stock_quantity"
+                                       @input="requiresImei && resizeImeis(row.imeis, row.stock_quantity)"
                                        class="block w-full rounded-md border-slate-200 text-sm py-2">
                             </div>
                         </div>
@@ -547,11 +609,18 @@
                             <label class="block text-[10px] font-semibold text-slate-500 mb-1.5">Pictures for this color (add as many as you want)</label>
                             @include('products.partials.variant-image-uploads')
                         </div>
-                        <div x-show="requiresImei">
-                            <label class="block text-[10px] font-semibold text-slate-500 mb-1">IMEI numbers (one per line)</label>
-                            <textarea :name="'variants['+index+'][imei_list]'" x-model="row.imei_list" rows="2"
-                                      class="block w-full rounded-md border-slate-200 text-sm font-mono"
-                                      placeholder="356938035643809&#10;356938035643810"></textarea>
+                        <div x-show="requiresImei" class="rounded-lg border border-orange-100 bg-white p-3">
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-1.5">
+                                IMEI of each phone <span class="font-normal">(opening qty sets how many phones)</span>
+                            </label>
+                            <p class="text-[11px] text-slate-400" x-show="row.imeis.length === 0">Set the opening qty above to add the phones.</p>
+                            @include('products.partials.imei-rows', [
+                                'list' => 'row.imeis',
+                                'name' => "'variants['+index+'][imeis]'",
+                                'errKey' => "'variants.'+index+'.imeis.'",
+                                'owner' => 'row',
+                                'countKey' => 'stock_quantity',
+                            ])
                         </div>
                     </div>
                 </template>
@@ -575,19 +644,41 @@
                        class="rounded border-slate-300 text-orange-600 focus:ring-orange-500">
                 This product requires an IMEI / serial when selling
             </label>
-            <div x-show="requiresImei && isSimple" x-cloak>
-                <label class="block text-xs font-semibold text-slate-600 mb-1.5">Available IMEI list (one per line)</label>
-                <textarea name="imei_list" x-model="imeiText" rows="4"
-                          class="block w-full rounded-lg border-slate-200 text-sm font-mono"
-                          placeholder="356938035643809&#10;356938035643810"></textarea>
-                <p class="mt-1 text-[11px] text-slate-500">
-                    One phone = one IMEI. Stock is set to the number of IMEIs listed here
-                    @if($isEdit) — add new IMEIs when more phones arrive; sold IMEIs are kept in history. @else (the quantity field is ignored). @endif
+            <div x-show="requiresImei && isSimple" x-cloak class="space-y-3">
+                <p class="rounded-lg border border-orange-100 bg-orange-50/60 px-3 py-2 text-[12px] text-slate-700">
+                    Every phone has its <strong>own</strong> IMEI — even when model, color and storage are the same.
+                    @if($isEdit)
+                        Each row below is one phone in stock. Stock always equals the number of rows. Add a row when a new phone arrives; sold phones are kept in sales history.
+                    @else
+                        Enter how many phones you have, then type or scan the IMEI of each one. Stock is set to this number.
+                    @endif
                 </p>
+
+                @unless($isEdit)
+                    <div class="flex items-center gap-3">
+                        <label for="imei_phone_count" class="text-xs font-semibold text-slate-600">Number of phones</label>
+                        <input id="imei_phone_count" type="number" min="0" max="500" step="1"
+                               x-model.number="openingQty" @input="resizeImeis(imeis, openingQty)"
+                               class="w-28 rounded-lg border-slate-200 text-sm py-2">
+                    </div>
+                @endunless
+
+                <p class="text-[11px] text-slate-400" x-show="imeis.length === 0">
+                    {{ $isEdit ? 'No phones in stock yet — click “+ Add phone” for each phone you receive.' : 'Enter the number of phones to add their IMEIs.' }}
+                </p>
+
+                @include('products.partials.imei-rows', [
+                    'list' => 'imeis',
+                    'name' => "'imeis'",
+                    'errKey' => "'imeis.'",
+                    'owner' => $isEdit ? 'null' : '$data',
+                    'countKey' => $isEdit ? '' : 'openingQty',
+                    'editable' => $isEdit,
+                ])
                 @error('imei_list') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
             <p class="text-[11px] text-slate-500" x-show="requiresImei && isMulti" x-cloak>
-                Enter IMEIs on each variant row above.
+                Enter the IMEI of each phone inside every color / option above — one box per phone.
             </p>
         </div>
     </section>
@@ -635,10 +726,14 @@
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1.5">Opening quantity</label>
                         <input type="number" name="stock_quantity" min="0" step="1"
-                               value="{{ old('stock_quantity', 0) }}"
+                               x-model.number="openingQty"
+                               @input="requiresImei && resizeImeis(imeis, openingQty)"
                                :disabled="isMulti"
+                               :readonly="requiresImei"
+                               :class="requiresImei && 'bg-slate-50 text-slate-500'"
                                class="block w-full rounded-lg border-slate-200 text-sm py-2.5"
                                placeholder="e.g. 10">
+                        <p class="text-[11px] text-slate-400 mt-1" x-show="requiresImei" x-cloak>Set by the number of phones in IMEI tracking.</p>
                         @error('stock_quantity') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                     <div>

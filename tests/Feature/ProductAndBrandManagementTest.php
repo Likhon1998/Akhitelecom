@@ -515,6 +515,150 @@ class ProductAndBrandManagementTest extends TestCase
         $this->assertDatabaseMissing('products', ['barcode' => 'DUP-1']);
     }
 
+    /** @return list<string> */
+    private function iphoneImeis(int $count, int $start = 1): array
+    {
+        return array_map(fn ($n) => '3591230000'.str_pad((string) $n, 5, '0', STR_PAD_LEFT), range($start, $start + $count - 1));
+    }
+
+    private function postIphone(array $imeis, array $extra = []): \Illuminate\Testing\TestResponse
+    {
+        return $this->actingAs($this->admin)->post(route('products.store'), array_merge([
+            'product_mode' => 'simple',
+            'name' => 'iPhone 17 Pro Max — Orange / 256GB',
+            'barcode' => 'IP17PM-ORG-256',
+            'color' => 'Orange',
+            'storage' => '256GB',
+            'cost_price' => 180000,
+            'selling_price' => 199000,
+            'stock_quantity' => count($imeis),
+            'requires_imei' => 1,
+            'imeis' => $imeis,
+        ], $extra));
+    }
+
+    public function test_ten_iphones_each_get_their_own_imei(): void
+    {
+        $imeis = $this->iphoneImeis(10);
+
+        $this->postIphone($imeis)->assertSessionHasNoErrors()->assertRedirect(route('products.index'));
+
+        $product = Product::where('barcode', 'IP17PM-ORG-256')->firstOrFail();
+        $this->assertSame(10, (int) $product->stock_quantity);
+        $this->assertEqualsCanonicalizing($imeis, $product->availableImeis()->pluck('imei')->all());
+    }
+
+    public function test_every_phone_must_have_an_imei(): void
+    {
+        $imeis = $this->iphoneImeis(10);
+        $imeis[3] = '';
+
+        $this->postIphone($imeis)->assertSessionHasErrors([
+            'imeis.3' => "Phone 4: enter this phone's IMEI (or remove the phone).",
+        ]);
+        $this->assertDatabaseMissing('products', ['barcode' => 'IP17PM-ORG-256']);
+    }
+
+    public function test_imei_errors_point_to_the_exact_phone(): void
+    {
+        $other = $this->makeProduct(['name' => 'iPhone 16', 'requires_imei' => true, 'stock_quantity' => 0]);
+        $other->imeis()->create(['imei' => '359123000099999', 'status' => 'available']);
+
+        $imeis = $this->iphoneImeis(5);
+        $imeis[1] = $imeis[0];
+        $imeis[2] = '35912300001';
+        $imeis[4] = '359123000099999';
+
+        $this->postIphone($imeis)->assertSessionHasErrors([
+            'imeis.1' => "Phone 2: IMEI {$imeis[0]} is already entered for Phone 1.",
+            'imeis.2' => 'Phone 3: "35912300001" is not a valid IMEI — an IMEI has exactly 15 digits.',
+            'imeis.4' => 'Phone 5: IMEI 359123000099999 already belongs to "iPhone 16".',
+        ]);
+        $this->assertDatabaseMissing('products', ['barcode' => 'IP17PM-ORG-256']);
+    }
+
+    public function test_imei_product_never_gets_stock_without_imeis(): void
+    {
+        $this->actingAs($this->admin)->post(route('products.store'), [
+            'product_mode' => 'simple',
+            'name' => 'Pixel 9',
+            'barcode' => 'PX9',
+            'cost_price' => 1,
+            'selling_price' => 2,
+            'stock_quantity' => 5,
+            'requires_imei' => 1,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame(0, (int) Product::where('barcode', 'PX9')->value('stock_quantity'));
+    }
+
+    public function test_gadget_options_each_have_their_own_phone_imeis(): void
+    {
+        $orange = $this->iphoneImeis(3);
+        $blue = $this->iphoneImeis(2, 50);
+
+        $payload = [
+            'product_mode' => 'gadget',
+            'name' => 'iPhone 17 Pro Max',
+            'cost_price' => 180000,
+            'selling_price' => 199000,
+            'requires_imei' => 1,
+            'variants' => [
+                ['barcode' => 'IP17-ORG', 'color' => 'Orange', 'stock_quantity' => 3, 'imeis' => $orange],
+                ['barcode' => 'IP17-BLU', 'color' => 'Blue', 'stock_quantity' => 2, 'imeis' => [$blue[0], $orange[0]]],
+            ],
+        ];
+
+        $this->actingAs($this->admin)->post(route('products.store'), $payload)->assertSessionHasErrors([
+            'variants.1.imeis.1' => "Option 2, Phone 2: IMEI {$orange[0]} is already entered for Option 1, Phone 1.",
+        ]);
+
+        $payload['variants'][1]['imeis'] = $blue;
+        $this->post(route('products.store'), $payload)->assertSessionHasNoErrors();
+
+        $this->assertSame(3, (int) Product::where('barcode', 'IP17-ORG')->value('stock_quantity'));
+        $this->assertSame(2, (int) Product::where('barcode', 'IP17-BLU')->value('stock_quantity'));
+    }
+
+    public function test_edit_page_adds_and_removes_phones_by_imei_rows(): void
+    {
+        $this->postIphone($this->iphoneImeis(10))->assertSessionHasNoErrors();
+        $product = Product::where('barcode', 'IP17PM-ORG-256')->firstOrFail();
+
+        $this->get(route('products.edit', $product))
+            ->assertOk()
+            ->assertSee('Every phone has its', false)
+            ->assertSee($this->iphoneImeis(1)[0], false);
+
+        $update = fn (array $imeis) => $this->put(route('products.update', $product), [
+            'name' => $product->name,
+            'barcode' => $product->barcode,
+            'cost_price' => 180000,
+            'selling_price' => 199000,
+            'is_published' => 1,
+            'requires_imei' => 1,
+            'imeis' => $imeis,
+        ]);
+
+        $update($this->iphoneImeis(12))->assertSessionHasNoErrors();
+        $this->assertSame(12, (int) $product->fresh()->stock_quantity);
+
+        $update($this->iphoneImeis(11))->assertSessionHasNoErrors();
+        $this->assertSame(11, (int) $product->fresh()->stock_quantity);
+
+        $update([...$this->iphoneImeis(11), ''])->assertSessionHasErrors('imeis.11');
+        $this->assertSame(11, (int) $product->fresh()->stock_quantity);
+    }
+
+    public function test_add_product_page_shows_phone_count_for_imeis(): void
+    {
+        $this->actingAs($this->admin)
+            ->get(route('products.create'))
+            ->assertOk()
+            ->assertSee('Number of phones', false)
+            ->assertSee('Every phone has its', false);
+    }
+
     public function test_brands_page_renders(): void
     {
         Brand::create(['shop_id' => $this->shop->id, 'name' => 'Nokia', 'is_active' => true]);

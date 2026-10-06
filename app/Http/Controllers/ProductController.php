@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\ProductImei;
 use App\Services\AccountService;
 use App\Services\StockService;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
 {
@@ -194,10 +196,14 @@ class ProductController extends Controller
             $rules['variants.*.selling_price'] = 'nullable|numeric|min:0';
             $rules['variants.*.stock_quantity'] = 'nullable|integer|min:0';
             $rules['variants.*.imei_list'] = 'nullable|string|max:10000';
+            $rules['variants.*.imeis'] = 'nullable|array|max:500';
+            $rules['variants.*.imeis.*'] = 'nullable|string|max:32';
             $rules['variants.*.images'] = 'nullable|array|max:20';
             $rules['variants.*.images.*'] = 'image|mimes:jpeg,png,jpg,webp,gif|max:5120';
         } else {
             $rules['barcode'] = ['required', 'string', 'max:100', Rule::unique('products', 'barcode')];
+            $rules['imeis'] = 'nullable|array|max:500';
+            $rules['imeis.*'] = 'nullable|string|max:32';
         }
 
         $validated = $request->validate($rules);
@@ -206,6 +212,28 @@ class ProductController extends Controller
             $barcodes = collect($validated['variants'])->pluck('barcode')->map(fn ($b) => trim((string) $b));
             if ($barcodes->filter()->count() !== $barcodes->unique()->count()) {
                 return back()->withErrors(['variants' => 'Each variant must have a unique barcode.'])->withInput();
+            }
+        }
+
+        if ($request->boolean('requires_imei')) {
+            $seen = [];
+            $imeiErrors = [];
+            if ($isGadget) {
+                foreach ($validated['variants'] as $i => $row) {
+                    if (array_key_exists('imeis', $row)) {
+                        $validated['variants'][$i]['imei_list'] = implode("\n", $this->collectImeiRows(
+                            (array) $row['imeis'], "variants.{$i}.imeis", 'Option '.($i + 1).', ', null, $seen, $imeiErrors,
+                        ));
+                    }
+                }
+            } elseif ($request->has('imeis')) {
+                $validated['imei_list'] = implode("\n", $this->collectImeiRows(
+                    (array) $request->input('imeis'), 'imeis', '', null, $seen, $imeiErrors,
+                ));
+            }
+
+            if ($imeiErrors !== []) {
+                throw ValidationException::withMessages($imeiErrors);
             }
         }
 
@@ -274,7 +302,7 @@ class ProductController extends Controller
                         $imeiCount = $this->applyImeiList($product, (string) ($validated['imei_list'] ?? ''));
                     }
 
-                    $qty = $requiresImei && $imeiCount > 0 ? $imeiCount : $openingQty;
+                    $qty = $requiresImei ? $imeiCount : $openingQty;
                     if ($qty > 0) {
                         $this->stock->ensureDefaultLocations($product->shop_id);
                         $movement = $this->stock->setOpeningStock($product, $qty);
@@ -339,9 +367,7 @@ class ProductController extends Controller
                     if ($requiresImei) {
                         $imeiCount = $this->applyImeiList($product, (string) ($row['imei_list'] ?? ''));
                     }
-                    $qty = $requiresImei && $imeiCount > 0
-                        ? $imeiCount
-                        : (int) ($row['stock_quantity'] ?? 0);
+                    $qty = $requiresImei ? $imeiCount : (int) ($row['stock_quantity'] ?? 0);
                     if ($qty > 0) {
                         $this->stock->ensureDefaultLocations($product->shop_id);
                         $movement = $this->stock->setOpeningStock($product, $qty);
@@ -430,6 +456,8 @@ class ProductController extends Controller
             'ram' => 'nullable|string|max:40',
             'requires_imei' => 'nullable|boolean',
             'imei_list' => 'nullable|string|max:10000',
+            'imeis' => 'nullable|array|max:500',
+            'imeis.*' => 'nullable|string|max:32',
             'availability' => 'nullable|in:in_stock,pre_order,up_coming,out_of_stock',
             'cost_price' => 'required|numeric',
             'selling_price' => 'required|numeric',
@@ -458,8 +486,21 @@ class ProductController extends Controller
             'image', 'image_2', 'image_3', 'images', 'remove_images', 'stock_quantity',
             'remove_image', 'remove_image_2', 'remove_image_3',
             'is_published', 'is_new_arrival', 'is_best_seller', 'is_featured',
-            'product_mode', 'imei_list', 'variants',
+            'product_mode', 'imei_list', 'imeis', 'variants',
         ]);
+
+        $imeiList = (string) $request->input('imei_list', '');
+        if ($request->boolean('requires_imei') && $request->has('imeis')) {
+            $seen = [];
+            $imeiErrors = [];
+            $imeiList = implode("\n", $this->collectImeiRows(
+                (array) $request->input('imeis'), 'imeis', '', $product->id, $seen, $imeiErrors,
+            ));
+            if ($imeiErrors !== []) {
+                throw ValidationException::withMessages($imeiErrors);
+            }
+        }
+
         $data['is_published'] = $request->boolean('is_published');
         $data['is_new_arrival'] = $request->boolean('is_new_arrival');
         $data['is_best_seller'] = $request->boolean('is_best_seller');
@@ -489,7 +530,7 @@ class ProductController extends Controller
         $stockSyncedTo = null;
 
         try {
-            DB::transaction(function () use ($request, $product, $data, &$uploadedPaths, &$removedPaths, &$stockSyncedTo) {
+            DB::transaction(function () use ($request, $product, $data, $imeiList, &$uploadedPaths, &$removedPaths, &$stockSyncedTo) {
                 $product->update($data);
                 $removedPaths = $this->removeGalleryImages($product, (array) $request->input('remove_images', []));
                 $uploadedPaths = $this->storeGalleryImages($request, $product);
@@ -497,7 +538,7 @@ class ProductController extends Controller
 
                 if ($product->requires_imei) {
                     $before = $product->availableImeis()->pluck('imei')->sort()->values()->all();
-                    $this->applyImeiList($product, (string) $request->input('imei_list', ''));
+                    $this->applyImeiList($product, $imeiList);
                     $after = $product->availableImeis()->pluck('imei')->sort()->values()->all();
 
                     if ($before !== $after) {
@@ -1301,6 +1342,52 @@ class ProductController extends Controller
         } catch (\Throwable) {
             // Image is optional — product row still imports without it.
         }
+    }
+
+    /**
+     * One IMEI per phone. Errors are keyed per box (e.g. "imeis.3") and name the phone.
+     *
+     * @param  array<string, string>  $seen  IMEI => phone label, shared across variants
+     * @param  array<string, string>  $errors
+     * @return list<string> normalized IMEIs
+     */
+    private function collectImeiRows(array $rows, string $key, string $labelPrefix, ?int $productId, array &$seen, array &$errors): array
+    {
+        $clean = [];
+
+        foreach (array_values($rows) as $i => $raw) {
+            $field = "{$key}.{$i}";
+            $phone = $labelPrefix.'Phone '.($i + 1);
+            $imei = ProductImei::normalize((string) $raw);
+
+            if ($imei === '') {
+                $errors[$field] = "{$phone}: enter this phone's IMEI (or remove the phone).";
+                continue;
+            }
+
+            if (ctype_digit($imei) ? strlen($imei) !== 15 : ! preg_match('/^[A-Za-z0-9-]{6,32}$/', $imei)) {
+                $errors[$field] = "{$phone}: \"{$imei}\" is not a valid IMEI — an IMEI has exactly 15 digits.";
+                continue;
+            }
+
+            if (isset($seen[$imei])) {
+                $errors[$field] = "{$phone}: IMEI {$imei} is already entered for {$seen[$imei]}.";
+                continue;
+            }
+            $seen[$imei] = $phone;
+
+            $existing = ProductImei::with('product:id,name')->where('imei', $imei)->first();
+            if ($existing && ((int) $existing->product_id !== (int) $productId || $existing->status !== ProductImei::STATUS_AVAILABLE)) {
+                $errors[$field] = $existing->status === ProductImei::STATUS_SOLD
+                    ? "{$phone}: IMEI {$imei} was already sold."
+                    : "{$phone}: IMEI {$imei} already belongs to \"".($existing->product?->name ?? 'another product').'".';
+                continue;
+            }
+
+            $clean[] = $imei;
+        }
+
+        return $clean;
     }
 
     private function applyImeiList(Product $product, string $rawList): int
