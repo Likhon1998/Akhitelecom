@@ -5,9 +5,9 @@
      @click="sidebarOpen = false"></div>
 
 <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
-       class="fixed inset-y-0 left-0 z-50 w-[min(260px,88vw)] bg-[#0B1220] text-slate-300 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto lg:w-[260px] flex flex-col border-r border-white/5">
+       class="admin-sidebar fixed inset-y-0 left-0 z-50 w-[min(260px,88vw)] bg-[#0B1220] text-slate-300 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto lg:w-[260px] flex flex-col border-r border-white/5">
 
-    <div class="flex items-center gap-2.5 h-[4.25rem] px-5 shrink-0 border-b border-white/5">
+    <div class="admin-brand relative flex items-center gap-2.5 h-[4.25rem] px-5 shrink-0 border-b border-white/5">
         @php
             $navSettings = \App\Models\SiteSetting::current();
             $navName = $navSettings->store_name
@@ -19,14 +19,20 @@
         <a href="{{ route('dashboard') }}" @click="sidebarOpen = false" class="flex items-center gap-2.5 text-white font-bold text-[15px] tracking-tight min-w-0 flex-1">
             @if($navIcon)
                 <img src="{{ $navIcon }}?v={{ @filemtime(public_storage_path($navSettings->favicon_path ?: $navSettings->logo_path)) ?: time() }}" alt="" class="h-11 w-11 object-contain shrink-0" width="44" height="44" style="width:44px;height:44px;object-fit:contain;background:transparent;border:0;">
-                <span class="truncate">{{ $navName }}</span>
+                <span class="admin-brand-name truncate">{{ $navName }}</span>
             @else
                 <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/30">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
                 </span>
-                <span class="truncate">{{ $navName }}</span>
+                <span class="admin-brand-name truncate">{{ $navName }}</span>
             @endif
         </a>
+        <button type="button" class="sidebar-toggle" @click="toggleSidebar()"
+                :title="sidebarCollapsed ? 'Expand menu' : 'Collapse menu'"
+                :aria-label="sidebarCollapsed ? 'Expand menu' : 'Collapse menu'"
+                :aria-expanded="(!sidebarCollapsed).toString()">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+        </button>
         <button type="button" @click="sidebarOpen = false" class="lg:hidden inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Close menu">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
@@ -34,6 +40,7 @@
 
     <nav class="admin-scroll-hide p-3 space-y-0.5 flex-1 overflow-y-auto"
          @click="if ($event.target.closest('a')) sidebarOpen = false"
+         x-init="$el.querySelectorAll('a, button').forEach((item) => { if (!item.title) item.title = item.textContent.replace(/\s+/g, ' ').trim(); })"
          x-data="{ inventoryOpen: {{ request()->routeIs('brands.*', 'categories.*', 'products.*') && !request()->routeIs('supply.*', 'stock.*') ? 'true' : 'false' }}, supplyOpen: {{ request()->routeIs('supply.*', 'stock.*', 'reports.low_stock') ? 'true' : 'false' }}, cmsOpen: {{ request()->routeIs('cms.*') ? 'true' : 'false' }} }">
 
         @can('view dashboard')
@@ -46,7 +53,7 @@
 
         @can('manage inventory')
         <div class="pt-2">
-            <button @click="inventoryOpen = !inventoryOpen"
+            <button @click="if (isRail()) { toggleSidebar(false); inventoryOpen = true } else { inventoryOpen = !inventoryOpen }"
                     class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all font-medium text-sm {{ request()->routeIs('brands.*', 'categories.*', 'products.*') && !request()->routeIs('supply.*', 'stock.*') ? 'text-white bg-white/10' : 'hover:bg-white/5 hover:text-white' }}">
                 <div class="flex items-center">
                     <svg class="w-5 h-5 mr-3 {{ request()->routeIs('brands.*', 'categories.*', 'products.*') && !request()->routeIs('supply.*', 'stock.*') ? 'text-blue-400' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
@@ -60,7 +67,7 @@
                  x-transition:enter="transition ease-out duration-200"
                  x-transition:enter-start="opacity-0 transform -translate-y-2"
                  x-transition:enter-end="opacity-100 transform translate-y-0"
-                 class="mt-1 ml-4 pl-4 border-l border-white/10 space-y-1">
+                 class="nav-sub mt-1 ml-4 pl-4 border-l border-white/10 space-y-1">
 
                 <a href="{{ route('brands.index') }}" class="flex items-center px-3 py-2 text-sm rounded-lg transition-colors {{ request()->routeIs('brands.*') ? 'text-white bg-blue-500/15' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">Brand</a>
                 <a href="{{ route('categories.index') }}" class="flex items-center px-3 py-2 text-sm rounded-lg transition-colors {{ request()->routeIs('categories.*') ? 'text-white bg-blue-500/15' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">Category</a>
@@ -72,7 +79,7 @@
         </div>
 
         <div class="pt-2">
-            <button @click="supplyOpen = !supplyOpen" 
+            <button @click="if (isRail()) { toggleSidebar(false); supplyOpen = true } else { supplyOpen = !supplyOpen }"
                     class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all font-medium text-sm {{ request()->routeIs('supply.*', 'stock.*', 'reports.low_stock') ? 'text-white bg-white/10' : 'hover:bg-white/5 hover:text-white' }}">
                     <div class="flex items-center">
                     <svg class="w-5 h-5 mr-3 {{ request()->routeIs('supply.*', 'stock.*', 'reports.low_stock') ? 'text-blue-400' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
@@ -86,7 +93,7 @@
                  x-transition:enter="transition ease-out duration-200"
                  x-transition:enter-start="opacity-0 transform -translate-y-2"
                  x-transition:enter-end="opacity-100 transform translate-y-0"
-                 class="mt-1 ml-4 pl-4 border-l border-white/10 space-y-1">
+                 class="nav-sub mt-1 ml-4 pl-4 border-l border-white/10 space-y-1">
 
                 <a href="{{ route('supply.opening-inventory.index') }}" class="flex items-center px-3 py-2 text-sm rounded-lg transition-colors {{ request()->routeIs('supply.opening-inventory.*') ? 'text-white bg-blue-500/15' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">Opening Inventory</a>
                 <a href="{{ route('supply.purchase-orders.index') }}" class="flex items-center px-3 py-2 text-sm rounded-lg transition-colors {{ request()->routeIs('supply.purchase-orders.*') ? 'text-white bg-blue-500/15' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">Purchase Order</a>
@@ -105,7 +112,7 @@
 
         @can('manage website')
         <div class="pt-2">
-            <button @click="cmsOpen = !cmsOpen"
+            <button @click="if (isRail()) { toggleSidebar(false); cmsOpen = true } else { cmsOpen = !cmsOpen }"
                     class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all font-medium text-sm {{ request()->routeIs('cms.*') ? 'text-white bg-white/10' : 'hover:bg-white/5 hover:text-white' }}">
                 <div class="flex items-center">
                     <svg class="w-5 h-5 mr-3 {{ request()->routeIs('cms.*') ? 'text-blue-400' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zm12 0a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
@@ -119,7 +126,7 @@
                  x-transition:enter="transition ease-out duration-200"
                  x-transition:enter-start="opacity-0 transform -translate-y-2"
                  x-transition:enter-end="opacity-100 transform translate-y-0"
-                 class="mt-1 ml-4 pl-4 border-l border-white/10 space-y-1">
+                 class="nav-sub mt-1 ml-4 pl-4 border-l border-white/10 space-y-1">
                 <a href="{{ route('cms.landing.edit') }}" class="flex items-center px-3 py-2 text-sm rounded-lg transition-colors {{ request()->routeIs('cms.landing.*') ? 'text-white bg-blue-500/15' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">Landing Page</a>
                 <a href="{{ route('cms.delivery.edit') }}" class="flex items-center px-3 py-2 text-sm rounded-lg transition-colors {{ request()->routeIs('cms.delivery.*') ? 'text-white bg-blue-500/15' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">Delivery Settings</a>
                 <a href="{{ route('cms.couriers.index') }}" class="flex items-center px-3 py-2 text-sm rounded-lg transition-colors {{ request()->routeIs('cms.couriers.*') ? 'text-white bg-blue-500/15' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">Courier Services</a>
@@ -258,7 +265,7 @@
     </nav>
 </aside>
 
-<header class="fixed top-0 right-0 left-0 lg:left-[260px] h-[4.25rem] bg-white/90 backdrop-blur border-b border-slate-100 z-30 flex items-center gap-3 px-4 sm:px-6">
+<header class="admin-topbar fixed top-0 right-0 left-0 lg:left-[260px] h-[4.25rem] bg-white/90 backdrop-blur border-b border-slate-100 z-30 flex items-center gap-3 px-4 sm:px-6">
     <button type="button" @click="sidebarOpen = true" class="lg:hidden text-slate-500 hover:text-slate-800 focus:outline-none">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
@@ -308,7 +315,7 @@
                      style="display: none;">
                     <div class="flex items-center justify-between border-b border-slate-100 px-3.5 py-2.5">
                         <p class="text-[13px] font-bold text-slate-900">Online orders</p>
-                        <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500" x-text="loading ? 'Loading…' : (items.length + ' recent')"></span>
+                        <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500" x-text="loading ? 'Loadingâ€¦' : (items.length + ' recent')"></span>
                     </div>
 
                     <div class="max-h-[360px] overflow-y-auto">
@@ -331,8 +338,8 @@
                                             <p class="truncate text-[12px] font-bold" :class="item.is_new ? 'text-indigo-900' : 'text-slate-700'" x-text="item.invoice"></p>
                                             <span x-show="item.is_new" class="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">New</span>
                                         </div>
-                                        <p class="mt-0.5 truncate text-[11px]" :class="item.is_new ? 'text-indigo-700' : 'text-slate-500'" x-text="item.customer + (item.phone ? ' · ' + item.phone : '')"></p>
-                                        <p class="mt-0.5 text-[10px]" :class="item.is_new ? 'text-indigo-500' : 'text-slate-400'" x-text="item.status_label + ' · ' + item.at"></p>
+                                        <p class="mt-0.5 truncate text-[11px]" :class="item.is_new ? 'text-indigo-700' : 'text-slate-500'" x-text="item.customer + (item.phone ? ' Â· ' + item.phone : '')"></p>
+                                        <p class="mt-0.5 text-[10px]" :class="item.is_new ? 'text-indigo-500' : 'text-slate-400'" x-text="item.status_label + ' Â· ' + item.at"></p>
                                     </div>
                                     <p class="shrink-0 text-[11px] font-bold" :class="item.is_new ? 'text-indigo-800' : 'text-slate-500'" x-text="'Tk ' + item.total"></p>
                                 </div>

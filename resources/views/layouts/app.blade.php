@@ -11,9 +11,40 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
 
+    <script>
+        try { if (localStorage.getItem('adminSidebarCollapsed') === '1') document.documentElement.classList.add('sidebar-collapsed'); } catch (e) {}
+    </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         [x-cloak]{display:none!important}
+        .admin-sidebar{transition:transform .3s ease-in-out,width .2s ease}
+        .admin-topbar{transition:left .2s ease}
+        .sidebar-toggle{
+            display:none;position:absolute;top:50%;right:-13px;z-index:60;transform:translateY(-50%);
+            width:26px;height:26px;align-items:center;justify-content:center;border-radius:9999px;
+            background:#0B1220;color:#cbd5e1;border:1px solid rgba(255,255,255,.18);
+            box-shadow:0 2px 8px rgba(15,23,42,.35);cursor:pointer;transition:background .15s,color .15s;
+        }
+        .sidebar-toggle:hover{background:#2563eb;color:#fff;border-color:#2563eb}
+        .sidebar-toggle svg{width:14px;height:14px;transition:transform .2s ease}
+        @media (min-width:1024px){
+            .sidebar-toggle{display:inline-flex}
+            html.sidebar-collapsed .sidebar-toggle svg{transform:rotate(180deg)}
+            html.sidebar-collapsed .admin-sidebar{width:72px}
+            html.sidebar-collapsed .admin-topbar{left:72px}
+            html.sidebar-collapsed .admin-brand{justify-content:center;padding-left:0;padding-right:0}
+            html.sidebar-collapsed .admin-brand a{flex:0 0 auto}
+            html.sidebar-collapsed .admin-brand-name{display:none}
+            html.sidebar-collapsed .admin-sidebar nav a,
+            html.sidebar-collapsed .admin-sidebar nav button{
+                width:46px;margin-left:auto;margin-right:auto;padding-left:13px;padding-right:13px;
+                overflow:hidden;white-space:nowrap;justify-content:flex-start;
+            }
+            html.sidebar-collapsed .admin-sidebar nav a > *,
+            html.sidebar-collapsed .admin-sidebar nav button > *{flex-shrink:0}
+            html.sidebar-collapsed .admin-sidebar nav svg:first-child{margin-right:32px}
+            html.sidebar-collapsed .admin-sidebar .nav-sub{display:none!important}
+        }
         .powered-by-admin{
             flex-shrink:0;
             padding:10px 16px 14px;
@@ -46,7 +77,16 @@
         <div id="admin-progress-peg" class="admin-progress__peg"></div>
     </div>
 
-    <div x-data="{ sidebarOpen: false }"
+    <div x-data="{
+            sidebarOpen: false,
+            sidebarCollapsed: document.documentElement.classList.contains('sidebar-collapsed'),
+            toggleSidebar(collapse = !this.sidebarCollapsed) {
+                this.sidebarCollapsed = collapse;
+                document.documentElement.classList.toggle('sidebar-collapsed', collapse);
+                try { localStorage.setItem('adminSidebarCollapsed', collapse ? '1' : '0'); } catch (e) {}
+            },
+            isRail() { return this.sidebarCollapsed && window.matchMedia('(min-width: 1024px)').matches; },
+         }"
          @keydown.escape.window="sidebarOpen = false"
          class="flex h-screen overflow-hidden">
 
