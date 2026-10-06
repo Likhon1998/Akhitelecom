@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\ProductImei;
 use App\Models\Shop;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -648,6 +649,93 @@ class ProductAndBrandManagementTest extends TestCase
 
         $update([...$this->iphoneImeis(11), ''])->assertSessionHasErrors('imeis.11');
         $this->assertSame(11, (int) $product->fresh()->stock_quantity);
+    }
+
+    public function test_dual_sim_phone_keeps_both_imeis(): void
+    {
+        [$a, $b, $c] = $this->iphoneImeis(3);
+        $a2 = '359123000088801';
+
+        $this->postIphone([
+            ['imei' => $a, 'imei2' => $a2],
+            ['imei' => $b],
+            ['imei' => $c],
+        ])->assertSessionHasNoErrors();
+
+        $product = Product::where('barcode', 'IP17PM-ORG-256')->firstOrFail();
+        $this->assertSame(3, (int) $product->stock_quantity);
+        $this->assertSame($a2, $product->imeis()->where('imei', $a)->value('imei_2'));
+        $this->assertNull($product->imeis()->where('imei', $b)->value('imei_2'));
+
+        $phone = ProductImei::matching($a2)->firstOrFail();
+        $this->assertSame($a, $phone->imei);
+    }
+
+    public function test_second_imei_is_validated_like_the_first(): void
+    {
+        $other = $this->makeProduct(['name' => 'Galaxy S25', 'requires_imei' => true, 'stock_quantity' => 0]);
+        $other->imeis()->create(['imei' => '359123000077701', 'imei_2' => '359123000077702', 'status' => 'available']);
+
+        [$a, $b, $c] = $this->iphoneImeis(3);
+
+        $this->postIphone([
+            ['imei' => $a, 'imei2' => ''],
+            ['imei' => $b, 'imei2' => $a],
+            ['imei' => $c, 'imei2' => '359123000077702'],
+        ])->assertSessionHasErrors([
+            'imeis.0.imei2' => 'Phone 1: enter IMEI 2 (or remove it).',
+            'imeis.1.imei2' => "Phone 2 (IMEI 2): IMEI {$a} is already entered for Phone 1.",
+            'imeis.2.imei2' => 'Phone 3 (IMEI 2): IMEI 359123000077702 already belongs to "Galaxy S25".',
+        ]);
+        $this->assertDatabaseMissing('products', ['barcode' => 'IP17PM-ORG-256']);
+
+        $this->postIphone([['imei' => '359123000077702']])->assertSessionHasErrors('imeis.0');
+    }
+
+    public function test_edit_can_add_move_and_remove_second_imei(): void
+    {
+        [$a, $b] = $this->iphoneImeis(2);
+        $x = '359123000066601';
+        $this->postIphone([$a, $b])->assertSessionHasNoErrors();
+        $product = Product::where('barcode', 'IP17PM-ORG-256')->firstOrFail();
+
+        $update = fn (array $imeis) => $this->put(route('products.update', $product), [
+            'name' => $product->name,
+            'barcode' => $product->barcode,
+            'cost_price' => 180000,
+            'selling_price' => 199000,
+            'requires_imei' => 1,
+            'imeis' => $imeis,
+        ]);
+        $second = fn (string $imei) => $product->imeis()->where('imei', $imei)->value('imei_2');
+
+        $update([['imei' => $a, 'imei2' => $x], ['imei' => $b]])->assertSessionHasNoErrors();
+        $this->assertSame($x, $second($a));
+        $this->get(route('products.edit', $product))->assertOk()->assertSee($x, false);
+
+        $update([['imei' => $a], ['imei' => $b, 'imei2' => $x]])->assertSessionHasNoErrors();
+        $this->assertNull($second($a));
+        $this->assertSame($x, $second($b));
+
+        $update([['imei' => $a], ['imei' => $b]])->assertSessionHasNoErrors();
+        $this->assertNull($second($b));
+        $this->assertSame(2, (int) $product->fresh()->stock_quantity);
+    }
+
+    public function test_receipt_prints_both_imeis_of_a_dual_sim_phone(): void
+    {
+        $product = $this->makeProduct(['name' => 'Galaxy A56', 'requires_imei' => true]);
+        $item = new OrderItem(['product_id' => $product->id]);
+        $item->setRelation('product', $product);
+        $item->setRelation('soldImeis', collect([
+            new ProductImei(['imei' => '359123000055501', 'imei_2' => '359123000055502']),
+            new ProductImei(['imei' => '359123000055503']),
+        ]));
+
+        $lines = $item->receiptDetailLines();
+
+        $this->assertContains('IMEI 1: 359123000055501 · IMEI 2: 359123000055502', $lines);
+        $this->assertContains('IMEI: 359123000055503', $lines);
     }
 
     public function test_add_product_page_shows_phone_count_for_imeis(): void

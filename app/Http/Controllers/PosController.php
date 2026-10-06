@@ -91,6 +91,9 @@ class PosController extends Controller
                 $availableImeis = $product->requires_imei
                     ? $product->availableImeis->pluck('imei')->values()->all()
                     : [];
+                $imeiAlt = $product->requires_imei
+                    ? $product->availableImeis->whereNotNull('imei_2')->pluck('imei', 'imei_2')->all()
+                    : [];
 
                 return [
                     'id' => $product->id,
@@ -107,6 +110,7 @@ class PosController extends Controller
                     'stock_quantity' => $product->stock_quantity,
                     'requires_imei' => (bool) $product->requires_imei,
                     'available_imeis' => $availableImeis,
+                    'imei_alt' => (object) $imeiAlt,
                     'image' => $imagePath,
                     'image_url' => $imageUrl,
                     'category_id' => $product->category_id,
@@ -545,7 +549,7 @@ class PosController extends Controller
                     foreach ($imeis as $imei) {
                         $row = ProductImei::query()
                             ->where('product_id', $product->id)
-                            ->where('imei', $imei)
+                            ->matching($imei)
                             ->available()
                             ->lockForUpdate()
                             ->first();
@@ -638,6 +642,9 @@ class PosController extends Controller
                     'available_imeis' => $p->requires_imei
                         ? $p->availableImeis->pluck('imei')->values()->all()
                         : [],
+                    'imei_alt' => (object) ($p->requires_imei
+                        ? $p->availableImeis->whereNotNull('imei_2')->pluck('imei', 'imei_2')->all()
+                        : []),
                 ])
                 ->values()
                 ->all();

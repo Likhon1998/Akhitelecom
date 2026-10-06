@@ -140,41 +140,70 @@ class Product extends Model
         return $this->hasMany(ProductImei::class)->available()->orderBy('id');
     }
 
-    /** Sync IMEI list (available only). Returns count of available IMEIs. */
+    /**
+     * Sync the phones in stock (available IMEIs only). Returns count of available phones.
+     *
+     * Each entry is one phone: an IMEI string (keeps any existing IMEI 2)
+     * or ['imei' => ..., 'imei2' => ?string] for dual-SIM phones.
+     */
     public function syncAvailableImeis(array $imeis): int
     {
-        $normalized = collect($imeis)
-            ->map(fn ($v) => ProductImei::normalize((string) $v))
-            ->filter(fn ($v) => $v !== '')
-            ->unique()
-            ->values();
+        $phones = [];
+        foreach ($imeis as $entry) {
+            $imei = ProductImei::normalize((string) (is_array($entry) ? ($entry['imei'] ?? '') : $entry));
+            if ($imei === '' || array_key_exists($imei, $phones)) {
+                continue;
+            }
+            if (! is_array($entry)) {
+                $phones[$imei] = false;
+                continue;
+            }
+            $second = ProductImei::normalize((string) ($entry['imei2'] ?? ''));
+            $phones[$imei] = ($second === '' || $second === $imei) ? null : $second;
+        }
 
-        $keep = $normalized->all();
-
-        // Remove available IMEIs no longer in the list (never delete sold history).
+        // Remove available phones no longer in the list (never delete sold history).
         $query = $this->imeis()->available();
-        if ($keep !== []) {
-            $query->whereNotIn('imei', $keep);
+        if ($phones !== []) {
+            $query->whereNotIn('imei', array_keys($phones));
         }
         $query->delete();
 
-        foreach ($normalized as $imei) {
-            $existing = ProductImei::where('imei', $imei)->first();
-            if ($existing) {
-                if ((int) $existing->product_id === (int) $this->id && $existing->status === ProductImei::STATUS_AVAILABLE) {
-                    continue;
-                }
-                if ((int) $existing->product_id !== (int) $this->id) {
+        // Release second IMEIs that are changing first, so one can move to another phone.
+        foreach ($this->imeis()->available()->whereNotNull('imei_2')->get() as $row) {
+            $wanted = $phones[$row->imei] ?? null;
+            if ($wanted !== false && $wanted !== $row->imei_2) {
+                $row->update(['imei_2' => null]);
+            }
+        }
+
+        foreach ($phones as $imei => $second) {
+            $row = ProductImei::where('imei', $imei)->first();
+            if ($row) {
+                if ((int) $row->product_id !== (int) $this->id) {
                     throw new \InvalidArgumentException("IMEI {$imei} already belongs to another product.");
                 }
-                // Sold/reserved — leave alone
-                continue;
+                if ($row->status !== ProductImei::STATUS_AVAILABLE) {
+                    continue;
+                }
+            } else {
+                if (ProductImei::where('imei_2', $imei)->exists()) {
+                    throw new \InvalidArgumentException("IMEI {$imei} is already the second IMEI of another phone.");
+                }
+                $row = $this->imeis()->create([
+                    'imei' => $imei,
+                    'status' => ProductImei::STATUS_AVAILABLE,
+                ]);
             }
 
-            $this->imeis()->create([
-                'imei' => $imei,
-                'status' => ProductImei::STATUS_AVAILABLE,
-            ]);
+            if ($second === false || $row->imei_2 === $second) {
+                continue;
+            }
+            if ($second !== null && ProductImei::whereKeyNot($row->id)
+                ->where(fn ($q) => $q->where('imei', $second)->orWhere('imei_2', $second))->exists()) {
+                throw new \InvalidArgumentException("IMEI {$second} already belongs to another phone.");
+            }
+            $row->update(['imei_2' => $second]);
         }
 
         return $this->imeis()->available()->count();

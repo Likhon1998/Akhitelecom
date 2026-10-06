@@ -2180,7 +2180,7 @@
                     <select x-model="imeiPickValue" class="form-control" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e2e8f0;font-family:var(--mono)">
                         <option value="">— Select IMEI —</option>
                         <template x-for="im in imeiPickOptions" :key="im">
-                            <option :value="im" x-text="im"></option>
+                            <option :value="im" x-text="imeiPickLabel(im)"></option>
                         </template>
                     </select>
                 </div>
@@ -3403,8 +3403,14 @@ function posSystem() {
             this.imeiPickCartIndex = null;
         },
 
+        imeiPickLabel(imei) {
+            const alt = Object.entries(this.imeiPickProduct?.imei_alt || {}).find(([, primary]) => primary === imei);
+            return alt ? imei + '  ·  IMEI 2: ' + alt[0] : imei;
+        },
+
         confirmImeiPick() {
-            const imei = String(this.imeiPickValue || '').replace(/\s+/g, '').trim();
+            const typed = String(this.imeiPickValue || '').replace(/\s+/g, '').trim();
+            const imei = (this.imeiPickProduct?.imei_alt || {})[typed] || typed;
             if (!imei) {
                 this.showToast('Enter or select an IMEI', 'warning');
                 return;
@@ -4159,6 +4165,9 @@ openCheckout() {
                     product.stock_quantity = Math.max(0, Number(row.stock_quantity) || 0);
                     if (Array.isArray(row.available_imeis)) {
                         product.available_imeis = row.available_imeis;
+                    }
+                    if (row.imei_alt) {
+                        product.imei_alt = row.imei_alt;
                     }
                 });
             }

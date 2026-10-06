@@ -16,6 +16,7 @@ class ProductImei extends Model
     protected $fillable = [
         'product_id',
         'imei',
+        'imei_2',
         'status',
         'order_id',
         'order_item_id',
@@ -34,5 +35,11 @@ class ProductImei extends Model
     public static function normalize(string $imei): string
     {
         return preg_replace('/\s+/', '', trim($imei)) ?: '';
+    }
+
+    /** Matches a phone by either of its IMEIs. */
+    public function scopeMatching($query, string $imei)
+    {
+        return $query->where(fn ($q) => $q->where('imei', $imei)->orWhere('imei_2', $imei));
     }
 }
