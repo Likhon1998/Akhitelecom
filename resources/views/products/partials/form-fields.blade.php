@@ -580,6 +580,10 @@
                 <textarea name="imei_list" x-model="imeiText" rows="4"
                           class="block w-full rounded-lg border-slate-200 text-sm font-mono"
                           placeholder="356938035643809&#10;356938035643810"></textarea>
+                <p class="mt-1 text-[11px] text-slate-500">
+                    One phone = one IMEI. Stock is set to the number of IMEIs listed here
+                    @if($isEdit) — add new IMEIs when more phones arrive; sold IMEIs are kept in history. @else (the quantity field is ignored). @endif
+                </p>
                 @error('imei_list') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
             <p class="text-[11px] text-slate-500" x-show="requiresImei && isMulti" x-cloak>

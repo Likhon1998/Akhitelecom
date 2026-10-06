@@ -5,11 +5,17 @@ namespace App\Models;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
+
+    /** Appended to the barcode of archived products so the code can be reused. */
+    public const ARCHIVED_BARCODE_MARKER = '~del';
 
     protected $fillable = [
         'shop_id', 'category_id', 'brand_id', 'name', 'barcode', 'sku',
@@ -57,6 +63,66 @@ class Product extends Model
             $this->image_2,
             $this->image_3,
         ]));
+    }
+
+    /** Sales, stock movements (accounts reference them), exchanges, purchases or sold IMEIs. */
+    public function hasTransactionHistory(): bool
+    {
+        $id = $this->getKey();
+
+        return DB::table('order_items')->where('product_id', $id)->exists()
+            || DB::table('stock_movements')->where('product_id', $id)->exists()
+            || DB::table('exchanges')->where('return_product_id', $id)->orWhere('new_product_id', $id)->exists()
+            || DB::table('orders')->where('return_product_id', $id)->exists()
+            || DB::table('purchase_order_items')->where('product_id', $id)->exists()
+            || DB::table('purchase_return_items')->where('product_id', $id)->exists()
+            || DB::table('stock_transfer_items')->where('product_id', $id)->exists()
+            || DB::table('product_imeis')->where('product_id', $id)
+                ->where('status', '!=', ProductImei::STATUS_AVAILABLE)->exists();
+    }
+
+    /**
+     * Hide the product everywhere while keeping old receipts and reports intact.
+     * The barcode is released so a new product can use it.
+     */
+    public function archive(): void
+    {
+        DB::transaction(function () {
+            $this->imeis()->available()->delete();
+
+            $barcode = (string) $this->barcode;
+            if (! str_contains($barcode, self::ARCHIVED_BARCODE_MARKER)) {
+                $this->forceFill(['barcode' => $barcode.self::ARCHIVED_BARCODE_MARKER.$this->getKey()])->saveQuietly();
+            }
+
+            $this->delete();
+        });
+    }
+
+    /**
+     * Delete stored image files no product row or gallery row still points to.
+     * Gadget variants share the same files, so a path may belong to siblings.
+     *
+     * @param  iterable<string|null>  $paths
+     */
+    public static function deleteUnusedImageFiles(iterable $paths): void
+    {
+        foreach (collect($paths)->filter()->unique() as $path) {
+            $inUse = DB::table('product_images')->where('path', $path)->exists()
+                || DB::table('products')->where(function ($q) use ($path) {
+                    $q->where('image', $path)->orWhere('image_2', $path)->orWhere('image_3', $path);
+                })->exists();
+
+            if (! $inUse) {
+                Storage::disk('public')->delete($path);
+            }
+        }
+    }
+
+    /** Barcode without the archive marker (for receipts of deleted products). */
+    public function displayBarcode(): string
+    {
+        return (string) preg_replace('/'.preg_quote(self::ARCHIVED_BARCODE_MARKER, '/').'\d+$/', '', (string) $this->barcode);
     }
 
     public function galleryImages()
@@ -376,7 +442,7 @@ class Product extends Model
         }
 
         if (filled($this->barcode)) {
-            $lines[] = ['label' => 'Code', 'value' => (string) $this->barcode];
+            $lines[] = ['label' => 'Code', 'value' => $this->displayBarcode()];
         } elseif (filled($this->sku)) {
             $lines[] = ['label' => 'SKU', 'value' => (string) $this->sku];
         }

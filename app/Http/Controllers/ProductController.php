@@ -362,6 +362,10 @@ class ProductController extends Controller
                 Storage::disk('public')->delete($path);
             }
 
+            if ($e instanceof \InvalidArgumentException) {
+                return back()->withInput()->withErrors(['imei_list' => $e->getMessage()]);
+            }
+
             report($e);
 
             return back()
@@ -432,8 +436,14 @@ class ProductController extends Controller
             'pos_discount_type' => 'nullable|in:percent,fixed',
             'pos_discount_value' => 'nullable|numeric|min:0.01|required_with:pos_discount_type',
             'short_description' => 'nullable|string|max:2000',
-            'category_id' => 'nullable|exists:categories,id',
-            'brand_id' => 'nullable|exists:brands,id',
+            'category_id' => [
+                'nullable',
+                Rule::exists('categories', 'id')->where(fn ($q) => $q->where('shop_id', $product->shop_id)),
+            ],
+            'brand_id' => [
+                'nullable',
+                Rule::exists('brands', 'id')->where(fn ($q) => $q->where('shop_id', $product->shop_id)),
+            ],
             'images' => 'nullable|array|max:20',
             'images.*' => 'image|mimes:jpeg,png,jpg,webp,gif|max:5120',
             'remove_images' => 'nullable|array',
@@ -474,22 +484,90 @@ class ProductController extends Controller
             }
         }
 
+        $uploadedPaths = [];
+        $removedPaths = [];
+        $stockSyncedTo = null;
+
         try {
-            DB::transaction(function () use ($request, $product, $data) {
+            DB::transaction(function () use ($request, $product, $data, &$uploadedPaths, &$removedPaths, &$stockSyncedTo) {
                 $product->update($data);
-                $this->removeGalleryImages($product, (array) $request->input('remove_images', []));
-                $this->storeGalleryImages($request, $product);
+                $removedPaths = $this->removeGalleryImages($product, (array) $request->input('remove_images', []));
+                $uploadedPaths = $this->storeGalleryImages($request, $product);
                 $this->syncPrimaryImageFromGallery($product);
 
                 if ($product->requires_imei) {
+                    $before = $product->availableImeis()->pluck('imei')->sort()->values()->all();
                     $this->applyImeiList($product, (string) $request->input('imei_list', ''));
+                    $after = $product->availableImeis()->pluck('imei')->sort()->values()->all();
+
+                    if ($before !== $after) {
+                        $stockSyncedTo = $this->syncStockToImeiCount($product, count($after));
+                    }
                 }
             });
-        } catch (\InvalidArgumentException $e) {
-            return back()->withErrors(['imei_list' => $e->getMessage()])->withInput();
+        } catch (\Throwable $e) {
+            foreach ($uploadedPaths as $path) {
+                Storage::disk('public')->delete($path);
+            }
+
+            if ($e instanceof \InvalidArgumentException) {
+                return back()->withErrors(['imei_list' => $e->getMessage()])->withInput();
+            }
+
+            report($e);
+
+            return back()->withInput()->withErrors([
+                'form' => $e->getMessage() ?: 'Product could not be saved. Please try again.',
+            ]);
         }
 
-        return redirect()->route('products.index')->with('success', 'Product updated successfully!');
+        Product::deleteUnusedImageFiles($removedPaths);
+
+        $message = $stockSyncedTo !== null
+            ? "Product updated. Stock set to {$stockSyncedTo} to match the available IMEI list."
+            : 'Product updated successfully!';
+
+        return redirect()->route('products.index')->with('success', $message);
+    }
+
+    /**
+     * Stock follows the unsold IMEI count. Logged as opening inventory the first time,
+     * otherwise as a stock adjustment (posted to accounts like the Stock Adjustment page).
+     *
+     * @return int|null new stock when it changed
+     */
+    private function syncStockToImeiCount(Product $product, int $availableImeis): ?int
+    {
+        $current = (int) $product->fresh()->stock_quantity;
+        $delta = $availableImeis - $current;
+        if ($delta === 0) {
+            return null;
+        }
+
+        $this->stock->ensureDefaultLocations($product->shop_id);
+        $this->accounts->ensureShopAccounts($product->shop_id);
+
+        if ($delta > 0 && $current === 0 && ! $this->stock->hasOpeningInventory($product)) {
+            $movement = $this->stock->setOpeningStock($product, $delta);
+            $this->accounts->postOpeningInventory($movement);
+
+            return $availableImeis;
+        }
+
+        $movement = $this->stock->apply(
+            $product,
+            $delta > 0 ? 'in' : 'out',
+            abs($delta),
+            "IMEI list updated ({$availableImeis} available)",
+            'adjustment',
+            Auth::id(),
+            'stock_adjustment',
+            null,
+            $this->stock->defaultStore($product->shop_id)?->id,
+        );
+        $this->accounts->postInventoryAdjustment($movement);
+
+        return $availableImeis;
     }
 
     public function toggleHomepageFlag(Request $request, Product $product)
@@ -521,12 +599,21 @@ class ProductController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $product->load('galleryImages');
-        foreach ($product->imagePaths() as $path) {
-            Storage::disk('public')->delete($path);
+        if ($product->hasTransactionHistory()) {
+            $product->archive();
+
+            return redirect()->route('products.index')
+                ->with('success', 'Product deleted from inventory. Past sales and receipts are kept.');
         }
 
-        $product->delete();
+        $paths = array_merge(
+            $product->galleryImages()->pluck('path')->all(),
+            [$product->image, $product->image_2, $product->image_3],
+        );
+
+        $product->forceDelete();
+
+        Product::deleteUnusedImageFiles($paths);
 
         return redirect()->route('products.index')->with('success', 'Product deleted from inventory!');
     }
@@ -1247,6 +1334,12 @@ class ProductController extends Controller
                 continue;
             }
             $path = $file->store('products', 'public');
+            if (! $path) {
+                foreach ($paths as $stored) {
+                    Storage::disk('public')->delete($stored);
+                }
+                throw new \RuntimeException("Picture \"{$file->getClientOriginalName()}\" could not be saved. Please check storage folder permissions.");
+            }
             $paths[] = $path;
             $product->galleryImages()->create([
                 'path' => $path,
@@ -1280,42 +1373,27 @@ class ProductController extends Controller
             return [];
         }
 
-        $existingCount = $product->galleryImages()->count();
-        $remaining = max(0, 20 - $existingCount);
-        if ($remaining === 0) {
+        return $this->storeGalleryFiles($product, (array) $request->file('images'));
+    }
+
+    /**
+     * Drop gallery rows; returns their paths so files can be removed after commit.
+     *
+     * @return list<string>
+     */
+    private function removeGalleryImages(Product $product, array $imageIds): array
+    {
+        if ($imageIds === []) {
             return [];
         }
 
-        $files = array_slice($request->file('images'), 0, $remaining);
-        $sort = (int) ($product->galleryImages()->max('sort_order') ?? -1);
-        $paths = [];
-
-        foreach ($files as $file) {
-            if (! $file || ! $file->isValid()) {
-                continue;
-            }
-            $path = $file->store('products', 'public');
-            $paths[] = $path;
-            $product->galleryImages()->create([
-                'path' => $path,
-                'sort_order' => ++$sort,
-            ]);
+        $images = $product->galleryImages()->whereIn('id', $imageIds)->get();
+        $paths = $images->pluck('path')->all();
+        foreach ($images as $image) {
+            $image->delete();
         }
 
         return $paths;
-    }
-
-    private function removeGalleryImages(Product $product, array $imageIds): void
-    {
-        if ($imageIds === []) {
-            return;
-        }
-
-        $images = $product->galleryImages()->whereIn('id', $imageIds)->get();
-        foreach ($images as $image) {
-            Storage::disk('public')->delete($image->path);
-            $image->delete();
-        }
     }
 
     private function syncPrimaryImageFromGallery(Product $product): void

@@ -3,10 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Brand;
+use App\Services\BrandLogoService;
+use App\Services\WebsiteService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class BrandController extends Controller
 {
@@ -45,17 +49,13 @@ class BrandController extends Controller
         ];
 
         if ($request->hasFile('logo')) {
-            $data['logo_path'] = app(\App\Services\BrandLogoService::class)->storeUploaded($request->file('logo'));
+            $data['logo_path'] = $this->storeLogo($request);
         }
 
         $brand = Brand::create($data);
 
-        if (empty($brand->logo_path)) {
-            app(\App\Services\BrandLogoService::class)->ensureStored($brand->fresh());
-            $brand->refresh();
-        }
-
-        app(\App\Services\WebsiteService::class)->linkOrphanProductsToBrands((int) $brand->shop_id);
+        $this->afterSave($brand, linkProducts: true);
+        $brand->refresh();
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
@@ -103,20 +103,20 @@ class BrandController extends Controller
             'is_active' => $request->boolean('is_active', true),
         ];
 
+        $oldLogo = $brand->logo_path;
         if ($request->hasFile('logo')) {
-            if ($brand->logo_path) {
-                Storage::disk('public')->delete($brand->logo_path);
-            }
-            $data['logo_path'] = app(\App\Services\BrandLogoService::class)->storeUploaded($request->file('logo'));
+            $data['logo_path'] = $this->storeLogo($request);
         }
 
         $brand->update($data);
 
-        if (empty($brand->fresh()->logo_path)) {
-            app(\App\Services\BrandLogoService::class)->ensureStored($brand->fresh());
+        if ($request->hasFile('logo') && $oldLogo !== $brand->logo_path) {
+            $this->deleteLogoIfUnused($oldLogo);
         }
 
         $brand->products()->update(['brand_name' => $brand->name]);
+
+        $this->afterSave($brand, linkProducts: false);
 
         return redirect()->route('brands.index')->with('success', 'Brand updated successfully!');
     }
@@ -127,13 +127,52 @@ class BrandController extends Controller
             abort(403);
         }
 
-        if ($brand->logo_path) {
-            Storage::disk('public')->delete($brand->logo_path);
-        }
+        $logo = $brand->logo_path;
 
-        $brand->products()->update(['brand_id' => null, 'brand_name' => null]);
+        $brand->products()->withTrashed()->update(['brand_id' => null, 'brand_name' => null]);
         $brand->delete();
 
+        $this->deleteLogoIfUnused($logo);
+
         return redirect()->route('brands.index')->with('success', 'Brand removed.');
+    }
+
+    private function storeLogo(Request $request): string
+    {
+        $path = app(BrandLogoService::class)->storeUploaded($request->file('logo'));
+
+        if ($path === null) {
+            throw ValidationException::withMessages([
+                'logo' => 'The logo could not be saved. Please try a different image or contact support.',
+            ]);
+        }
+
+        return $path;
+    }
+
+    /** Merged duplicates and generated name marks can share one file across brands. */
+    private function deleteLogoIfUnused(?string $path): void
+    {
+        if (! $path || Brand::where('logo_path', $path)->exists()) {
+            return;
+        }
+
+        Storage::disk('public')->delete($path);
+    }
+
+    /** Default logo and product linking are cosmetic and must never block saving the brand. */
+    private function afterSave(Brand $brand, bool $linkProducts): void
+    {
+        try {
+            if (empty($brand->fresh()->logo_path)) {
+                app(BrandLogoService::class)->ensureStored($brand->fresh());
+            }
+
+            if ($linkProducts) {
+                app(WebsiteService::class)->linkOrphanProductsToBrands((int) $brand->shop_id);
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 }

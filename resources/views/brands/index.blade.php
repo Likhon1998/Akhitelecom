@@ -30,12 +30,13 @@
                                 <tr>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center gap-3">
-                                            <div class="h-10 w-10 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center overflow-hidden">
-                                                @if($brand->logo_path)
-                                                    <img src="{{ public_storage_url($brand->logo_path) }}" alt="{{ $brand->name }}" class="h-full w-full object-contain">
-                                                @else
-                                                    <span class="text-xs font-bold text-gray-400">{{ strtoupper(substr($brand->name, 0, 2)) }}</span>
+                                            @php($brandLogo = $brand->logo_url)
+                                            <div class="h-10 w-10 rounded-lg bg-white border border-gray-100 flex items-center justify-center overflow-hidden p-0.5">
+                                                @if($brandLogo)
+                                                    <img src="{{ $brandLogo }}" alt="{{ $brand->name }}" class="h-full w-full object-contain"
+                                                         onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
                                                 @endif
+                                                <span class="text-xs font-bold text-gray-400" @if($brandLogo) hidden @endif>{{ strtoupper(mb_substr($brand->name, 0, 2)) }}</span>
                                             </div>
                                             <span class="text-sm font-medium text-gray-900">{{ $brand->name }}</span>
                                         </div>

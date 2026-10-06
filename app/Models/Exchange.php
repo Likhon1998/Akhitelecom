@@ -36,11 +36,11 @@ class Exchange extends Model
 
     public function returnProduct()
     {
-        return $this->belongsTo(Product::class, 'return_product_id');
+        return $this->belongsTo(Product::class, 'return_product_id')->withTrashed();
     }
 
     public function newProduct()
     {
-        return $this->belongsTo(Product::class, 'new_product_id');
+        return $this->belongsTo(Product::class, 'new_product_id')->withTrashed();
     }
 }

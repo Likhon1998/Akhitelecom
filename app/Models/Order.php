@@ -474,7 +474,7 @@ class Order extends Model
     // 🚀 NEW: Link to the specific product they returned
     public function returnProduct()
     {
-        return $this->belongsTo(Product::class, 'return_product_id');
+        return $this->belongsTo(Product::class, 'return_product_id')->withTrashed();
     }
 
     // 🚀 NEW: Link this new receipt back to the original old receipt

@@ -126,7 +126,7 @@
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 text-xs text-slate-500 font-mono">
-                                    {{ $product->sku ?: ($product->barcode ?? '—') }}
+                                    {{ $product?->sku ?: ($product?->displayBarcode() ?: '—') }}
                                 </td>
                                 <td class="px-4 py-3 text-right font-semibold">{{ (int) $item->quantity }}</td>
                                 <td class="px-4 py-3 text-right">৳{{ number_format((float) $item->unit_price, 2) }}</td>

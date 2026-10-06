@@ -20,7 +20,7 @@
                         <x-image-file-preview
                             name="logo"
                             id="logo"
-                            :existing="$brand->logo_path ? public_storage_url($brand->logo_path) : null"
+                            :existing="$brand->logo_url"
                             accept=".png,.jpg,.jpeg,.webp,.gif,.svg,image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
                             input-class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                             preview-class="h-16 max-w-full object-contain rounded-lg border border-slate-200 bg-white p-1"

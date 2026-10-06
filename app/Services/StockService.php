@@ -47,7 +47,7 @@ class StockService
             $product, $direction, $quantity, $reference, $reason, $userId, $documentType, $documentId, $locationId
         ) {
             $userId ??= Auth::id();
-            $product = Product::whereKey($product->id)->lockForUpdate()->firstOrFail();
+            $product = Product::withTrashed()->whereKey($product->id)->lockForUpdate()->firstOrFail();
             $previousStock = $product->stock_quantity;
 
             if ($direction === 'out' && $quantity > $previousStock) {

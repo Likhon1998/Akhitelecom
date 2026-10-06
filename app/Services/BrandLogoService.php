@@ -7,6 +7,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Throwable;
 
 class BrandLogoService
 {
@@ -44,33 +45,40 @@ class BrandLogoService
 
     /**
      * Store an uploaded brand logo: crop empty padding and fit for the Gadget Lovers strip.
+     * Falls back to the original file when it cannot be processed; null if nothing could be saved.
      */
-    public function storeUploaded(UploadedFile $file): string
+    public function storeUploaded(UploadedFile $file): ?string
     {
         $ext = strtolower($file->getClientOriginalExtension() ?: '');
         $mime = strtolower((string) $file->getMimeType());
 
         // Keep SVG as-is (vector stays crisp).
         if ($ext === 'svg' || str_contains($mime, 'svg')) {
-            return $file->store('brands', 'public');
+            return $file->store('brands', 'public') ?: null;
         }
 
+        try {
+            return $this->storeNormalized($file);
+        } catch (Throwable $e) {
+            report($e);
+        }
+
+        return $file->store('brands', 'public') ?: null;
+    }
+
+    protected function storeNormalized(UploadedFile $file): string
+    {
         $tmp = $file->getRealPath();
         if (! $tmp || ! is_file($tmp)) {
             throw new RuntimeException('Uploaded brand logo could not be read.');
         }
 
-        $filename = Str::uuid()->toString().'.png';
-        $relative = 'brands/'.$filename;
-        $absolute = Storage::disk('public')->path($relative);
-        $dir = dirname($absolute);
-        if (! is_dir($dir)) {
-            mkdir($dir, 0775, true);
-        }
+        $relative = 'brands/'.Str::uuid()->toString().'.png';
+        Storage::disk('public')->makeDirectory('brands');
 
         app(SiteLogoNormalizer::class)->normalizeToPng(
             $tmp,
-            $absolute,
+            Storage::disk('public')->path($relative),
             square: false,
             padding: 10,
             threshold: 42,
