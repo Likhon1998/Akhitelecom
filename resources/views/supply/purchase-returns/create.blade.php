@@ -5,6 +5,7 @@
             'name' => $p->name,
             'cost' => (float) $p->cost_price,
             'stock' => (int) $p->stock_quantity,
+            'phone' => (bool) $p->requires_imei,
         ])->values();
 
         $locationOptions = $locations->map(function ($l) use ($warehouseQty) {
@@ -52,14 +53,22 @@
               supplierId: '{{ old('supplier_id', '') }}',
               poId: '{{ old('purchase_order_id', '') }}',
               locationId: '{{ old('return_location_id', $defaultLocationId) }}',
-              rows: [{ key: Date.now(), product_id: '', quantity: 1, unit_cost: 0 }],
+              imeiStock: @js($imeiStock),
+              rows: [{ key: Date.now(), product_id: '', quantity: 1, unit_cost: 0, picked: [], phones: [] }],
               get location() { return this.locations.find(l => String(l.id) === String(this.locationId)); },
               onPoChange() {
                   const po = this.pos.find(p => String(p.id) === String(this.poId));
                   if (po) this.supplierId = String(po.supplier_id);
               },
-              addRow() { this.rows.push({ key: Date.now()+Math.random(), product_id: '', quantity: 1, unit_cost: 0 }); },
-              removeRow(i) { this.rows.length > 1 ? this.rows.splice(i,1) : this.rows=[{ key: Date.now(), product_id: '', quantity: 1, unit_cost: 0 }]; },
+              addRow() { this.rows.push({ key: Date.now()+Math.random(), product_id: '', quantity: 1, unit_cost: 0, picked: [], phones: [] }); },
+              removeRow(i) { this.rows.length > 1 ? this.rows.splice(i,1) : this.rows=[{ key: Date.now(), product_id: '', quantity: 1, unit_cost: 0, picked: [], phones: [] }]; },
+              isPhone(row) { return !!(this.products.find(x => String(x.id) === String(row.product_id)) || {}).phone; },
+              phonesHere(row) {
+                  const loc = this.location;
+                  if (!loc) return [];
+                  const pool = loc.type === 'warehouse' ? ((this.imeiStock.warehouse || {})[loc.id] || {}) : (this.imeiStock.store || {});
+                  return pool[row.product_id] || [];
+              },
               onProduct(row) {
                   const p = this.products.find(x => String(x.id) === String(row.product_id));
                   if (p) row.unit_cost = Number(p.cost) || 0;
@@ -140,9 +149,20 @@
                                         <option :value="p.id" x-text="p.name"></option>
                                     </template>
                                 </select>
+                                <div class="mt-2" x-show="isPhone(row)" x-cloak>
+                                    @include('supply.partials.imei-fields', [
+                                        'mode' => "isPhone(row) ? 'pick' : ''",
+                                        'options' => 'phonesHere(row)',
+                                        'picked' => 'row.picked',
+                                        'phones' => 'row.phones',
+                                        'qty' => 'row.quantity',
+                                        'pickName' => "'items[' + index + '][imeis][]'",
+                                        'enterName' => "''",
+                                    ])
+                                </div>
                             </td>
-                            <td class="px-2 py-2 text-center text-xs text-gray-500" x-text="available(row)"></td>
-                            <td class="px-2 py-2"><input type="number" :name="'items['+index+'][quantity]'" x-model.number="row.quantity" min="1" class="w-full text-sm rounded-lg border-gray-200 py-1.5" required></td>
+                            <td class="px-2 py-2 text-center text-xs text-gray-500 align-top" x-text="available(row)"></td>
+                            <td class="px-2 py-2 align-top"><input type="number" :name="'items['+index+'][quantity]'" x-model.number="row.quantity" min="1" :readonly="isPhone(row)" class="w-full text-sm rounded-lg border-gray-200 py-1.5" required></td>
                             <td class="px-2 py-2"><input type="number" step="0.01" :name="'items['+index+'][unit_cost]'" x-model.number="row.unit_cost" min="0" class="w-full text-sm rounded-lg border-gray-200 py-1.5" required></td>
                             <td class="px-2 py-2 text-right font-semibold" x-text="money(line(row))"></td>
                             <td class="px-2 py-2 text-center"><button type="button" @click="removeRow(index)" class="text-gray-400 hover:text-red-500 text-lg">&times;</button></td>

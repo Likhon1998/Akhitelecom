@@ -88,6 +88,15 @@
                                         <div class="min-w-0">
                                             <p class="truncate text-sm font-semibold text-slate-900">{{ $product->name }}</p>
                                             <p class="mt-0.5 text-xs text-slate-500">{{ $product->category?->name ?? 'Uncategorized' }}@if($product->brand?->name || $product->brand_name) · {{ $product->brand?->name ?? $product->brand_name }}@endif</p>
+                                            @if($product->requires_imei)
+                                                <p class="mt-1 text-[11px] font-semibold {{ $product->phones_in_stock ? 'text-orange-700' : 'text-rose-600' }}">
+                                                    @if($product->phones_in_stock)
+                                                        {{ $product->phones_in_stock }} phone(s) in stock — prints one IMEI label per phone
+                                                    @else
+                                                        No phones with IMEI in stock
+                                                    @endif
+                                                </p>
+                                            @endif
                                         </div>
                                     </div>
                                 </td>
@@ -128,6 +137,7 @@
 
         <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-[12px] text-blue-800">
             Tip: tick products and use <strong>Print selected</strong>, or hit <strong>Print</strong> on one row for a single label. Set copies if you need multiple stickers of the same barcode.
+            Phones print one label per phone with its own IMEI barcode — scan that label at POS to sell exactly that phone. You can also search by IMEI here.
         </div>
     </div>
 

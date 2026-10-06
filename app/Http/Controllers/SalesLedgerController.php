@@ -34,7 +34,7 @@ class SalesLedgerController extends Controller
 
         $physicalQuery = Order::where('shop_id', $shopId)
             ->whereNotNull('counter_id')
-            ->with(['customer', 'user', 'counter', 'items.product']);
+            ->with(['customer', 'user', 'counter', 'items.product', 'items.soldImeis']);
 
         if (! $isAdmin && $user->counter_id) {
             $physicalQuery->where('counter_id', $user->counter_id);
@@ -133,6 +133,7 @@ class SalesLedgerController extends Controller
                 'name' => $item->product->name ?? 'Unknown Item',
                 'price' => (float) $item->unit_price,
                 'qty' => (int) $item->quantity,
+                'imeis' => $item->relationLoaded('soldImeis') ? $item->soldImeis->pluck('imei')->values()->all() : [],
             ])->values()->all(),
             'search_blob' => mb_strtolower(implode(' ', array_filter([
                 $order->invoice_no,

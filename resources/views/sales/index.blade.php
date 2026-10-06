@@ -357,19 +357,37 @@
                         <input type="hidden" name="_token" :value="csrf">
                         <div class="bg-white p-5 rounded-2xl border border-slate-200 mb-6 space-y-3">
                             <label class="block text-xs font-bold text-slate-500">Select Item to Return</label>
-                            <select name="return_product_id" x-model="exchangeProductId" required class="w-full bg-slate-50 border border-slate-200 text-sm font-bold rounded-xl p-2.5">
+                            <select name="return_product_id" x-model="exchangeProductId" @change="exchangeImeis = []" required class="w-full bg-slate-50 border border-slate-200 text-sm font-bold rounded-xl p-2.5">
                                 <option value="">-- Choose Purchased Item --</option>
                                 <template x-for="item in modalItems" :key="item.id + '-' + item.name">
                                     <option :value="item.id" x-text="'📦 ' + item.name + ' (৳' + item.price + ' - Bought: ' + item.qty + ')'"></option>
                                 </template>
                             </select>
-                            <label class="block text-xs font-bold text-slate-500">Quantity Returned</label>
-                            <input type="number" name="return_qty" x-model.number="exchangeQty" min="1" :max="exchangeMaxQty" required class="w-full bg-slate-50 border border-slate-200 text-sm font-black rounded-xl p-2.5">
-                            <p class="text-[10px] text-slate-400" x-text="exchangeMaxQty ? ('Maximum quantity allowed: ' + exchangeMaxQty) : 'Select an item to see purchased quantity.'"></p>
+                            <template x-if="exchangeItemImeis.length">
+                                <div class="space-y-1.5">
+                                    <label class="block text-xs font-bold text-slate-500">Which phone is coming back? (IMEI)</label>
+                                    <template x-for="imei in exchangeItemImeis" :key="imei">
+                                        <label class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-mono cursor-pointer">
+                                            <input type="checkbox" name="return_imeis[]" :value="imei" x-model="exchangeImeis" class="rounded border-slate-300 text-indigo-600">
+                                            <span x-text="imei"></span>
+                                        </label>
+                                    </template>
+                                    <input type="hidden" name="return_qty" :value="exchangeImeis.length">
+                                    <p class="text-[10px] text-slate-400">The selected phone goes back into stock with its IMEI.</p>
+                                </div>
+                            </template>
+                            <template x-if="!exchangeItemImeis.length">
+                                <div class="space-y-3">
+                                    <label class="block text-xs font-bold text-slate-500">Quantity Returned</label>
+                                    <input type="number" name="return_qty" x-model.number="exchangeQty" min="1" :max="exchangeMaxQty" required class="w-full bg-slate-50 border border-slate-200 text-sm font-black rounded-xl p-2.5">
+                                    <p class="text-[10px] text-slate-400" x-text="exchangeMaxQty ? ('Maximum quantity allowed: ' + exchangeMaxQty) : 'Select an item to see purchased quantity.'"></p>
+                                </div>
+                            </template>
                         </div>
                         <div class="flex justify-end gap-3">
                             <button type="button" @click="closeReturnModal()" class="px-6 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl">Cancel</button>
-                            <button type="submit" class="px-8 py-3 bg-indigo-600 text-white font-black rounded-xl">Proceed to POS</button>
+                            <button type="submit" class="px-8 py-3 bg-indigo-600 text-white font-black rounded-xl disabled:opacity-50"
+                                    :disabled="exchangeItemImeis.length > 0 && exchangeImeis.length === 0">Proceed to POS</button>
                         </div>
                     </form>
                 </div>
@@ -409,9 +427,14 @@
                 modalItems: [],
                 exchangeProductId: '',
                 exchangeQty: 1,
+                exchangeImeis: [],
                 get exchangeMaxQty() {
                     const item = this.modalItems.find(i => String(i.id) === String(this.exchangeProductId));
                     return item ? item.qty : null;
+                },
+                get exchangeItemImeis() {
+                    const item = this.modalItems.find(i => String(i.id) === String(this.exchangeProductId));
+                    return item && Array.isArray(item.imeis) ? item.imeis : [];
                 },
                 get filteredPhysical() {
                     const q = (this.search || '').trim().toLowerCase();
@@ -492,6 +515,7 @@
                     this.modalItems = order.items || [];
                     this.exchangeProductId = '';
                     this.exchangeQty = 1;
+                    this.exchangeImeis = [];
                     this.modalTab = 'refund';
                     this.modalOpen = true;
                 },

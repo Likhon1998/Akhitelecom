@@ -62,9 +62,13 @@
                         <th class="p-4">Receive now</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-50">
-                    @foreach($order->items as $i => $item)
-                        @php $remaining = max(0, $item->quantity - $item->received_quantity); @endphp
+                @foreach($order->items as $i => $item)
+                    @php
+                        $remaining = max(0, $item->quantity - $item->received_quantity);
+                        $isPhone = $remaining > 0 && $item->product?->requires_imei;
+                    @endphp
+                    <tbody class="divide-y divide-gray-50 border-b border-gray-50"
+                           x-data="{ qty: @js((int) old('items.'.$i.'.receive_qty', $remaining)), phones: @js(array_values(old('items.'.$i.'.phones', []))), picked: [] }">
                         <tr class="{{ $remaining < 1 ? 'bg-slate-50/80 text-gray-400' : '' }}">
                             <td class="p-4 font-semibold {{ $remaining >= 1 ? 'text-gray-900' : '' }}">
                                 {{ $item->product->name }}
@@ -80,15 +84,30 @@
                                 @else
                                     <input type="number"
                                            name="items[{{ $i }}][receive_qty]"
-                                           value="{{ old('items.'.$i.'.receive_qty', $remaining) }}"
+                                           x-model="qty"
                                            min="0"
                                            max="{{ $remaining }}"
                                            class="w-24 rounded-lg border-gray-200 mx-auto block text-center">
                                 @endif
                             </td>
                         </tr>
-                    @endforeach
-                </tbody>
+                        @if($isPhone)
+                            <tr x-show="Number(qty) > 0">
+                                <td colspan="5" class="px-4 pb-4 pt-0">
+                                    @include('supply.partials.imei-fields', [
+                                        'mode' => "Number(qty) > 0 ? 'enter' : ''",
+                                        'options' => '[]',
+                                        'picked' => 'picked',
+                                        'phones' => 'phones',
+                                        'qty' => 'qty',
+                                        'pickName' => "''",
+                                        'enterName' => "'items[{$i}][phones]'",
+                                    ])
+                                </td>
+                            </tr>
+                        @endif
+                    </tbody>
+                @endforeach
             </table>
             <div class="p-4 border-t">
                 <button class="bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-emerald-700">Receive Stock</button>

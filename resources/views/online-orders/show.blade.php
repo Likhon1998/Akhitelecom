@@ -163,6 +163,12 @@
                             <div class="min-w-0">
                                 <p class="font-semibold text-slate-900">{{ $item->product->name ?? 'Unknown' }}</p>
                                 <p class="text-[11px] text-slate-500">Qty {{ $item->quantity }} × Tk {{ number_format((float) ($item->unit_price ?? 0), 2) }}</p>
+                                @foreach($item->soldImeis as $phone)
+                                    <p class="mt-0.5 font-mono text-[11px] text-emerald-700">IMEI {{ $phone->imei }}@if($phone->imei_2) · IMEI 2 {{ $phone->imei_2 }}@endif</p>
+                                @endforeach
+                                @if($item->product?->requires_imei && $item->soldImeis->isEmpty())
+                                    <p class="mt-0.5 text-[11px] font-semibold text-amber-700">Phone — choose its IMEI when packing</p>
+                                @endif
                             </div>
                             <p class="shrink-0 font-bold text-slate-900">Tk {{ number_format((float) $item->subtotal, 2) }}</p>
                         </div>
@@ -259,6 +265,39 @@
                             @endif
                         </select>
                     </div>
+
+                    @if($imeiItems->isNotEmpty())
+                        <div x-show="['processing', 'shipped', 'completed'].includes(status)" x-cloak
+                             class="space-y-3 rounded-xl border border-orange-200 bg-orange-50 p-3">
+                            <div>
+                                <p class="text-[12px] font-bold text-slate-900">Which phone are you sending?</p>
+                                <p class="text-[11px] text-slate-600">Pick the IMEI of each phone you pack. It is marked sold and leaves stock.</p>
+                            </div>
+                            @foreach($imeiItems as $item)
+                                <div class="space-y-1.5">
+                                    <p class="text-[11px] font-semibold text-slate-700">{{ $item->product->name }} × {{ $item->quantity }}</p>
+                                    @if($item->product->availableImeis->count() < $item->quantity)
+                                        <p class="text-[11px] font-semibold text-rose-600">
+                                            Only {{ $item->product->availableImeis->count() }} phone(s) with IMEI in stock.
+                                            <a href="{{ route('products.edit', $item->product_id) }}" class="underline">Add IMEIs</a>
+                                        </p>
+                                    @endif
+                                    @for($n = 0; $n < $item->quantity; $n++)
+                                        <select name="imeis[{{ $item->id }}][]"
+                                                :required="['processing', 'shipped', 'completed'].includes(status)"
+                                                class="w-full rounded-lg border-slate-200 font-mono text-[12px] focus:border-indigo-500 focus:ring-indigo-500">
+                                            <option value="">Phone {{ $n + 1 }} — select IMEI…</option>
+                                            @foreach($item->product->availableImeis as $phone)
+                                                <option value="{{ $phone->imei }}" @selected(old("imeis.{$item->id}.{$n}") === $phone->imei)>
+                                                    {{ $phone->imei }}{{ $phone->imei_2 ? ' · IMEI 2 '.$phone->imei_2 : '' }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    @endfor
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
 
                     <div x-show="status === 'shipped'" x-cloak class="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3">
                         <div>

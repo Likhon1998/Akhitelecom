@@ -22,6 +22,7 @@
                 'barcode' => $p->barcode ?: '—',
                 'image' => $img ? asset('storage/' . ltrim($img, '/')) : null,
                 'stock' => (int) $p->stock_quantity,
+                'phone' => (bool) $p->requires_imei,
             ];
         })->values();
 
@@ -34,6 +35,7 @@
             locations: @js($locationPayload),
             products: @js($productPayload),
             warehouseQty: @js($warehouseMap),
+            imeiStock: @js($imeiStock),
             fromId: '{{ old('from_location_id', $defaultWarehouse?->id ?? $locations->first()?->id) }}',
             toId: '{{ old('to_location_id', $defaultStore?->id ?? $locations->skip(1)->first()?->id) }}',
             notes: @js(old('notes', '')),
@@ -225,6 +227,17 @@
                                                     </div>
                                                     <input type="hidden" :name="'items['+index+'][product_id]'" :value="row.product_id">
                                                 </div>
+                                                <div class="mt-2 max-w-xl" x-show="row.product?.phone" x-cloak>
+                                                    @include('supply.partials.imei-fields', [
+                                                        'mode' => "row.product?.phone ? 'pick' : ''",
+                                                        'options' => 'phonesAtSource(row)',
+                                                        'picked' => 'row.picked',
+                                                        'phones' => 'row.phones',
+                                                        'qty' => 'row.quantity',
+                                                        'pickName' => "'items[' + index + '][imeis][]'",
+                                                        'enterName' => "''",
+                                                    ])
+                                                </div>
                                             </td>
                                             <td>
                                                 <div class="text-xs text-slate-600 leading-relaxed">
@@ -243,6 +256,7 @@
                                                        :max="available(row) || undefined"
                                                        :name="'items['+index+'][quantity]'"
                                                        x-model.number="row.quantity"
+                                                       :readonly="row.product?.phone"
                                                        required>
                                             </td>
                                             <td class="text-slate-500 font-medium">pcs</td>
@@ -345,6 +359,7 @@
                 locations: cfg.locations || [],
                 products: cfg.products || [],
                 warehouseQty: cfg.warehouseQty || {},
+                imeiStock: cfg.imeiStock || {},
                 transferType: 'ws',
                 fromId: String(cfg.fromId || ''),
                 toId: String(cfg.toId || ''),
@@ -417,6 +432,14 @@
                     }
                     return Number(p.stock || 0);
                 },
+                phonesAtSource(row) {
+                    const from = this.fromLoc;
+                    if (!from || !row.product) return [];
+                    const pool = from.type === 'warehouse'
+                        ? ((this.imeiStock.warehouse || {})[from.id] || {})
+                        : (this.imeiStock.store || {});
+                    return pool[row.product.id] || [];
+                },
                 searchMatches() {
                     const q = (this.query || '').trim().toLowerCase();
                     if (!q) return [];
@@ -443,14 +466,16 @@
                     if (!product) return;
                     const existing = this.rows.find(r => String(r.product_id) === String(product.id));
                     if (existing) {
-                        existing.quantity = Number(existing.quantity || 0) + 1;
+                        if (!product.phone) existing.quantity = Number(existing.quantity || 0) + 1;
                         return;
                     }
                     this.rows.push({
                         key: Date.now() + Math.random(),
                         product_id: String(product.id),
                         product,
-                        quantity: 1,
+                        quantity: product.phone ? 0 : 1,
+                        picked: [],
+                        phones: [],
                     });
                 },
                 removeRow(index) { this.rows.splice(index, 1); },
@@ -484,6 +509,11 @@
                         return;
                     }
                     for (const row of this.rows) {
+                        if (row.product?.phone && !row.picked.length) {
+                            e.preventDefault();
+                            alert(`${row.product.name}: tick the IMEI of each phone you are moving.`);
+                            return;
+                        }
                         const avail = this.available(row);
                         if ((Number(row.quantity) || 0) > avail) {
                             e.preventDefault();

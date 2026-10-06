@@ -183,7 +183,9 @@ class Product extends Model
                 if ((int) $row->product_id !== (int) $this->id) {
                     throw new \InvalidArgumentException("IMEI {$imei} already belongs to another product.");
                 }
-                if ($row->status !== ProductImei::STATUS_AVAILABLE) {
+                if (in_array($row->status, ProductImei::RETURNABLE_STATUSES, true)) {
+                    $row->update(['status' => ProductImei::STATUS_AVAILABLE, 'location_id' => null]);
+                } elseif ($row->status !== ProductImei::STATUS_AVAILABLE) {
                     continue;
                 }
             } else {

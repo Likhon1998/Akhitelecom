@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ShopScoped;
 use App\Models\Product;
+use App\Models\ProductImei;
 use App\Services\AccountService;
 use App\Services\StockService;
 use Illuminate\Http\Request;
@@ -33,7 +34,9 @@ class DamageProductController extends Controller
             ->whereDate('created_at', now()->toDateString())
             ->sum('quantity');
 
-        return view('supply.damage-products.index', compact('products', 'damages', 'todayDamagedQty'));
+        $imeiStock = ProductImei::stockMap($this->shopId())['store'];
+
+        return view('supply.damage-products.index', compact('products', 'damages', 'todayDamagedQty', 'imeiStock'));
     }
 
     public function store(Request $request)
@@ -45,6 +48,8 @@ class DamageProductController extends Controller
             ],
             'quantity' => 'required|integer|min:1',
             'reference' => 'required|string|max:255',
+            'imeis' => 'nullable|array',
+            'imeis.*' => 'nullable|string|max:32',
         ]);
 
         $product = Product::where('shop_id', $this->shopId())->findOrFail($request->product_id);
@@ -52,6 +57,10 @@ class DamageProductController extends Controller
         try {
             $this->stock->transaction(function () use ($request, $product) {
                 $this->accounts->ensureShopAccounts($this->shopId());
+
+                if ($product->requires_imei) {
+                    ProductImei::moveStock($product, $request->input('imeis', []), (int) $request->quantity, ProductImei::STATUS_AVAILABLE, ProductImei::STATUS_DAMAGED);
+                }
 
                 $movement = $this->stock->apply(
                     $product,
@@ -68,7 +77,7 @@ class DamageProductController extends Controller
                 $this->accounts->postInventoryAdjustment($movement);
             });
         } catch (\Throwable $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->withInput()->with('error', $e->getMessage());
         }
 
         return redirect()->route('supply.damage-products.index')->with('success', 'Damaged stock written off. Inventory and accounts updated.');

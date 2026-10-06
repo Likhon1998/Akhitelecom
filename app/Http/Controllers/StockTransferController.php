@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ShopScoped;
 use App\Models\Product;
+use App\Models\ProductImei;
 use App\Models\StockTransfer;
 use App\Models\StockTransferItem;
 use App\Models\StockLocation;
@@ -50,7 +51,9 @@ class StockTransferController extends Controller
             ->groupBy('location_id')
             ->map(fn ($rows) => $rows->pluck('quantity', 'product_id'));
 
-        return view('supply.stock-transfers.create', compact('locations', 'products', 'warehouseQty'));
+        $imeiStock = ProductImei::stockMap($this->shopId());
+
+        return view('supply.stock-transfers.create', compact('locations', 'products', 'warehouseQty', 'imeiStock'));
     }
 
     public function store(Request $request)
@@ -72,6 +75,8 @@ class StockTransferController extends Controller
                 Rule::exists('products', 'id')->where(fn ($q) => $q->where('shop_id', $this->shopId())),
             ],
             'items.*.quantity' => 'required|integer|min:1',
+            'items.*.imeis' => 'nullable|array',
+            'items.*.imeis.*' => 'nullable|string|max:32',
         ]);
 
         try {
@@ -96,6 +101,19 @@ class StockTransferController extends Controller
                         'product_id' => $product->id,
                         'quantity' => $item['quantity'],
                     ]);
+                    if ($product->requires_imei) {
+                        $fromWarehouse = $from->type === 'warehouse';
+                        $toWarehouse = $to->type === 'warehouse';
+                        ProductImei::moveStock(
+                            $product,
+                            $item['imeis'] ?? [],
+                            (int) $item['quantity'],
+                            $fromWarehouse ? ProductImei::STATUS_WAREHOUSE : ProductImei::STATUS_AVAILABLE,
+                            $toWarehouse ? ProductImei::STATUS_WAREHOUSE : ProductImei::STATUS_AVAILABLE,
+                            $fromWarehouse ? $from->id : null,
+                            $toWarehouse ? $to->id : null,
+                        );
+                    }
                     $this->stock->transferBetweenLocations(
                         $from,
                         $to,

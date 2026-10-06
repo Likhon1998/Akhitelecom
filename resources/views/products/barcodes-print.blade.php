@@ -67,6 +67,12 @@
             text-align: center;
             page-break-inside: avoid;
         }
+        .label svg.barcode {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            margin: 0 auto;
+        }
         .label h3 {
             margin: 0 0 8px;
             font-size: 13px;
@@ -101,7 +107,7 @@
     <div class="toolbar">
         <div>
             <h1>Barcode labels ready</h1>
-            <p>{{ $products->count() }} product(s) · {{ $copies }} cop{{ $copies === 1 ? 'y' : 'ies' }} each · {{ $products->count() * $copies }} label(s) total</p>
+            <p>{{ $products->count() }} product(s) · {{ $copies }} cop{{ $copies === 1 ? 'y' : 'ies' }} each · {{ $labelCount }} label(s) total · phones get one label per phone with its own IMEI</p>
         </div>
         <div class="actions">
             <a class="btn btn-back" href="{{ route('products.barcodes') }}">Back to list</a>
@@ -111,20 +117,42 @@
 
     <div class="grid">
         @foreach($products as $product)
-            @for($i = 0; $i < $copies; $i++)
-                <div class="label">
-                    <h3>{{ $product->name }}</h3>
-                    <svg class="barcode"
-                         jsbarcode-format="CODE128"
-                         jsbarcode-value="{{ $product->barcode }}"
-                         jsbarcode-height="48"
-                         jsbarcode-displayValue="true"
-                         jsbarcode-fontSize="12"
-                         jsbarcode-margin="4"></svg>
-                    <p class="price">Tk {{ number_format($product->selling_price, 2) }}</p>
-                    <p class="meta">{{ $product->barcode }}</p>
-                </div>
-            @endfor
+            @if($product->requires_imei && $product->availableImeis->isNotEmpty())
+                @foreach($product->availableImeis as $phone)
+                    @for($i = 0; $i < $copies; $i++)
+                        <div class="label">
+                            <h3>{{ $product->name }}</h3>
+                            <svg class="barcode"
+                                 jsbarcode-format="CODE128"
+                                 jsbarcode-value="{{ $phone->imei }}"
+                                 jsbarcode-height="48"
+                                 jsbarcode-displayValue="true"
+                                 jsbarcode-fontSize="12"
+                                 jsbarcode-margin="4"></svg>
+                            <p class="price">Tk {{ number_format($product->selling_price, 2) }}</p>
+                            <p class="meta">IMEI {{ $phone->imei }}@if($phone->imei_2) · IMEI 2 {{ $phone->imei_2 }}@endif</p>
+                        </div>
+                    @endfor
+                @endforeach
+            @else
+                @for($i = 0; $i < $copies; $i++)
+                    <div class="label">
+                        <h3>{{ $product->name }}</h3>
+                        <svg class="barcode"
+                             jsbarcode-format="CODE128"
+                             jsbarcode-value="{{ $product->barcode }}"
+                             jsbarcode-height="48"
+                             jsbarcode-displayValue="true"
+                             jsbarcode-fontSize="12"
+                             jsbarcode-margin="4"></svg>
+                        <p class="price">Tk {{ number_format($product->selling_price, 2) }}</p>
+                        <p class="meta">{{ $product->barcode }}</p>
+                        @if($product->requires_imei)
+                            <p class="meta" style="color:#b45309">No phones with IMEI in stock</p>
+                        @endif
+                    </div>
+                @endfor
+            @endif
         @endforeach
     </div>
 

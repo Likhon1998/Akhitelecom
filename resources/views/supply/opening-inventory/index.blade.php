@@ -27,13 +27,20 @@
                             </td>
                             <td class="p-4 text-center">{{ $product->stock_quantity }}</td>
                             <td class="p-4">
-                                <input type="number"
-                                       name="items[{{ $i }}][quantity]"
-                                       value="{{ old('items.'.$i.'.quantity') }}"
-                                       min="0"
-                                       step="1"
-                                       placeholder="0"
-                                       class="w-28 rounded-lg border-gray-200 mx-auto block text-center">
+                                @if($product->requires_imei)
+                                    <a href="{{ route('products.edit', $product) }}"
+                                       class="mx-auto block max-w-xs rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-center text-xs font-bold text-orange-700 hover:bg-orange-100">
+                                        Phone — add each IMEI
+                                    </a>
+                                @else
+                                    <input type="number"
+                                           name="items[{{ $i }}][quantity]"
+                                           value="{{ old('items.'.$i.'.quantity') }}"
+                                           min="0"
+                                           step="1"
+                                           placeholder="0"
+                                           class="w-28 rounded-lg border-gray-200 mx-auto block text-center">
+                                @endif
                             </td>
                         </tr>
                     @endforeach

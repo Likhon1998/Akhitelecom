@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ShopScoped;
 use App\Models\Product;
+use App\Models\ProductImei;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseReturn;
 use App\Models\PurchaseReturnItem;
@@ -64,6 +65,7 @@ class PurchaseReturnController extends Controller
             'locations' => $locations,
             'warehouseQty' => $warehouseQty,
             'defaultLocationId' => $this->stock->defaultStore($this->shopId())?->id,
+            'imeiStock' => ProductImei::stockMap($this->shopId()),
         ]);
     }
 
@@ -90,6 +92,8 @@ class PurchaseReturnController extends Controller
             ],
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.unit_cost' => 'required|numeric|min:0',
+            'items.*.imeis' => 'nullable|array',
+            'items.*.imeis.*' => 'nullable|string|max:32',
         ]);
 
         try {
@@ -130,6 +134,19 @@ class PurchaseReturnController extends Controller
                     ]);
 
                     $product = Product::where('shop_id', $this->shopId())->findOrFail($item['product_id']);
+
+                    if ($product->requires_imei) {
+                        $fromWarehouse = $location->type === 'warehouse';
+                        ProductImei::moveStock(
+                            $product,
+                            $item['imeis'] ?? [],
+                            (int) $item['quantity'],
+                            $fromWarehouse ? ProductImei::STATUS_WAREHOUSE : ProductImei::STATUS_AVAILABLE,
+                            ProductImei::STATUS_SUPPLIER_RETURN,
+                            $fromWarehouse ? $location->id : null,
+                        );
+                    }
+
                     $movement = $this->stock->returnPurchaseItem(
                         $product,
                         (int) $item['quantity'],

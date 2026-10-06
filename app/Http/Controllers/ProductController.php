@@ -1048,6 +1048,7 @@ class ProductController extends Controller
 
         $query = Product::where('shop_id', $shopId)
             ->with(['category', 'brand'])
+            ->withCount(['imeis as phones_in_stock' => fn ($q) => $q->available()])
             ->orderBy('name');
 
         if ($request->filled('q')) {
@@ -1056,7 +1057,8 @@ class ProductController extends Controller
                 $builder->where('name', 'like', "%{$q}%")
                     ->orWhere('barcode', 'like', "%{$q}%")
                     ->orWhere('sku', 'like', "%{$q}%")
-                    ->orWhere('brand_name', 'like', "%{$q}%");
+                    ->orWhere('brand_name', 'like', "%{$q}%")
+                    ->orWhereHas('imeis', fn ($i) => $i->available()->matching($q));
             });
         }
 
@@ -1086,12 +1088,15 @@ class ProductController extends Controller
 
         $products = Product::where('shop_id', $shopId)
             ->whereIn('id', $ids)
+            ->with('availableImeis')
             ->orderBy('name')
             ->get();
 
         abort_if($products->isEmpty(), 404, 'No products found.');
 
-        return view('products.barcodes-print', compact('products', 'copies'));
+        $labelCount = $products->sum(fn (Product $p) => max(1, $p->requires_imei ? $p->availableImeis->count() : 1)) * $copies;
+
+        return view('products.barcodes-print', compact('products', 'copies', 'labelCount'));
     }
 
     private function applyBrandData(array $data): array
@@ -1418,10 +1423,14 @@ class ProductController extends Controller
         $seen[$imei] = $label;
 
         $existing = ProductImei::with('product:id,name')->matching($imei)->first();
-        if ($existing && ((int) $existing->product_id !== (int) $productId || $existing->status !== ProductImei::STATUS_AVAILABLE)) {
-            $errors[$field] = $existing->status === ProductImei::STATUS_SOLD
-                ? "{$label}: IMEI {$imei} was already sold."
-                : "{$label}: IMEI {$imei} already belongs to \"".($existing->product?->name ?? 'another product').'".';
+        $reusable = [ProductImei::STATUS_AVAILABLE, ...ProductImei::RETURNABLE_STATUSES];
+        if ($existing && ((int) $existing->product_id !== (int) $productId || ! in_array($existing->status, $reusable, true))) {
+            $errors[$field] = match (true) {
+                (int) $existing->product_id !== (int) $productId => "{$label}: IMEI {$imei} already belongs to \"".($existing->product?->name ?? 'another product').'".',
+                $existing->status === ProductImei::STATUS_SOLD => "{$label}: IMEI {$imei} was already sold.",
+                $existing->status === ProductImei::STATUS_WAREHOUSE => "{$label}: IMEI {$imei} is in the warehouse — move it to the store with a Stock Transfer.",
+                default => "{$label}: IMEI {$imei} is ".ProductImei::statusLabel($existing->status).'.',
+            };
 
             return null;
         }

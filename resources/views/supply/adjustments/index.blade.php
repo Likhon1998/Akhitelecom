@@ -3,26 +3,49 @@
     subtitle="Manual stock in/out plus full movement history. Sales and transfers change stock automatically — shown below with clear + / − signs."
 >
     {{-- Manual adjustment form --}}
-    <form method="POST" action="{{ route('supply.adjustments.store') }}" class="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6 mb-6 grid md:grid-cols-4 gap-4 max-w-5xl shadow-sm">
+    <form method="POST" action="{{ route('supply.adjustments.store') }}" class="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6 mb-6 grid md:grid-cols-4 gap-4 max-w-5xl shadow-sm"
+          x-data="{
+              productId: @js((string) old('product_id', $products->first()?->id)),
+              type: @js(old('type', 'in')),
+              qty: @js(old('quantity', '')),
+              picked: @js(array_values(old('imeis', []))),
+              phones: @js(array_values(old('phones', []))),
+              phoneIds: @js($products->where('requires_imei', true)->pluck('id')->map(fn ($id) => (string) $id)->values()),
+              stock: @js((object) $imeiStock),
+              isPhone() { return this.phoneIds.includes(String(this.productId)); },
+              imeiMode() { return this.isPhone() ? (this.type === 'out' ? 'pick' : 'enter') : ''; },
+          }">
         @csrf
         <div class="md:col-span-2">
             <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Product</label>
-            <select name="product_id" class="w-full rounded-xl border-gray-200 mt-1 text-sm" required>
+            <select name="product_id" x-model="productId" class="w-full rounded-xl border-gray-200 mt-1 text-sm" required>
                 @foreach($products as $p)
-                    <option value="{{ $p->id }}">{{ $p->name }} (stock: {{ $p->stock_quantity }})</option>
+                    <option value="{{ $p->id }}">{{ $p->name }} (stock: {{ $p->stock_quantity }}){{ $p->requires_imei ? ' · IMEI' : '' }}</option>
                 @endforeach
             </select>
         </div>
         <div>
             <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Direction</label>
-            <select name="type" class="w-full rounded-xl border-gray-200 mt-1 text-sm" required>
+            <select name="type" x-model="type" class="w-full rounded-xl border-gray-200 mt-1 text-sm" required>
                 <option value="in">Stock In (+)</option>
                 <option value="out">Stock Out (−)</option>
             </select>
         </div>
         <div>
             <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Quantity</label>
-            <input type="number" name="quantity" min="1" class="w-full rounded-xl border-gray-200 mt-1 text-sm" required>
+            <input type="number" name="quantity" x-model="qty" min="1" class="w-full rounded-xl border-gray-200 mt-1 text-sm" required
+                   :readonly="imeiMode() === 'pick'" :class="imeiMode() === 'pick' ? 'bg-slate-50' : ''">
+        </div>
+        <div class="md:col-span-4" x-show="imeiMode()" x-cloak>
+            @include('supply.partials.imei-fields', [
+                'mode' => 'imeiMode()',
+                'options' => '(stock[productId] || [])',
+                'picked' => 'picked',
+                'phones' => 'phones',
+                'qty' => 'qty',
+                'pickName' => "'imeis[]'",
+                'enterName' => "'phones'",
+            ])
         </div>
         <div class="md:col-span-4">
             <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Reason / Reference</label>

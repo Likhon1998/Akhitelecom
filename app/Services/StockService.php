@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductImei;
 use App\Models\StockLocation;
 use App\Models\StockMovement;
 use App\Models\WarehouseStock;
@@ -166,7 +167,7 @@ class StockService
             return null;
         }
 
-        return $this->apply(
+        $movement = $this->apply(
             $product,
             'in',
             $quantity,
@@ -177,6 +178,12 @@ class StockService
             $documentId,
             $this->defaultStore($product->shop_id)?->id,
         );
+
+        if (str_starts_with($documentType, 'order')) {
+            ProductImei::releaseForOrder($documentId, (int) $product->id, [], $quantity);
+        }
+
+        return $movement;
     }
 
     /** True when sellable stock was already deducted for this order line. */
@@ -192,9 +199,11 @@ class StockService
 
     /**
      * Deduct stock for a web order once (e.g. when packing starts).
-     * Idempotent per product+order.
+     * Idempotent per product+order. Phones need the IMEI of each unit shipped.
+     *
+     * @param  array<int|string, array<int, string>>  $imeisByItem  order_item_id => IMEIs
      */
-    public function commitWebOrderStock(Order $order, ?int $userId = null): void
+    public function commitWebOrderStock(Order $order, ?int $userId = null, array $imeisByItem = []): void
     {
         $order->loadMissing('items.product');
         $userId ??= Auth::id() ?? $order->user_id;
@@ -206,6 +215,19 @@ class StockService
             }
             if ($this->hasSaleForOrder($product, $order->id)) {
                 continue;
+            }
+            if ($product->requires_imei) {
+                $imeis = collect($imeisByItem[$item->id] ?? [])
+                    ->map(fn ($v) => ProductImei::normalize((string) $v))
+                    ->filter()
+                    ->unique()
+                    ->values();
+                if ($imeis->count() !== (int) $item->quantity) {
+                    throw new InvalidArgumentException(
+                        "Choose the IMEI of each phone for {$product->name} ({$item->quantity} needed) before packing or shipping."
+                    );
+                }
+                ProductImei::markSold((int) $product->id, $imeis, (int) $order->id, (int) $item->id, true, $product->name);
             }
             $this->recordSale(
                 $product,

@@ -186,10 +186,16 @@ class OnlineOrderController extends Controller
         $order->load([
             'customer:id,name,phone,address,email',
             'items:id,order_id,product_id,quantity,unit_price,subtotal',
-            'items.product:id,name',
+            'items.product:id,shop_id,name,requires_imei',
+            'items.product.availableImeis:id,product_id,imei,imei_2,status',
+            'items.soldImeis',
             'courierService:id,name,phone',
             'statusLogs' => fn ($q) => $q->latest('id')->limit(20),
         ]);
+
+        $imeiItems = $order->items
+            ->filter(fn ($item) => $item->product?->requires_imei && ! $this->stock->hasSaleForOrder($item->product, $order->id))
+            ->values();
 
         $timeline = $this->tracking->customerTimeline($order);
         $statusLabels = $this->tracking->statusLabels();
@@ -213,6 +219,7 @@ class OnlineOrderController extends Controller
             'allowedNextStatuses',
             'courierServices',
             'dueFromCourier',
+            'imeiItems',
         ));
     }
 
@@ -302,10 +309,14 @@ class OnlineOrderController extends Controller
                 Rule::exists('courier_services', 'id')->where(fn ($q) => $q->where('shop_id', $shopId)->where('is_active', true)),
             ],
             'tracking_number' => 'nullable|string|max:120',
+            'imeis' => 'nullable|array',
+            'imeis.*' => 'array',
+            'imeis.*.*' => 'nullable|string|max:32',
         ]);
 
         $oldStatus = $order->status;
         $newStatus = $request->status;
+        $imeisByItem = (array) $request->input('imeis', []);
 
         if (
             $oldStatus === $newStatus
@@ -408,18 +419,18 @@ class OnlineOrderController extends Controller
 
             if ($newStatus === 'processing' && $oldStatus === 'pending') {
                 $order->load('items.product');
-                $this->stock->commitWebOrderStock($order, Auth::id());
+                $this->stock->commitWebOrderStock($order, Auth::id(), $imeisByItem);
             }
 
             // If an order skips packing and goes pending → shipped, still commit stock.
             if ($newStatus === 'shipped' && in_array($oldStatus, ['pending', 'processing'], true)) {
                 $order->load('items.product');
-                $this->stock->commitWebOrderStock($order, Auth::id());
+                $this->stock->commitWebOrderStock($order, Auth::id(), $imeisByItem);
             }
 
             if ($newStatus === 'completed' && $oldStatus !== 'completed') {
                 $order->load('items.product');
-                $this->stock->commitWebOrderStock($order, Auth::id());
+                $this->stock->commitWebOrderStock($order, Auth::id(), $imeisByItem);
                 $this->accounts->postWebSettlement($order);
             }
 

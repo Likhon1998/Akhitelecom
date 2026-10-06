@@ -74,6 +74,10 @@ class OpeningInventoryController extends Controller
                         continue;
                     }
 
+                    if ($product->requires_imei) {
+                        throw new \InvalidArgumentException("{$product->name} is a phone — add its opening stock by entering each phone's IMEI on the product page.");
+                    }
+
                     $movement = $this->stock->setOpeningStock($product, $quantity, Auth::id());
                     $this->accounts->postOpeningInventory($movement);
                     $updated++;

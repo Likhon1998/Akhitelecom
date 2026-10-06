@@ -20,6 +20,7 @@ use App\Services\StockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use InvalidArgumentException;
 
@@ -154,6 +155,7 @@ class PosController extends Controller
         $exchangeOrder = $request->query('exchange_order');
         $returnProduct = $request->query('return_product');
         $returnQty = $request->query('return_qty');
+        $returnImeis = array_values(array_filter(explode(',', (string) $request->query('return_imeis', ''))));
         $credit = $request->query('credit', 0);
 
         return view('pos.index', compact(
@@ -163,6 +165,7 @@ class PosController extends Controller
             'exchangeOrder',
             'returnProduct',
             'returnQty',
+            'returnImeis',
             'credit',
             'openSession',
             'posCounters',
@@ -215,6 +218,8 @@ class PosController extends Controller
             'cart.*.qty' => 'required|integer|min:1',
             'cart.*.imeis' => 'nullable|array',
             'cart.*.imeis.*' => 'nullable|string|max:32',
+            'return_imeis' => 'nullable|array',
+            'return_imeis.*' => 'nullable|string|max:32',
             'payment_method' => 'required|string',
             'paid_amount' => 'required|numeric|min:0',
             'cash_paid' => 'nullable|numeric|min:0',
@@ -546,22 +551,7 @@ class PosController extends Controller
                     if ($imeis->count() !== (int) $item['qty']) {
                         throw new \Exception("Select {$item['qty']} IMEI(s) for {$product->name}.");
                     }
-                    foreach ($imeis as $imei) {
-                        $row = ProductImei::query()
-                            ->where('product_id', $product->id)
-                            ->matching($imei)
-                            ->available()
-                            ->lockForUpdate()
-                            ->first();
-                        if (! $row) {
-                            throw new \Exception("IMEI {$imei} is not available for {$product->name}.");
-                        }
-                        $row->update([
-                            'status' => ProductImei::STATUS_SOLD,
-                            'order_id' => $order->id,
-                            'order_item_id' => $orderItem->id,
-                        ]);
-                    }
+                    ProductImei::markSold((int) $product->id, $imeis, (int) $order->id, (int) $orderItem->id, true, $product->name);
                 }
 
                 $this->stock->recordSale(
@@ -588,6 +578,19 @@ class PosController extends Controller
                         'exchange_return',
                         $user->id,
                     );
+                    if ($returnProduct->requires_imei && $request->exchange_for_order_id) {
+                        $returnImeis = collect((array) $request->input('return_imeis', []))
+                            ->map(fn ($v) => ProductImei::normalize((string) $v))
+                            ->filter()
+                            ->values()
+                            ->all();
+                        ProductImei::releaseForOrder(
+                            (int) $request->exchange_for_order_id,
+                            (int) $returnProduct->id,
+                            $returnImeis,
+                            (int) $request->return_qty,
+                        );
+                    }
                     $touchedProductIds[] = (int) $returnProduct->id;
                 }
             }
@@ -854,6 +857,13 @@ class PosController extends Controller
                         'qty' => $qty,
                         'subtotal' => $subtotal,
                         'unit_price' => $list,
+                        'imeis' => collect((array) ($item['imeis'] ?? []))
+                            ->map(fn ($v) => ProductImei::normalize((string) $v))
+                            ->filter()
+                            ->unique()
+                            ->take($qty)
+                            ->values()
+                            ->all(),
                     ];
                 }
 
@@ -907,13 +917,26 @@ class PosController extends Controller
 
                 // 4. Save Items and Deduct Stock
                 foreach ($resolvedItems as $line) {
-                    OrderItem::create([
+                    $orderItem = OrderItem::create([
                         'order_id' => $order->id,
                         'product_id' => $line['product']->id,
                         'quantity' => $line['qty'],
                         'unit_price' => $line['unit_price'],
                         'subtotal' => $line['subtotal'],
                     ]);
+
+                    if ($line['product']->requires_imei && $line['imeis'] !== []) {
+                        $missing = ProductImei::markSold(
+                            (int) $line['product']->id, $line['imeis'], (int) $order->id, (int) $orderItem->id, false,
+                        );
+                        if ($missing !== []) {
+                            Log::warning('Offline POS sale used IMEIs that were not in stock', [
+                                'invoice' => $invoiceNo,
+                                'product_id' => $line['product']->id,
+                                'imeis' => $missing,
+                            ]);
+                        }
+                    }
 
                     $this->stock->recordSale(
                         $line['product'],

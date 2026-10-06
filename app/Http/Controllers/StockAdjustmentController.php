@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ShopScoped;
 use App\Models\Product;
+use App\Models\ProductImei;
 use App\Models\StockMovement;
 use App\Services\AccountService;
 use App\Services\StockService;
@@ -74,7 +75,9 @@ class StockAdjustmentController extends Controller
             return view('supply.adjustments.partials.results', compact('movements'));
         }
 
-        return view('supply.adjustments.index', compact('products', 'movements'));
+        $imeiStock = ProductImei::stockMap($this->shopId())['store'];
+
+        return view('supply.adjustments.index', compact('products', 'movements', 'imeiStock'));
     }
 
     public function store(Request $request)
@@ -87,6 +90,11 @@ class StockAdjustmentController extends Controller
             'type' => 'required|in:in,out',
             'quantity' => 'required|integer|min:1',
             'reference' => 'required|string|max:255',
+            'imeis' => 'nullable|array',
+            'imeis.*' => 'nullable|string|max:32',
+            'phones' => 'nullable|array',
+            'phones.*.imei' => 'nullable|string|max:32',
+            'phones.*.imei2' => 'nullable|string|max:32',
         ]);
 
         $product = Product::where('shop_id', $this->shopId())->findOrFail($request->product_id);
@@ -94,6 +102,12 @@ class StockAdjustmentController extends Controller
         try {
             $this->stock->transaction(function () use ($request, $product) {
                 $this->accounts->ensureShopAccounts($this->shopId());
+
+                if ($product->requires_imei) {
+                    $request->type === 'out'
+                        ? ProductImei::moveStock($product, $request->input('imeis', []), (int) $request->quantity, ProductImei::STATUS_AVAILABLE, ProductImei::STATUS_REMOVED)
+                        : ProductImei::receivePhones($product, $request->input('phones', []), (int) $request->quantity);
+                }
 
                 $movement = $this->stock->apply(
                     $product,
@@ -110,7 +124,7 @@ class StockAdjustmentController extends Controller
                 $this->accounts->postInventoryAdjustment($movement);
             });
         } catch (\Throwable $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->withInput()->with('error', $e->getMessage());
         }
 
         return redirect()->route('supply.adjustments.index')->with('success', 'Stock adjustment saved and synced to POS, web store, and accounts.');

@@ -2746,10 +2746,11 @@ function posSystem() {
 
         /* â”€â”€ Exchange Mode â”€â”€ */
         isExchangeMode: {{ $exchangeOrder ? 'true' : 'false' }},
-        exchangeOrderId: {{ $exchangeOrder ?? 'null' }},
-        returnProductId: {{ $returnProduct ?? 'null' }},
-        returnQty: {{ $returnQty ?? 0 }},
-        exchangeCredit: {{ $credit ?? 0 }},
+        exchangeOrderId: @js($exchangeOrder ? (int) $exchangeOrder : null),
+        returnProductId: @js($returnProduct ? (int) $returnProduct : null),
+        returnQty: @js((int) ($returnQty ?? 0)),
+        returnImeis: @js($returnImeis ?? []),
+        exchangeCredit: @js((float) ($credit ?? 0)),
 
         /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
            INIT
@@ -3253,11 +3254,38 @@ function posSystem() {
             }) || null;
         },
 
+        /** A scanned IMEI (1 or 2) of a phone in stock → { product, imei } using the phone's main IMEI. */
+        findImeiScanMatch(code) {
+            const q = String(code || '').replace(/\s+/g, '');
+            if (q.length < 6) return null;
+            for (const p of this.products) {
+                if (!p.requires_imei) continue;
+                const main = (p.imei_alt || {})[q] || ((p.available_imeis || []).includes(q) ? q : null);
+                if (main) return { product: p, imei: main };
+            }
+            return null;
+        },
+
+        addScannedPhone({ product, imei }) {
+            this.search = '';
+            if (this.cartImeisInUse().includes(String(imei))) {
+                this.playBeep(false);
+                this.showToast('This phone (IMEI ' + imei + ') is already in the cart', 'warning');
+                return;
+            }
+            this.pushCartLine(product, imei);
+        },
+
         onSearchInput() {
             if (this.checkoutModalOpen || this.invoiceModalOpen) return;
             const q = (this.search || '').trim();
             // Barcode scanners type fast; auto-add on exact barcode/SKU match (no click needed)
             if (q.length < 3) return;
+            const phone = this.findImeiScanMatch(q);
+            if (phone) {
+                this.addScannedPhone(phone);
+                return;
+            }
             const match = this.findExactScanMatch(q);
             if (match) {
                 this.addToCart(match);
@@ -3268,6 +3296,19 @@ function posSystem() {
             if (this.checkoutModalOpen || this.invoiceModalOpen) return;
             const q = (this.search || '').trim();
             if (!q) return;
+
+            const phone = this.findImeiScanMatch(q);
+            if (phone) {
+                this.addScannedPhone(phone);
+                return;
+            }
+            if (/^\d{15}$/.test(q.replace(/\s+/g, '')) && !this.findExactScanMatch(q)) {
+                this.playBeep(false);
+                this.showToast('IMEI ' + q + ' is not in stock — it was sold already or never added to a product.', 'error');
+                this.search = '';
+                this.$nextTick(() => this.$refs.searchInput?.focus());
+                return;
+            }
 
             // Prefer exact barcode / SKU
             const exact = this.findExactScanMatch(q);
@@ -3421,6 +3462,11 @@ function posSystem() {
             }
             const product = this.imeiPickProduct;
             if (!product) return;
+            if ((product.available_imeis || []).length && !product.available_imeis.includes(imei)) {
+                this.playBeep(false);
+                this.showToast('IMEI ' + imei + ' is not in stock for ' + product.name, 'error');
+                return;
+            }
 
             if (this.imeiPickMode === 'bump' && this.imeiPickCartIndex != null) {
                 const item = this.cart[this.imeiPickCartIndex];
@@ -4029,6 +4075,7 @@ openCheckout() {
                 exchange_for_order_id:   this.exchangeOrderId,
                 return_product_id:       this.returnProductId,
                 return_qty:              this.returnQty,
+                return_imeis:            this.returnImeis,
                 exchange_credit:         this.exchangeCredit,
                 counter_id:              this.isAdminPos ? (Number(this.selectedCounterId) || null) : null,
             };
@@ -4147,6 +4194,15 @@ openCheckout() {
                 const product = this.products.find(p => Number(p.id) === Number(id));
                 if (!product) return;
                 product.stock_quantity = Math.max(0, (Number(product.stock_quantity) || 0) - qty);
+            });
+
+            (soldItems || []).forEach((item) => {
+                const sold = (item.imeis || []).map(String);
+                if (!sold.length) return;
+                const product = this.products.find(p => Number(p.id) === Number(item.id));
+                if (!product) return;
+                product.available_imeis = (product.available_imeis || []).filter((im) => !sold.includes(String(im)));
+                product.imei_alt = Object.fromEntries(Object.entries(product.imei_alt || {}).filter(([, main]) => !sold.includes(String(main))));
             });
 
             const returnId = Number(exchange?.return_product_id || 0);

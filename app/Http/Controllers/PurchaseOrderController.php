@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ShopScoped;
 use App\Models\AccountTransaction;
 use App\Models\Product;
+use App\Models\ProductImei;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\StockLocation;
@@ -200,6 +201,9 @@ class PurchaseOrderController extends Controller
             'items' => 'required|array',
             'items.*.id' => 'required|exists:purchase_order_items,id',
             'items.*.receive_qty' => 'required|integer|min:0',
+            'items.*.phones' => 'nullable|array',
+            'items.*.phones.*.imei' => 'nullable|string|max:32',
+            'items.*.phones.*.imei2' => 'nullable|string|max:32',
             'receive_location_id' => [
                 'required',
                 Rule::exists('stock_locations', 'id')->where(fn ($q) => $q->where('shop_id', $this->shopId())->where('is_active', true)),
@@ -237,6 +241,16 @@ class PurchaseOrderController extends Controller
                     $product = Product::where('shop_id', $this->shopId())->findOrFail($item->product_id);
                     $product->update(['cost_price' => $item->unit_cost]);
 
+                    if ($product->requires_imei) {
+                        ProductImei::receivePhones(
+                            $product,
+                            $row['phones'] ?? [],
+                            $receiveQty,
+                            $receiveLocation->type === 'warehouse' ? ProductImei::STATUS_WAREHOUSE : ProductImei::STATUS_AVAILABLE,
+                            $receiveLocation->id,
+                        );
+                    }
+
                     $movement = $this->stock->receivePurchaseItem(
                         $product,
                         $receiveQty,
@@ -269,7 +283,7 @@ class PurchaseOrderController extends Controller
                 ]);
             });
         } catch (\Throwable $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->withInput()->with('error', $e->getMessage());
         }
 
         return back()->with('success', 'Stock received. Inventory asset and Accounts Payable updated.');

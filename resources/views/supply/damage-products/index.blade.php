@@ -8,6 +8,8 @@
             'name' => $p->name,
             'sku' => $p->barcode ?? $p->sku ?? null,
             'stock' => (int) $p->stock_quantity,
+            'phone' => (bool) $p->requires_imei,
+            'phones' => $imeiStock[$p->id] ?? [],
         ])->values();
     @endphp
 
@@ -124,9 +126,13 @@
                                 x-model.number="qty"
                                 min="1"
                                 :max="maxQty || null"
+                                :readonly="selected && selected.phone"
                                 class="w-full rounded-xl border-slate-200 bg-slate-50/80 py-2.5 text-sm focus:border-rose-400 focus:ring-rose-200"
                                 required
                             >
+                            <p class="mt-1 text-xs font-semibold text-orange-700" x-show="selected && selected.phone" x-cloak>
+                                Phone — tick the damaged phones below.
+                            </p>
                             <p class="mt-1 text-xs text-slate-400" x-show="selected">
                                 Max: <span class="font-semibold text-slate-600" x-text="maxQty"></span>
                             </p>
@@ -140,6 +146,16 @@
                             <div class="text-xs text-slate-500">Remaining sellable stock</div>
                         </div>
                     </div>
+
+                    @include('supply.partials.imei-fields', [
+                        'mode' => "(selected && selected.phone) ? 'pick' : ''",
+                        'options' => '(selected ? selected.phones : [])',
+                        'picked' => 'picked',
+                        'phones' => 'phones',
+                        'qty' => 'qty',
+                        'pickName' => "'imeis[]'",
+                        'enterName' => "'phones'",
+                    ])
 
                     <div>
                         <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Damage reason</label>
@@ -304,6 +320,8 @@
                 open: false,
                 selectedId: initialId,
                 qty: initialQty || 1,
+                picked: @js(array_values(old('imeis', []))),
+                phones: [],
                 reference: @js(old('reference', '')),
                 reasonChips: ['Broken packaging', 'Water damage', 'Expired', 'Defective', 'Transit damage'],
                 get selected() {
@@ -324,9 +342,12 @@
                     this.selectedId = p.id;
                     this.query = p.name;
                     this.open = false;
+                    this.picked = [];
+                    if (p.phone) return;
                     if (!this.qty || this.qty > p.stock) this.qty = Math.min(1, p.stock) || 1;
                 },
                 canSubmit() {
+                    if (this.selected && this.selected.phone && this.picked.length !== this.qty) return false;
                     return !!this.selectedId && this.maxQty > 0 && this.qty > 0 && this.qty <= this.maxQty && String(this.reference || '').trim().length > 0;
                 },
                 init() {
