@@ -1,3 +1,12 @@
+@php
+    $headerCustomer = auth('web')->user();
+    $headerIsCustomer = $headerCustomer && method_exists($headerCustomer, 'isStorefrontCustomer')
+        ? $headerCustomer->isStorefrontCustomer()
+        : false;
+    $headerIsStaff = is_array(config('auth.guards.admin'))
+        ? auth()->guard('admin')->check()
+        : false;
+@endphp
 <div class="gaget-sticky-header">
     {{-- Main header --}}
     <div class="gaget-header-main">
@@ -169,10 +178,6 @@
                     </div>
 
                     {{-- Account / login — always visible for shoppers (independent of staff admin session) --}}
-                    @php
-                        $headerCustomer = auth('web')->user();
-                        $headerIsCustomer = $headerCustomer && $headerCustomer->isStorefrontCustomer();
-                    @endphp
                     @if($headerIsCustomer)
                         <div class="gaget-action-wrap" x-data="{ open: false }" @mouseenter="open=true" @mouseleave="open=false">
                             <a href="{{ route('website.account') }}" class="gaget-action-btn" title="{{ $headerCustomer->name }}" aria-label="Account">
@@ -225,12 +230,12 @@
                                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
                                         Create account
                                     </button>
-                                    @auth('admin')
+                                    @if($headerIsStaff)
                                         <a href="{{ route('dashboard') }}" class="gaget-account-menu__item">
-                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 17v-2a2 2 0 012-2h2a2 2 0 012 2v2m-6 0h6a2 2 0 002-2v-5.5a1 1 0 00-.3-.7l-4.2-4.2a1 1 0 00-1.4 0L7.3 8.8a1 1 0 00-.3.7V15a2 2 0 002 2z"/></svg>
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 7h18M3 12h18M3 17h18"/></svg>
                                             Staff panel
                                         </a>
-                                    @endauth
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -362,7 +367,7 @@
                 </div>
             @endif
 
-            @if($headerIsCustomer ?? (auth('web')->user()?->isStorefrontCustomer()))
+            @if($headerIsCustomer)
                 <a href="{{ route('website.account') }}" class="gaget-mobile-drawer-link mt-4" @click="mobileOpen = false">My Account</a>
                 <button type="button"
                         class="gaget-mobile-drawer-link w-full text-left text-rose-300"
@@ -372,9 +377,9 @@
             @else
                 <button type="button" class="gaget-mobile-drawer-link mt-4 w-full text-left" @click="mobileOpen = false; openSignIn('login')">Sign in</button>
                 <button type="button" class="gaget-mobile-drawer-link w-full text-left" @click="mobileOpen = false; openSignIn('register')">Create account</button>
-                @auth('admin')
+                @if($headerIsStaff)
                     <a href="{{ route('dashboard') }}" class="gaget-mobile-drawer-link" @click="mobileOpen = false">Staff dashboard</a>
-                @endauth
+                @endif
             @endif
         </div>
     </div>
