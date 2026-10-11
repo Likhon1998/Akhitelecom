@@ -836,27 +836,27 @@
                     </button>
                 </div>
                 <input type="hidden" name="short_description" :value="descriptionSerialized">
-                <div class="rounded-lg border border-slate-200 overflow-hidden">
-                    <div class="grid grid-cols-12 gap-0 bg-slate-50 border-b border-slate-200 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                        <div class="col-span-4 px-3 py-2">Heading</div>
-                        <div class="col-span-7 px-3 py-2">Description</div>
-                        <div class="col-span-1 px-2 py-2"></div>
+                <div class="product-desc-rows">
+                    <div class="product-desc-rows__head">
+                        <div>Heading</div>
+                        <div>Description</div>
+                        <div></div>
                     </div>
                     <template x-for="(row, index) in descriptionRows" :key="'desc-'+index">
-                        <div class="grid grid-cols-12 gap-0 border-b border-slate-100 last:border-0 items-stretch">
-                            <div class="col-span-4 p-1.5">
+                        <div class="product-desc-rows__row">
+                            <div>
                                 <input type="text" x-model="row.heading"
                                        :name="'description_rows['+index+'][heading]'"
                                        class="block w-full rounded-md border-slate-200 text-sm py-2"
                                        placeholder="e.g. Display">
                             </div>
-                            <div class="col-span-7 p-1.5">
+                            <div>
                                 <input type="text" x-model="row.detail"
                                        :name="'description_rows['+index+'][detail]'"
                                        class="block w-full rounded-md border-slate-200 text-sm py-2"
                                        placeholder="e.g. 6.1&quot; OLED">
                             </div>
-                            <div class="col-span-1 p-1.5 flex items-center justify-center">
+                            <div>
                                 <button type="button" @click="removeDescriptionRow(index)"
                                         class="text-slate-400 hover:text-red-600 text-lg leading-none" title="Remove row">&times;</button>
                             </div>

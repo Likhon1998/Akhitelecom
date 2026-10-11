@@ -4347,3 +4347,56 @@ body.gaget-store,
     object-position: center !important;
 }
 
+/* Product description spec table (heading | detail) */
+.pd-spec-table {
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    background: #fff;
+}
+.pd-spec-table table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+.pd-spec-table th,
+.pd-spec-table td {
+    padding: 0.65rem 0.85rem;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    vertical-align: top;
+    word-break: break-word;
+}
+.pd-spec-table th {
+    width: 38%;
+    max-width: 12rem;
+    text-align: left;
+    font-weight: 600;
+    color: #334155;
+    background: #f8fafc;
+    border-right: 1px solid #e2e8f0;
+}
+.pd-spec-table td {
+    color: #475569;
+}
+.pd-spec-table tr + tr th,
+.pd-spec-table tr + tr td {
+    border-top: 1px solid #f1f5f9;
+}
+@media (max-width: 640px) {
+    .pd-spec-table th,
+    .pd-spec-table td {
+        display: block;
+        width: 100%;
+        max-width: none;
+        border-right: 0;
+    }
+    .pd-spec-table td {
+        padding-top: 0.15rem;
+        padding-bottom: 0.85rem;
+    }
+    .pd-spec-table tr + tr th {
+        border-top: 1px solid #e2e8f0;
+    }
+}
+

@@ -390,13 +390,13 @@
                 <div x-show="tab==='description'">
                     <h3 class="text-sm font-semibold text-slate-900 mb-1.5">About this item</h3>
                     @if(count($descRows))
-                        <div class="pd-spec-table overflow-hidden rounded-lg border border-slate-200">
-                            <table class="w-full text-sm">
+                        <div class="pd-spec-table">
+                            <table>
                                 <tbody>
                                     @foreach($descRows as $row)
-                                        <tr class="border-b border-slate-100 last:border-0">
-                                            <th class="w-[38%] max-w-[12rem] bg-slate-50 px-3 py-2.5 text-left font-semibold text-slate-700 align-top">{{ $row['heading'] !== '' ? $row['heading'] : '—' }}</th>
-                                            <td class="px-3 py-2.5 text-slate-600 align-top">{{ $row['detail'] }}</td>
+                                        <tr>
+                                            <th scope="row">{{ $row['heading'] !== '' ? $row['heading'] : '—' }}</th>
+                                            <td>{{ $row['detail'] }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
