@@ -36,8 +36,10 @@ window.productLive = function () {
                     document.title = data.title;
                 }
 
+                // Replace (don't push) so Back leaves the product page in one step
+                // instead of stepping through every color/storage click.
                 if (push && data.url) {
-                    history.pushState({ productLive: true }, '', data.url);
+                    history.replaceState({ productLive: true }, '', data.url);
                 }
             } catch (e) {
                 if (req !== this._req) return;
