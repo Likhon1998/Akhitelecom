@@ -8,8 +8,21 @@
         ? ['imei' => (string) ($v['imei'] ?? ''), 'imei2' => array_key_exists('imei2', $v) ? (string) $v['imei2'] : null]
         : ['imei' => (string) $v, 'imei2' => null];
 
-    $mapFamilyToVariants = function ($members) use ($toPhone) {
-        return collect($members)->values()->map(function ($p, $i) use ($toPhone) {
+    $toDescriptionRows = function (?string $raw): array {
+        $parsed = parse_product_description_rows($raw ?? '');
+        $rows = $parsed['rows'];
+        if ($parsed['intro'] !== '') {
+            array_unshift($rows, ['heading' => 'Overview', 'detail' => $parsed['intro']]);
+        }
+        if ($rows === []) {
+            $rows = [['heading' => '', 'detail' => '']];
+        }
+
+        return $rows;
+    };
+
+    $mapFamilyToVariants = function ($members) use ($toPhone, $toDescriptionRows) {
+        return collect($members)->values()->map(function ($p, $i) use ($toPhone, $toDescriptionRows) {
             $imeis = $p->relationLoaded('availableImeis')
                 ? $p->availableImeis->map(fn ($r) => ['imei' => $r->imei, 'imei2' => $r->imei_2])->all()
                 : $p->availableImeis()->get(['imei', 'imei_2'])->map(fn ($r) => ['imei' => $r->imei, 'imei2' => $r->imei_2])->all();
@@ -25,19 +38,27 @@
                 'selling_price' => $p->selling_price,
                 'stock_quantity' => (int) $p->stock_quantity,
                 'imeis' => array_map($toPhone, $imeis),
+                'description_rows' => $toDescriptionRows($p->short_description),
                 '_key' => 'v'.($i + 1),
             ];
         })->all();
     };
 
+    $emptyDescriptionRows = [['heading' => '', 'detail' => '']];
+
     $oldVariants = old('variants');
     if (is_array($oldVariants)) {
         $defaultVariants = [];
         foreach (array_values($oldVariants) as $i => $row) {
+            $row = is_array($row) ? $row : [];
+            if (! isset($row['description_rows']) || ! is_array($row['description_rows'])) {
+                $row['description_rows'] = $toDescriptionRows($row['short_description'] ?? '');
+            }
             $defaultVariants[] = array_merge([
                 'id' => null, 'barcode' => '', 'color' => '', 'color_hex' => '#2563eb', 'ram' => '', 'storage' => '',
                 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 1, 'imeis' => [],
-            ], is_array($row) ? $row : [], ['_key' => 'v'.($i + 1)]);
+                'description_rows' => $emptyDescriptionRows,
+            ], $row, ['_key' => 'v'.($i + 1)]);
             $defaultVariants[$i]['imeis'] = array_map($toPhone, array_values((array) ($defaultVariants[$i]['imeis'] ?? [])));
         }
     } elseif ($isEdit && ($isExistingFamily || old('product_mode') === 'gadget')) {
@@ -47,9 +68,9 @@
         $defaultVariants = $mapFamilyToVariants(collect([$product]));
     } else {
         $defaultVariants = [
-            ['id' => null, 'barcode' => '', 'color' => 'Black', 'color_hex' => '#1e293b', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 10, 'imeis' => []],
-            ['id' => null, 'barcode' => '', 'color' => 'White', 'color_hex' => '#f8fafc', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 10, 'imeis' => []],
-            ['id' => null, 'barcode' => '', 'color' => 'Red', 'color_hex' => '#dc2626', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 5, 'imeis' => []],
+            ['id' => null, 'barcode' => '', 'color' => 'Black', 'color_hex' => '#1e293b', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 10, 'imeis' => [], 'description_rows' => $emptyDescriptionRows],
+            ['id' => null, 'barcode' => '', 'color' => 'White', 'color_hex' => '#f8fafc', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 10, 'imeis' => [], 'description_rows' => $emptyDescriptionRows],
+            ['id' => null, 'barcode' => '', 'color' => 'Red', 'color_hex' => '#dc2626', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 5, 'imeis' => [], 'description_rows' => $emptyDescriptionRows],
         ];
     }
 
@@ -69,14 +90,7 @@
     $rawDescription = old('short_description', $product?->short_description ?? '');
     $descriptionRows = old('description_rows');
     if (! is_array($descriptionRows)) {
-        $parsed = parse_product_description_rows($rawDescription);
-        $descriptionRows = $parsed['rows'];
-        if ($parsed['intro'] !== '') {
-            array_unshift($descriptionRows, ['heading' => 'Overview', 'detail' => $parsed['intro']]);
-        }
-        if ($descriptionRows === []) {
-            $descriptionRows = [['heading' => '', 'detail' => '']];
-        }
+        $descriptionRows = $toDescriptionRows($rawDescription);
     }
 @endphp
 
@@ -104,11 +118,20 @@
         imeis: @js($initialImeis),
         imeiErrors: @js((object) $imeiErrors),
         variantUid: {{ max(count($defaultVariants), 1) }},
-        variants: @js(collect($defaultVariants)->values()->map(function ($row, $i) use ($toPhone) {
+        variants: @js(collect($defaultVariants)->values()->map(function ($row, $i) use ($toPhone, $emptyDescriptionRows) {
+            $descRows = $row['description_rows'] ?? $emptyDescriptionRows;
+            if (! is_array($descRows) || $descRows === []) {
+                $descRows = $emptyDescriptionRows;
+            }
+
             return array_merge($row, [
                 'id' => $row['id'] ?? null,
                 '_key' => $row['_key'] ?? ('v'.($i + 1)),
                 'imeis' => array_map($toPhone, array_values((array) ($row['imeis'] ?? []))),
+                'description_rows' => collect($descRows)->values()->map(fn ($r) => [
+                    'heading' => (string) ($r['heading'] ?? ''),
+                    'detail' => (string) ($r['detail'] ?? ''),
+                ])->all(),
             ]);
         })->all()),
         normImei(v) { return String(v ?? '').replace(/\s+/g, ''); },
@@ -186,8 +209,8 @@
         get hasMode() { return this.productMode === 'simple' || this.productMode === 'gadget'; },
         get isMulti() { return this.productMode === 'gadget'; },
         get isSimple() { return this.productMode === 'simple'; },
-        get descriptionSerialized() {
-            return (this.descriptionRows || [])
+        serializeDescriptionRows(rows) {
+            return (rows || [])
                 .map(r => {
                     const h = String(r.heading || '').trim();
                     const d = String(r.detail || '').trim();
@@ -197,6 +220,13 @@
                 })
                 .filter(Boolean)
                 .join('\n');
+        },
+        get descriptionSerialized() {
+            return this.serializeDescriptionRows(this.descriptionRows);
+        },
+        cloneDescriptionRows(rows) {
+            const list = (rows && rows.length) ? rows : [{ heading: '', detail: '' }];
+            return list.map((r) => ({ heading: String(r.heading || ''), detail: String(r.detail || '') }));
         },
         chooseMode(mode) {
             this.productMode = mode;
@@ -222,12 +252,16 @@
                     selling_price: '',
                     stock_quantity: this.currentStock || 0,
                     imeis: (this.imeis || []).map((p) => ({ imei: p.imei || '', imei2: p.imei2 ?? null })),
+                    description_rows: this.cloneDescriptionRows(this.descriptionRows),
                     _conflict: '',
                 }];
                 this.variantUid = 1;
             } else if (this.variants.length === 1 && !this.variants[0].id && this.excludeProductId) {
                 this.variants[0].id = this.excludeProductId;
                 if (!this.variants[0].barcode) this.variants[0].barcode = String(this.barcodeValue || '');
+                if (!this.variants[0].description_rows?.length) {
+                    this.variants[0].description_rows = this.cloneDescriptionRows(this.descriptionRows);
+                }
             }
             this.$nextTick(() => document.querySelector('[data-variant-row]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
         },
@@ -240,6 +274,25 @@
                 return;
             }
             this.descriptionRows.splice(i, 1);
+        },
+        addVariantDescriptionRow(index) {
+            const row = this.variants[index];
+            if (!row) return;
+            if (!row.description_rows) row.description_rows = [];
+            row.description_rows.push({ heading: '', detail: '' });
+        },
+        removeVariantDescriptionRow(index, rowIndex) {
+            const row = this.variants[index];
+            if (!row) return;
+            if (!row.description_rows || row.description_rows.length <= 1) {
+                row.description_rows = [{ heading: '', detail: '' }];
+                return;
+            }
+            row.description_rows.splice(rowIndex, 1);
+        },
+        copyDescriptionFromFirstVariant(index) {
+            if (index <= 0 || !this.variants[0]) return;
+            this.variants[index].description_rows = this.cloneDescriptionRows(this.variants[0].description_rows);
         },
         onBarcodeScanned(event) {
             const raw = (event?.target?.value ?? this.barcodeValue ?? '').trim();
@@ -321,6 +374,7 @@
                 id: null,
                 barcode: '', color: '', color_hex: '#2563eb', ram: '', storage: '',
                 cost_price: '', selling_price: '', stock_quantity: 1, imeis: [],
+                description_rows: this.cloneDescriptionRows(this.variants[0]?.description_rows),
                 _files: [], _conflict: '',
             };
             this.variants.push(row);
@@ -843,13 +897,15 @@
                 </div>
                 @if($isEdit)
                 <div class="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-[12px] text-amber-900">
-                    Edit every option here. Shared name, brand, description and prices apply to the whole family.
+                    Edit every option here. Shared name, brand and visibility apply to the whole family.
+                    Each option has its own description (shown when shoppers switch that variation).
                     Removing an option archives it (barcode freed for reuse).
                 </div>
                 @endif
                 <template x-for="(row, index) in variants" :key="row._key">
                     <div class="rounded-xl border border-slate-200 p-4 bg-slate-50/60 space-y-3" data-variant-row>
                         <input type="hidden" :name="'variants['+index+'][id]'" :value="row.id || ''">
+                        <input type="hidden" :name="'variants['+index+'][short_description]'" :value="serializeDescriptionRows(row.description_rows)">
                         <div class="flex items-center justify-between">
                             <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide"
                                   x-text="(row.id ? 'Option ' : 'New option ') + (index + 1)"></span>
@@ -938,6 +994,51 @@
                                 'editable' => $isEdit,
                             ])
                         </div>
+                        <div class="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <label class="block text-[10px] font-semibold text-slate-500">
+                                    Description for this option
+                                    <span class="font-normal text-slate-400">(changes on the store when shoppers pick this variation)</span>
+                                </label>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" x-show="index > 0" @click="copyDescriptionFromFirstVariant(index)"
+                                            class="text-[10px] font-semibold text-slate-600 hover:text-slate-800 px-2 py-1 rounded-md border border-slate-200 bg-slate-50">
+                                        Copy from option 1
+                                    </button>
+                                    <button type="button" @click="addVariantDescriptionRow(index)"
+                                            class="text-[10px] font-semibold text-blue-700 hover:text-blue-800 px-2 py-1 rounded-md border border-blue-200 bg-blue-50">
+                                        + Add row
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="product-desc-rows">
+                                <div class="product-desc-rows__head">
+                                    <div>Heading</div>
+                                    <div>Description</div>
+                                    <div></div>
+                                </div>
+                                <template x-for="(dRow, dIndex) in (row.description_rows || [])" :key="row._key + '-desc-' + dIndex">
+                                    <div class="product-desc-rows__row">
+                                        <div>
+                                            <input type="text" x-model="dRow.heading"
+                                                   :name="'variants['+index+'][description_rows]['+dIndex+'][heading]'"
+                                                   class="block w-full rounded-md border-slate-200 text-sm py-2"
+                                                   placeholder="e.g. Display">
+                                        </div>
+                                        <div>
+                                            <input type="text" x-model="dRow.detail"
+                                                   :name="'variants['+index+'][description_rows]['+dIndex+'][detail]'"
+                                                   class="block w-full rounded-md border-slate-200 text-sm py-2"
+                                                   placeholder="e.g. 6.1&quot; OLED">
+                                        </div>
+                                        <div>
+                                            <button type="button" @click="removeVariantDescriptionRow(index, dIndex)"
+                                                    class="text-slate-400 hover:text-red-600 text-lg leading-none" title="Remove row">&times;</button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
                     </div>
                 </template>
                 @error('variants') <p class="text-red-500 text-xs">{{ $message }}</p> @enderror
@@ -947,14 +1048,15 @@
         </div>
     </section>
 
-    {{-- Store description --}}
+    {{-- Store description (simple) + visibility --}}
     <section class="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/80">
-            <h3 class="text-sm font-semibold text-slate-800">{{ $isEdit ? '6' : '7' }}. Store description & visibility</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Add rows as a form — storefront shows them as a table (heading | detail).</p>
+            <h3 class="text-sm font-semibold text-slate-800">{{ $isEdit ? '6' : '7' }}. <span x-text="isMulti ? 'Visibility' : 'Store description & visibility'"></span></h3>
+            <p class="text-xs text-slate-500 mt-0.5" x-show="!isMulti">Add rows as a form — storefront shows them as a table (heading | detail).</p>
+            <p class="text-xs text-slate-500 mt-0.5" x-show="isMulti" x-cloak>Descriptions are set on each variant above. These flags apply to the whole family.</p>
         </div>
         <div class="p-4 space-y-4">
-            <div>
+            <div x-show="!isMulti">
                 <div class="flex items-center justify-between gap-2 mb-2">
                     <label class="block text-xs font-semibold text-slate-600">Description rows</label>
                     <button type="button" @click="addDescriptionRow()"
@@ -962,7 +1064,7 @@
                         + Add row
                     </button>
                 </div>
-                <input type="hidden" name="short_description" :value="descriptionSerialized">
+                <input type="hidden" name="short_description" :value="isMulti ? '' : descriptionSerialized" :disabled="isMulti">
                 <div class="product-desc-rows">
                     <div class="product-desc-rows__head">
                         <div>Heading</div>
@@ -973,13 +1075,15 @@
                         <div class="product-desc-rows__row">
                             <div>
                                 <input type="text" x-model="row.heading"
-                                       :name="'description_rows['+index+'][heading]'"
+                                       :name="isMulti ? null : ('description_rows['+index+'][heading]')"
+                                       :disabled="isMulti"
                                        class="block w-full rounded-md border-slate-200 text-sm py-2"
                                        placeholder="e.g. Display">
                             </div>
                             <div>
                                 <input type="text" x-model="row.detail"
-                                       :name="'description_rows['+index+'][detail]'"
+                                       :name="isMulti ? null : ('description_rows['+index+'][detail]')"
+                                       :disabled="isMulti"
                                        class="block w-full rounded-md border-slate-200 text-sm py-2"
                                        placeholder="e.g. 6.1&quot; OLED">
                             </div>

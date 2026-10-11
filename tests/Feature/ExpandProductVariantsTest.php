@@ -50,7 +50,7 @@ class ExpandProductVariantsTest extends TestCase
             'is_published' => true,
         ]);
 
-        $this->actingAs($user);
+        $this->actingAs($user, 'admin');
 
         $response = $this->put(route('products.update', $product), [
             'product_mode' => 'gadget',
@@ -163,7 +163,7 @@ class ExpandProductVariantsTest extends TestCase
             'is_published' => true,
         ]);
 
-        $this->actingAs($user);
+        $this->actingAs($user, 'admin');
 
         $response = $this->put(route('products.update', $black), [
             'product_mode' => 'gadget',
@@ -204,5 +204,109 @@ class ExpandProductVariantsTest extends TestCase
         $this->assertEquals(19100, (float) $blue->selling_price);
 
         $this->assertSoftDeleted('products', ['id' => $green->id]);
+    }
+
+    public function test_each_variant_keeps_its_own_description(): void
+    {
+        $this->seed(RolesAndPermissionsSeeder::class);
+
+        $shop = Shop::create([
+            'name' => 'Desc Shop',
+            'email' => 'desc-shop@example.com',
+            'phone' => '01700000003',
+            'address' => 'Dhaka',
+            'is_active' => true,
+        ]);
+
+        $user = User::factory()->create(['shop_id' => $shop->id, 'role' => 'admin']);
+        $user->syncRoles(['Admin']);
+
+        $category = Category::create(['shop_id' => $shop->id, 'name' => 'Phones', 'slug' => 'phones-desc']);
+        $brand = Brand::create(['shop_id' => $shop->id, 'name' => 'Apple', 'is_active' => true, 'sort_order' => 0]);
+
+        $this->actingAs($user, 'admin')
+            ->post(route('products.store'), [
+                'product_mode' => 'gadget',
+                'name' => 'iPhone 16',
+                'variant_group' => 'iphone-16',
+                'cost_price' => 90000,
+                'selling_price' => 120000,
+                'category_id' => $category->id,
+                'brand_id' => $brand->id,
+                'is_published' => 1,
+                'variants' => [
+                    [
+                        'barcode' => 'IP16-BLK-128',
+                        'color' => 'Black',
+                        'color_hex' => '#111111',
+                        'storage' => '128GB',
+                        'stock_quantity' => 1,
+                        'description_rows' => [
+                            ['heading' => 'Storage', 'detail' => '128 GB'],
+                            ['heading' => 'Finish', 'detail' => 'Black titanium'],
+                        ],
+                    ],
+                    [
+                        'barcode' => 'IP16-BLU-256',
+                        'color' => 'Blue',
+                        'color_hex' => '#2563eb',
+                        'storage' => '256GB',
+                        'stock_quantity' => 1,
+                        'description_rows' => [
+                            ['heading' => 'Storage', 'detail' => '256 GB'],
+                            ['heading' => 'Finish', 'detail' => 'Ultramarine'],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('products.index'));
+
+        $black = Product::query()->where('barcode', 'IP16-BLK-128')->firstOrFail();
+        $blue = Product::query()->where('barcode', 'IP16-BLU-256')->firstOrFail();
+
+        $this->assertStringContainsString('128 GB', (string) $black->short_description);
+        $this->assertStringContainsString('Black titanium', (string) $black->short_description);
+        $this->assertStringContainsString('256 GB', (string) $blue->short_description);
+        $this->assertStringContainsString('Ultramarine', (string) $blue->short_description);
+        $this->assertNotSame($black->short_description, $blue->short_description);
+
+        $this->actingAs($user, 'admin')
+            ->put(route('products.update', $black), [
+                'product_mode' => 'gadget',
+                'name' => 'iPhone 16',
+                'variant_group' => 'iphone-16',
+                'cost_price' => 90000,
+                'selling_price' => 120000,
+                'category_id' => $category->id,
+                'brand_id' => $brand->id,
+                'is_published' => 1,
+                'variants' => [
+                    [
+                        'id' => $black->id,
+                        'barcode' => 'IP16-BLK-128',
+                        'color' => 'Black',
+                        'description_rows' => [
+                            ['heading' => 'Storage', 'detail' => '128 GB updated'],
+                        ],
+                    ],
+                    [
+                        'id' => $blue->id,
+                        'barcode' => 'IP16-BLU-256',
+                        'color' => 'Blue',
+                        'description_rows' => [
+                            ['heading' => 'Storage', 'detail' => '256 GB kept'],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('products.index'));
+
+        $black->refresh();
+        $blue->refresh();
+        $this->assertStringContainsString('128 GB updated', (string) $black->short_description);
+        $this->assertStringContainsString('256 GB kept', (string) $blue->short_description);
+        $this->assertStringNotContainsString('128 GB updated', (string) $blue->short_description);
     }
 }

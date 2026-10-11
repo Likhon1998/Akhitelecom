@@ -202,6 +202,10 @@ class ProductController extends Controller
             $rules['variants.*.imeis.*'] = 'nullable';
             $rules['variants.*.imeis.*.imei'] = 'nullable|string|max:32';
             $rules['variants.*.imeis.*.imei2'] = 'nullable|string|max:32';
+            $rules['variants.*.short_description'] = 'nullable|string|max:5000';
+            $rules['variants.*.description_rows'] = 'nullable|array|max:100';
+            $rules['variants.*.description_rows.*.heading'] = 'nullable|string|max:120';
+            $rules['variants.*.description_rows.*.detail'] = 'nullable|string|max:500';
             $rules['variants.*.images'] = 'nullable|array|max:20';
             $rules['variants.*.images.*'] = 'image|mimes:jpeg,png,jpg,webp,gif|max:5120';
         } else {
@@ -276,7 +280,8 @@ class ProductController extends Controller
                     'pos_discount_value' => ! empty($validated['pos_discount_type'])
                         ? ($validated['pos_discount_value'] ?? null)
                         : null,
-                    'short_description' => $validated['short_description'] ?? null,
+                    // Simple products use the shared field; gadget variants set their own below.
+                    'short_description' => $isGadget ? null : ($validated['short_description'] ?? null),
                     'category_id' => $validated['category_id'] ?? null,
                     'brand_id' => $validated['brand_id'] ?? null,
                     'stock_quantity' => 0,
@@ -341,6 +346,7 @@ class ProductController extends Controller
                         'ram' => $row['ram'] ?? null,
                         'cost_price' => $cost,
                         'selling_price' => $sell,
+                        'short_description' => $row['short_description'] ?? null,
                     ]);
                     $data = $this->normalizeVariantFields($data);
                     if (empty($data['variant_group'])) {
@@ -530,6 +536,10 @@ class ProductController extends Controller
             $rules['variants.*.imeis.*'] = 'nullable';
             $rules['variants.*.imeis.*.imei'] = 'nullable|string|max:32';
             $rules['variants.*.imeis.*.imei2'] = 'nullable|string|max:32';
+            $rules['variants.*.short_description'] = 'nullable|string|max:5000';
+            $rules['variants.*.description_rows'] = 'nullable|array|max:100';
+            $rules['variants.*.description_rows.*.heading'] = 'nullable|string|max:120';
+            $rules['variants.*.description_rows.*.detail'] = 'nullable|string|max:500';
             $rules['variants.*.images'] = 'nullable|array|max:20';
             $rules['variants.*.images.*'] = 'image|mimes:jpeg,png,jpg,webp,gif|max:5120';
         } else {
@@ -561,8 +571,12 @@ class ProductController extends Controller
             'remove_image', 'remove_image_2', 'remove_image_3',
             'is_published', 'is_new_arrival', 'is_best_seller', 'is_featured',
             'product_mode', 'imei_list', 'imeis', 'variants', 'removed_variant_ids',
-            'expand_variants', 'new_variants',
+            'expand_variants', 'new_variants', 'description_rows',
         ]);
+        if ($isVariantEdit) {
+            // Per-option descriptions are saved on each variant row, not shared.
+            unset($data['short_description']);
+        }
 
         $imeiList = (string) $request->input('imei_list', '');
         $imeiRows = null;
@@ -689,7 +703,8 @@ class ProductController extends Controller
     /**
      * Convert/edit a product as a full variant family.
      * Rows with id update existing members; rows without id create new ones.
-     * Shared fields (name, brand, description…) apply to every member.
+     * Shared fields (name, brand, visibility…) apply to every member;
+     * description is per option (variants.*.short_description).
      *
      * @param  list<array<string, mixed>>  $rows
      * @param  list<int|string>  $removedIds
@@ -723,7 +738,6 @@ class ProductController extends Controller
             'variant_group' => $group,
             'sku' => $sharedData['sku'] ?? null,
             'availability' => $sharedData['availability'] ?? 'in_stock',
-            'short_description' => $sharedData['short_description'] ?? null,
             'category_id' => $sharedData['category_id'] ?? null,
             'brand_id' => $sharedData['brand_id'] ?? null,
             'brand_name' => $sharedData['brand_name'] ?? null,
@@ -771,6 +785,9 @@ class ProductController extends Controller
                 'cost_price' => $cost,
                 'selling_price' => $sell,
             ]);
+            if (array_key_exists('short_description', $row)) {
+                $rowData['short_description'] = $row['short_description'] ?: null;
+            }
             $rowData = $this->normalizeVariantFields($rowData);
 
             $existingId = (int) ($row['id'] ?? 0);
@@ -786,6 +803,7 @@ class ProductController extends Controller
                 $member->update($rowData);
             } else {
                 $rowData['stock_quantity'] = 0;
+                $rowData['short_description'] = $rowData['short_description'] ?? null;
                 $member = Product::create($rowData);
             }
             $keepIds[] = $member->id;
@@ -1765,12 +1783,42 @@ class ProductController extends Controller
 
     /**
      * Build short_description from heading|detail form rows when provided.
+     * Also serializes each variant's description_rows into variants.*.short_description.
      */
     private function mergeDescriptionRowsIntoRequest(Request $request): void
     {
         $rows = $request->input('description_rows');
-        if (! is_array($rows)) {
+        if (is_array($rows)) {
+            $request->merge([
+                'short_description' => $this->serializeDescriptionRows($rows),
+            ]);
+        }
+
+        $variants = $request->input('variants');
+        if (! is_array($variants)) {
             return;
+        }
+
+        foreach ($variants as $i => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            if (! isset($row['description_rows']) || ! is_array($row['description_rows'])) {
+                continue;
+            }
+            $variants[$i]['short_description'] = $this->serializeDescriptionRows($row['description_rows']);
+        }
+
+        $request->merge(['variants' => $variants]);
+    }
+
+    /**
+     * @param  list<mixed>|null  $rows
+     */
+    private function serializeDescriptionRows(?array $rows): ?string
+    {
+        if (! is_array($rows)) {
+            return null;
         }
 
         $lines = [];
@@ -1786,9 +1834,7 @@ class ProductController extends Controller
             $lines[] = $heading === '' ? $detail : ($heading.' | '.$detail);
         }
 
-        $request->merge([
-            'short_description' => $lines === [] ? null : implode("\n", $lines),
-        ]);
+        return $lines === [] ? null : implode("\n", $lines);
     }
 
     /**
