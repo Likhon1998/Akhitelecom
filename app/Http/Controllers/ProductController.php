@@ -205,7 +205,7 @@ class ProductController extends Controller
             $rules['variants.*.short_description'] = 'nullable|string|max:5000';
             $rules['variants.*.description_rows'] = 'nullable|array|max:100';
             $rules['variants.*.description_rows.*.heading'] = 'nullable|string|max:120';
-            $rules['variants.*.description_rows.*.detail'] = 'nullable|string|max:500';
+            $rules['variants.*.description_rows.*.detail'] = 'nullable|string|max:2000';
             $rules['variants.*.images'] = 'nullable|array|max:20';
             $rules['variants.*.images.*'] = 'image|mimes:jpeg,png,jpg,webp,gif|max:5120';
         } else {
@@ -542,7 +542,7 @@ class ProductController extends Controller
             $rules['variants.*.short_description'] = 'nullable|string|max:5000';
             $rules['variants.*.description_rows'] = 'nullable|array|max:100';
             $rules['variants.*.description_rows.*.heading'] = 'nullable|string|max:120';
-            $rules['variants.*.description_rows.*.detail'] = 'nullable|string|max:500';
+            $rules['variants.*.description_rows.*.detail'] = 'nullable|string|max:2000';
             $rules['variants.*.images'] = 'nullable|array|max:20';
             $rules['variants.*.images.*'] = 'image|mimes:jpeg,png,jpg,webp,gif|max:5120';
         } else {

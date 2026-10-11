@@ -190,7 +190,7 @@ html.admin-progress-busy body {
     display: grid;
     grid-template-columns: minmax(0, 4fr) minmax(0, 7fr) 2.25rem;
     gap: 0;
-    align-items: stretch;
+    align-items: start;
 }
 .product-desc-rows__head {
     background: #f8fafc;
@@ -209,9 +209,21 @@ html.admin-progress-busy body {
 .product-desc-rows__row + .product-desc-rows__row {
     border-top: 1px solid #f1f5f9;
 }
-.product-desc-rows__row input {
+.product-desc-rows__row input,
+.product-desc-rows__row textarea {
     width: 100%;
     min-width: 0;
+}
+.product-desc-rows__row textarea {
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.product-desc-rows__remove {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 0.65rem;
 }
 @media (max-width: 640px) {
     .product-desc-rows__head {
@@ -234,8 +246,9 @@ html.admin-progress-busy body {
         grid-column: 2;
         grid-row: 1 / span 2;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
+        padding-top: 0.65rem;
     }
 }
 

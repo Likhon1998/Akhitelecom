@@ -1032,12 +1032,12 @@
                                                    placeholder="e.g. Display">
                                         </div>
                                         <div>
-                                            <input type="text" x-model="dRow.detail"
-                                                   :name="'variants['+index+'][description_rows]['+dIndex+'][detail]'"
-                                                   class="block w-full rounded-md border-slate-200 text-sm py-2"
-                                                   placeholder="e.g. 6.1&quot; OLED">
+                                            <textarea x-model="dRow.detail" rows="3"
+                                                      :name="'variants['+index+'][description_rows]['+dIndex+'][detail]'"
+                                                      class="block w-full rounded-md border-slate-200 text-sm py-2 resize-y min-h-[4.5rem]"
+                                                      placeholder="e.g. 6.99-inch AMOLED, 2396×1080 (FHD+), 120Hz"></textarea>
                                         </div>
-                                        <div>
+                                        <div class="product-desc-rows__remove">
                                             <button type="button" @click="removeVariantDescriptionRow(index, dIndex)"
                                                     class="text-slate-400 hover:text-red-600 text-lg leading-none" title="Remove row">&times;</button>
                                         </div>
@@ -1087,13 +1087,13 @@
                                        placeholder="e.g. Display">
                             </div>
                             <div>
-                                <input type="text" x-model="row.detail"
-                                       :name="isMulti ? null : ('description_rows['+index+'][detail]')"
-                                       :disabled="isMulti"
-                                       class="block w-full rounded-md border-slate-200 text-sm py-2"
-                                       placeholder="e.g. 6.1&quot; OLED">
+                                <textarea x-model="row.detail" rows="3"
+                                          :name="isMulti ? null : ('description_rows['+index+'][detail]')"
+                                          :disabled="isMulti"
+                                          class="block w-full rounded-md border-slate-200 text-sm py-2 resize-y min-h-[4.5rem]"
+                                          placeholder="e.g. 6.99-inch AMOLED, 2396×1080 (FHD+), 120Hz"></textarea>
                             </div>
-                            <div>
+                            <div class="product-desc-rows__remove">
                                 <button type="button" @click="removeDescriptionRow(index)"
                                         class="text-slate-400 hover:text-red-600 text-lg leading-none" title="Remove row">&times;</button>
                             </div>
