@@ -15,6 +15,17 @@ class User extends Authenticatable
     use HasFactory, Notifiable, HasRoles;
 
     /**
+     * Spatie roles/permissions live on the `web` guard. Staff panel auth uses
+     * the separate `admin` session guard; Auth::shouldUse('admin') also rewrites
+     * auth.defaults.guard, so pin Spatie lookups to `web` or @can() fails and
+     * the admin sidebar renders empty.
+     */
+    public function guardName(): string
+    {
+        return 'web';
+    }
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
