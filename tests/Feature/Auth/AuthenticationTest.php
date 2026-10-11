@@ -26,7 +26,8 @@ class AuthenticationTest extends TestCase
             'password' => 'password',
         ]);
 
-        $this->assertAuthenticated();
+        $this->assertAuthenticated('admin');
+        $this->assertGuest('web');
         $response->assertRedirect(route('dashboard', absolute: false));
     }
 
@@ -39,16 +40,17 @@ class AuthenticationTest extends TestCase
             'password' => 'wrong-password',
         ]);
 
-        $this->assertGuest();
+        $this->assertGuest('admin');
+        $this->assertGuest('web');
     }
 
     public function test_users_can_logout(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/logout');
+        $response = $this->actingAs($user, 'admin')->post('/logout');
 
-        $this->assertGuest();
+        $this->assertGuest('admin');
         $response->assertRedirect(route('login'));
     }
 }

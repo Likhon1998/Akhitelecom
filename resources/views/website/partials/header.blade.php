@@ -168,8 +168,8 @@
                         </div>
                     </div>
 
-                    @auth
-                        @if(auth()->user()->isStorefrontCustomer())
+                    @auth('web')
+                        @if(auth('web')->user()?->isStorefrontCustomer())
                             <div class="gaget-action-wrap" x-data="{ open: false }" @mouseenter="open=true" @mouseleave="open=false">
                                 <a href="{{ route('website.account') }}" class="gaget-action-btn" title="{{ auth()->user()->name }}">
                                     @if(auth()->user()->avatarUrl())
@@ -205,30 +205,33 @@
                                     </div>
                                 </div>
                             </div>
-                        @else
-                            <a href="{{ route('dashboard') }}" class="gaget-action-btn" title="Staff account">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                            </a>
                         @endif
                     @else
-                        <div class="gaget-action-wrap" x-data="{ open: false }" @mouseenter="open=true" @mouseleave="open=false">
-                            <button type="button" @click="openSignIn('login')" class="gaget-action-btn" title="Sign in">
+                        @auth('admin')
+                            <a href="{{ route('dashboard') }}" class="gaget-action-btn" title="Staff panel">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                <span class="hidden xl:inline text-xs font-semibold ml-1">Account</span>
-                            </button>
-                            <div class="gaget-hover-panel gaget-hover-panel--account" x-show="open" x-cloak x-transition.opacity.duration.150ms>
-                                <div class="gaget-account-menu__links">
-                                    <button type="button" @click="open=false; openSignIn('login')" class="gaget-account-menu__item w-full text-left">
-                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
-                                        Sign in
-                                    </button>
-                                    <button type="button" @click="open=false; openSignIn('register')" class="gaget-account-menu__item w-full text-left">
-                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
-                                        Create account
-                                    </button>
+                                <span class="hidden xl:inline text-xs font-semibold ml-1">Staff</span>
+                            </a>
+                        @else
+                            <div class="gaget-action-wrap" x-data="{ open: false }" @mouseenter="open=true" @mouseleave="open=false">
+                                <button type="button" @click="openSignIn('login')" class="gaget-action-btn" title="Sign in">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    <span class="hidden xl:inline text-xs font-semibold ml-1">Account</span>
+                                </button>
+                                <div class="gaget-hover-panel gaget-hover-panel--account" x-show="open" x-cloak x-transition.opacity.duration.150ms>
+                                    <div class="gaget-account-menu__links">
+                                        <button type="button" @click="open=false; openSignIn('login')" class="gaget-account-menu__item w-full text-left">
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+                                            Sign in
+                                        </button>
+                                        <button type="button" @click="open=false; openSignIn('register')" class="gaget-account-menu__item w-full text-left">
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                                            Create account
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        @endauth
                     @endauth
                 </div>
             </div>
@@ -357,19 +360,21 @@
                 </div>
             @endif
 
-            @auth
-                @if(auth()->user()->isStorefrontCustomer())
+            @auth('web')
+                @if(auth('web')->user()?->isStorefrontCustomer())
                     <a href="{{ route('website.account') }}" class="gaget-mobile-drawer-link mt-4" @click="mobileOpen = false">My Account</a>
                     <button type="button"
                             class="gaget-mobile-drawer-link w-full text-left text-rose-300"
                             @click="mobileOpen = false; typeof storefrontLogout === 'function' && storefrontLogout()">
                         Sign out
                     </button>
-                @else
-                    <a href="{{ route('dashboard') }}" class="gaget-mobile-drawer-link mt-4" @click="mobileOpen = false">Staff dashboard</a>
                 @endif
             @else
-                <button type="button" class="gaget-mobile-drawer-link mt-4 w-full text-left" @click="mobileOpen = false; openSignIn('login')">Sign in</button>
+                @auth('admin')
+                    <a href="{{ route('dashboard') }}" class="gaget-mobile-drawer-link mt-4" @click="mobileOpen = false">Staff dashboard</a>
+                @else
+                    <button type="button" class="gaget-mobile-drawer-link mt-4 w-full text-left" @click="mobileOpen = false; openSignIn('login')">Sign in</button>
+                @endauth
             @endauth
         </div>
     </div>

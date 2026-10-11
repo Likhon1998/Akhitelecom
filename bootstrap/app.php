@@ -28,13 +28,22 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return route('login');
         });
+
+        // Already logged into staff panel → skip admin login form.
+        $middleware->redirectUsersTo(function (Request $request) {
+            if ($request->is('admin/login') || $request->routeIs('login')) {
+                return route('dashboard');
+            }
+
+            return route('home');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->render(function (TokenMismatchException $e, Request $request) {
             if ($request->routeIs('website.account.logout') || $request->is('account/logout')) {
                 Auth::guard('web')->logout();
                 if ($request->hasSession()) {
-                    $request->session()->invalidate();
+                    $request->session()->regenerate();
                     $request->session()->regenerateToken();
                 }
 

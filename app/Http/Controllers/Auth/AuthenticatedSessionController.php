@@ -20,9 +20,10 @@ class AuthenticatedSessionController extends Controller
     {
         $request->authenticate();
 
-        if ($request->user()->is_suspended) {
-            Auth::guard('web')->logout();
-            $request->session()->invalidate();
+        $user = Auth::guard('admin')->user();
+
+        if ($user->is_suspended) {
+            Auth::guard('admin')->logout();
             $request->session()->regenerateToken();
 
             return redirect()->route('login')->withErrors([
@@ -30,14 +31,8 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        // Keep any storefront (web) login; only rotate the session id / CSRF.
         $request->session()->regenerate();
-
-        $user = $request->user();
-
-        // Website shoppers stay on the storefront (intended URL or home).
-        if ($user->isStorefrontCustomer()) {
-            return redirect()->intended(route('home'));
-        }
 
         if ($user->requiresDailyOpeningBalance() && ! $user->hasTodayOpenSession()) {
             return redirect()->route('counters.sessions.open-today');
@@ -48,9 +43,14 @@ class AuthenticatedSessionController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
-        Auth::guard('web')->logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        Auth::guard('admin')->logout();
+
+        // Do not session()->invalidate() — that would also log out the website customer tab.
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+            $request->session()->regenerateToken();
+        }
+
         return redirect()->route('login');
     }
 }

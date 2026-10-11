@@ -14,9 +14,11 @@ class EnsureNotStorefrontCustomer
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $user = Auth::user();
+        $user = Auth::guard('admin')->user();
 
         if ($user && $user->isStorefrontCustomer()) {
+            Auth::guard('admin')->logout();
+
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'message' => 'This area is for store staff only. Please use your customer account page.',
@@ -25,8 +27,8 @@ class EnsureNotStorefrontCustomer
             }
 
             return redirect()
-                ->route('website.account')
-                ->with('error', 'Staff panel is for employees only. You are signed in as a customer.');
+                ->route('login')
+                ->with('error', 'Staff panel is for employees only. Please use the website account for customers.');
         }
 
         return $next($request);

@@ -38,7 +38,14 @@ return [
     */
 
     'guards' => [
+        // Storefront customers (website account / checkout).
         'web' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+        // Admin / POS / staff panel — separate session key so website login
+        // and staff login can coexist in side-by-side browser tabs.
+        'admin' => [
             'driver' => 'session',
             'provider' => 'users',
         ],

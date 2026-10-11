@@ -24,7 +24,7 @@ class StorefrontAuthController extends Controller
 
     public function account(): View|RedirectResponse
     {
-        $user = Auth::user();
+        $user = Auth::guard('web')->user();
         if (! $user?->isStorefrontCustomer()) {
             return redirect()->route('home');
         }
@@ -96,7 +96,7 @@ class StorefrontAuthController extends Controller
 
     public function editProfile(): View|RedirectResponse
     {
-        $user = Auth::user();
+        $user = Auth::guard('web')->user();
         if (! $user?->isStorefrontCustomer()) {
             return redirect()->route('home');
         }
@@ -128,7 +128,7 @@ class StorefrontAuthController extends Controller
 
     public function updateProfile(Request $request): RedirectResponse
     {
-        $user = Auth::user();
+        $user = Auth::guard('web')->user();
         if (! $user?->isStorefrontCustomer()) {
             return redirect()->route('home');
         }
@@ -210,13 +210,13 @@ class StorefrontAuthController extends Controller
 
     public function destroyAccount(Request $request): RedirectResponse
     {
-        $user = Auth::user();
+        $user = Auth::guard('web')->user();
         if (! $user?->isStorefrontCustomer()) {
             return redirect()->route('home');
         }
 
         $request->validate([
-            'password' => ['required', 'current_password'],
+            'password' => ['required', 'current_password:web'],
         ]);
 
         $customer = $user->customerProfile;
@@ -229,11 +229,14 @@ class StorefrontAuthController extends Controller
         }
 
         $user->syncRoles([]);
-        Auth::logout();
+        Auth::guard('web')->logout();
         $user->delete();
 
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        // Keep staff (admin) login if present in another tab.
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+            $request->session()->regenerateToken();
+        }
 
         return redirect()->route('home')->with('profile_success', 'Your account has been deleted.');
     }
@@ -247,7 +250,7 @@ class StorefrontAuthController extends Controller
 
         $this->ensureLoginNotRateLimited($data['email']);
 
-        if (! Auth::attempt(['email' => $data['email'], 'password' => $data['password']], true)) {
+        if (! Auth::guard('web')->attempt(['email' => $data['email'], 'password' => $data['password']], true)) {
             RateLimiter::hit($this->throttleKey($data['email']));
 
             throw ValidationException::withMessages([
@@ -255,23 +258,24 @@ class StorefrontAuthController extends Controller
             ]);
         }
 
-        $user = Auth::user();
+        $user = Auth::guard('web')->user();
 
         if ($user->is_suspended) {
-            Auth::logout();
+            Auth::guard('web')->logout();
             throw ValidationException::withMessages([
                 'email' => 'Your account is suspended. Please contact the store.',
             ]);
         }
 
         if (! $user->isStorefrontCustomer()) {
-            Auth::logout();
+            Auth::guard('web')->logout();
             throw ValidationException::withMessages([
                 'email' => 'This is a staff account. Please use the admin login instead.',
             ]);
         }
 
         RateLimiter::clear($this->throttleKey($data['email']));
+        // Keep staff (admin) login if present; only rotate session id / CSRF.
         $request->session()->regenerate();
 
         return response()->json([
@@ -378,8 +382,9 @@ class StorefrontAuthController extends Controller
     {
         Auth::guard('web')->logout();
 
+        // Do not invalidate the whole session — admin panel may still be open.
         if ($request->hasSession()) {
-            $request->session()->invalidate();
+            $request->session()->regenerate();
             $request->session()->regenerateToken();
         }
 

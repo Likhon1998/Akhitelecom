@@ -63,12 +63,13 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800&display=swap" rel="stylesheet" />
     @php
-        $storefrontUser = auth()->check() && auth()->user()->isStorefrontCustomer()
+        $storefrontAuthUser = auth('web')->user();
+        $storefrontUser = ($storefrontAuthUser && $storefrontAuthUser->isStorefrontCustomer())
             ? [
-                'name' => auth()->user()->name,
-                'email' => auth()->user()->email,
-                'phone' => auth()->user()->customerProfile?->phone ?? '',
-                'address' => auth()->user()->customerProfile?->address ?? '',
+                'name' => $storefrontAuthUser->name,
+                'email' => $storefrontAuthUser->email,
+                'phone' => $storefrontAuthUser->customerProfile?->phone ?? '',
+                'address' => $storefrontAuthUser->customerProfile?->address ?? '',
             ]
             : null;
         if (! isset($deliveryConfig) || ! is_array($deliveryConfig)) {
@@ -545,7 +546,7 @@
 
 @include('website.partials.header')
 
-@auth
+@auth('web')
     <form id="storefront-logout-form" method="POST" action="{{ route('website.account.logout') }}" class="hidden" aria-hidden="true">
         @csrf
     </form>

@@ -11,10 +11,14 @@ class CheckIfSuspended
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (Auth::check() && Auth::user()->is_suspended) {
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
+        $user = Auth::guard('admin')->user();
+
+        if ($user && $user->is_suspended) {
+            Auth::guard('admin')->logout();
+            if ($request->hasSession()) {
+                $request->session()->regenerate();
+                $request->session()->regenerateToken();
+            }
 
             return redirect()->route('login')->withErrors([
                 'email' => 'Your account is suspended. Please contact your shop owner.',
