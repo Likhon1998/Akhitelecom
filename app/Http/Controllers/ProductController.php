@@ -848,15 +848,16 @@ class ProductController extends Controller
                 $imeiCount = $member->syncAvailableImeis($rowsImei);
                 $after = $member->availableImeis()->pluck('imei')->sort()->values()->all();
                 if ($before !== $after) {
-                    $this->syncStockToImeiCount($member, $imeiCount);
+                    $this->syncStockToQuantity($member, $imeiCount, "IMEI list updated ({$imeiCount} available)");
                 }
-            } elseif ($existingId === 0 && ! $requiresImei) {
-                $qty = (int) ($row['stock_quantity'] ?? 0);
-                if ($qty > 0) {
-                    $this->stock->ensureDefaultLocations($member->shop_id);
-                    $movement = $this->stock->setOpeningStock($member, $qty);
-                    $this->accounts->postOpeningInventory($movement);
-                }
+            } elseif (! $requiresImei && array_key_exists('stock_quantity', $row)
+                && $row['stock_quantity'] !== '' && $row['stock_quantity'] !== null) {
+                // Each variant keeps its own stock — never copied across the family.
+                $this->syncStockToQuantity(
+                    $member,
+                    (int) $row['stock_quantity'],
+                    $existingId === 0 ? null : 'Variant stock updated on product edit'
+                );
             }
         }
 
@@ -897,8 +898,24 @@ class ProductController extends Controller
      */
     private function syncStockToImeiCount(Product $product, int $availableImeis): ?int
     {
+        return $this->syncStockToQuantity(
+            $product,
+            $availableImeis,
+            "IMEI list updated ({$availableImeis} available)"
+        );
+    }
+
+    /**
+     * Set a product's on-hand qty to an absolute target (opening inventory or adjustment).
+     * Used per variant so family members never share one stock figure.
+     *
+     * @return int|null new stock when it changed
+     */
+    private function syncStockToQuantity(Product $product, int $targetQty, ?string $reference = null): ?int
+    {
+        $targetQty = max(0, $targetQty);
         $current = (int) $product->fresh()->stock_quantity;
-        $delta = $availableImeis - $current;
+        $delta = $targetQty - $current;
         if ($delta === 0) {
             return null;
         }
@@ -910,14 +927,14 @@ class ProductController extends Controller
             $movement = $this->stock->setOpeningStock($product, $delta);
             $this->accounts->postOpeningInventory($movement);
 
-            return $availableImeis;
+            return $targetQty;
         }
 
         $movement = $this->stock->apply(
             $product,
             $delta > 0 ? 'in' : 'out',
             abs($delta),
-            "IMEI list updated ({$availableImeis} available)",
+            $reference ?: "Stock set to {$targetQty}",
             'adjustment',
             Auth::id(),
             'stock_adjustment',
@@ -926,7 +943,7 @@ class ProductController extends Controller
         );
         $this->accounts->postInventoryAdjustment($movement);
 
-        return $availableImeis;
+        return $targetQty;
     }
 
     public function toggleHomepageFlag(Request $request, Product $product)

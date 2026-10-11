@@ -898,7 +898,7 @@
                 @if($isEdit)
                 <div class="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-[12px] text-amber-900">
                     Edit every option here. Shared name, brand and visibility apply to the whole family.
-                    Each option has its own description (shown when shoppers switch that variation).
+                    Stock and description are separate per option (shoppers see that option’s qty &amp; text when they switch).
                     Removing an option archives it (barcode freed for reuse).
                 </div>
                 @endif
@@ -960,15 +960,19 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] font-semibold text-slate-500 mb-1"
-                                       x-text="row.id ? 'Stock (read via IMEI / adjustment)' : 'Opening qty'"></label>
-                                <template x-if="!row.id">
+                                       x-text="requiresImei ? (row.id ? 'Stock (= phones below)' : 'Opening phones') : (row.id ? 'Stock (this option only)' : 'Opening stock')"></label>
+                                <template x-if="!requiresImei || !row.id">
                                     <input type="number" min="0" :name="'variants['+index+'][stock_quantity]'" x-model="row.stock_quantity"
                                            @input="requiresImei && resizeImeis(row.imeis, row.stock_quantity)"
-                                           class="block w-full rounded-md border-slate-200 text-sm py-2">
+                                           class="block w-full rounded-md border-slate-200 text-sm py-2"
+                                           :title="requiresImei ? 'Number of phones for this option' : 'Stock for this color/option only — not shared with other variants'">
                                 </template>
-                                <template x-if="row.id">
-                                    <div class="block w-full rounded-md border border-slate-200 bg-white text-sm py-2 px-3 text-slate-700"
-                                         x-text="(row.stock_quantity ?? 0) + ' units'"></div>
+                                <template x-if="requiresImei && row.id">
+                                    <div>
+                                        <input type="hidden" :name="'variants['+index+'][stock_quantity]'" :value="row.stock_quantity ?? 0">
+                                        <div class="block w-full rounded-md border border-slate-200 bg-white text-sm py-2 px-3 text-slate-700"
+                                             x-text="(row.stock_quantity ?? 0) + ' units (from IMEI list)'"></div>
+                                    </div>
                                 </template>
                             </div>
                         </div>

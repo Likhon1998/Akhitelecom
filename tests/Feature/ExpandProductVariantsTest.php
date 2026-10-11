@@ -309,4 +309,87 @@ class ExpandProductVariantsTest extends TestCase
         $this->assertStringContainsString('256 GB kept', (string) $blue->short_description);
         $this->assertStringNotContainsString('128 GB updated', (string) $blue->short_description);
     }
+
+    public function test_each_variant_keeps_its_own_stock_on_edit(): void
+    {
+        $this->seed(RolesAndPermissionsSeeder::class);
+
+        $shop = Shop::create([
+            'name' => 'Stock Shop',
+            'email' => 'stock-shop@example.com',
+            'phone' => '01700000004',
+            'address' => 'Dhaka',
+            'is_active' => true,
+        ]);
+
+        $user = User::factory()->create(['shop_id' => $shop->id, 'role' => 'admin']);
+        $user->syncRoles(['Admin']);
+
+        $category = Category::create(['shop_id' => $shop->id, 'name' => 'Cables', 'slug' => 'cables-stock']);
+        $brand = Brand::create(['shop_id' => $shop->id, 'name' => 'Baseus', 'is_active' => true, 'sort_order' => 0]);
+
+        $black = Product::create([
+            'shop_id' => $shop->id,
+            'category_id' => $category->id,
+            'brand_id' => $brand->id,
+            'name' => 'USB-C Cable',
+            'barcode' => 'CABLE-BLK',
+            'variant_group' => 'usb-c-cable',
+            'color' => 'Black',
+            'cost_price' => 100,
+            'selling_price' => 200,
+            'stock_quantity' => 0,
+            'alert_quantity' => 1,
+            'is_published' => true,
+            'requires_imei' => false,
+        ]);
+        $white = Product::create([
+            'shop_id' => $shop->id,
+            'category_id' => $category->id,
+            'brand_id' => $brand->id,
+            'name' => 'USB-C Cable',
+            'barcode' => 'CABLE-WHT',
+            'variant_group' => 'usb-c-cable',
+            'color' => 'White',
+            'cost_price' => 100,
+            'selling_price' => 200,
+            'stock_quantity' => 0,
+            'alert_quantity' => 1,
+            'is_published' => true,
+            'requires_imei' => false,
+        ]);
+
+        $this->actingAs($user, 'admin')
+            ->put(route('products.update', $black), [
+                'product_mode' => 'gadget',
+                'name' => 'USB-C Cable',
+                'variant_group' => 'usb-c-cable',
+                'cost_price' => 100,
+                'selling_price' => 200,
+                'category_id' => $category->id,
+                'brand_id' => $brand->id,
+                'is_published' => 1,
+                'variants' => [
+                    [
+                        'id' => $black->id,
+                        'barcode' => 'CABLE-BLK',
+                        'color' => 'Black',
+                        'stock_quantity' => 12,
+                    ],
+                    [
+                        'id' => $white->id,
+                        'barcode' => 'CABLE-WHT',
+                        'color' => 'White',
+                        'stock_quantity' => 3,
+                    ],
+                ],
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('products.index'));
+
+        $black->refresh();
+        $white->refresh();
+        $this->assertSame(12, (int) $black->stock_quantity);
+        $this->assertSame(3, (int) $white->stock_quantity);
+    }
 }
