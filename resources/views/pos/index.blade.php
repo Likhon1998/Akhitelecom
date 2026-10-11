@@ -1500,8 +1500,12 @@
             <input type="text" x-model="search" x-ref="searchInput" autofocus
                    placeholder="Search by product name, barcode / SKU..."
                    class="search-input"
-                   @input="onSearchInput()"
-                   @keydown.enter.prevent="onSearchEnter()">
+                   autocomplete="off"
+                   autocorrect="off"
+                   spellcheck="false"
+                   @input="onSearchInput($event)"
+                   @keydown.enter.prevent="onSearchEnter($event)"
+                   @keydown.tab.prevent="onSearchEnter($event)">
             <span class="kbd">Ctrl K</span>
         </div>
 
@@ -2675,6 +2679,11 @@ function posSystem() {
         viewMode: localStorage.getItem('nexa_pos_view') || 'grid',
         page: 1,
         perPage: 15,
+        _scanTimer: null,
+        _scanLockUntil: 0,
+        _scanBuffer: '',
+        _scanBufferTimer: null,
+        _codeIndex: null,
         brokenImages: {},
         imageFallbacks: {
             phone: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&q=80',
@@ -2763,6 +2772,7 @@ function posSystem() {
                 if (!url) url = this.placeholderDataUri(p.name);
                 return { ...p, image_url: url };
             });
+            this.rebuildCodeIndex();
 
             window.addEventListener('online', () => {
                 this.isOnline = true;
@@ -2928,7 +2938,51 @@ function posSystem() {
                 e.preventDefault();
                 this.toggleFullscreen();
             }
-            // Enter on search is handled by @keydown.enter on the input
+            // Hardware scanner: capture when focus is not already in the search box / other fields
+            this.captureGlobalScanKey(e);
+        },
+
+        captureGlobalScanKey(e) {
+            if (this.checkoutModalOpen || this.invoiceModalOpen || this.imeiModalOpen || this.kbOpen || this.cartViewModalOpen) return;
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+            const el = document.activeElement;
+            const tag = (el?.tagName || '').toUpperCase();
+            // Search box has its own input/enter handlers — do not double-buffer
+            if (el === this.$refs.searchInput) return;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable) return;
+
+            if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'NumpadEnter') {
+                if (!this._scanBuffer) return;
+                e.preventDefault();
+                const code = this._scanBuffer;
+                this._scanBuffer = '';
+                clearTimeout(this._scanBufferTimer);
+                this.commitScan(code, true);
+                return;
+            }
+
+            if (e.key.length !== 1) return;
+
+            const now = Date.now();
+            // Human shortcuts / slow typing start a fresh buffer; scanners fire keys < ~50ms apart
+            if (now - (this._lastScanKeyAt || 0) > 80) {
+                this._scanBuffer = '';
+            }
+            this._lastScanKeyAt = now;
+            this._scanBuffer += e.key;
+            this.search = this._scanBuffer;
+            clearTimeout(this._scanBufferTimer);
+            this._scanBufferTimer = setTimeout(() => {
+                // Auto-commit only for multi-char bursts (real scans). Single keys are shortcuts.
+                if (this._scanBuffer.length >= 2) {
+                    const code = this._scanBuffer;
+                    this._scanBuffer = '';
+                    this.commitScan(code, true);
+                } else {
+                    this._scanBuffer = '';
+                }
+            }, 140);
         },
 
         /* ───────────────────────────────
@@ -3244,14 +3298,30 @@ function posSystem() {
             return pages;
         },
 
+        normalizeScanCode(code) {
+            return String(code || '')
+                .replace(/[\u200B-\u200D\uFEFF]/g, '')
+                .replace(/[\r\n]+/g, '')
+                .trim()
+                .toLowerCase();
+        },
+
+        rebuildCodeIndex() {
+            const map = new Map();
+            (this.products || []).forEach((p) => {
+                const barcode = this.normalizeScanCode(p.barcode);
+                const sku = this.normalizeScanCode(p.sku);
+                if (barcode) map.set('b:' + barcode, p);
+                if (sku) map.set('s:' + sku, p);
+            });
+            this._codeIndex = map;
+        },
+
         findExactScanMatch(code) {
-            const q = String(code || '').trim().toLowerCase();
+            const q = this.normalizeScanCode(code);
             if (!q) return null;
-            return this.products.find(p => {
-                const barcode = String(p.barcode || '').trim().toLowerCase();
-                const sku = String(p.sku || '').trim().toLowerCase();
-                return (barcode && barcode === q) || (sku && sku === q);
-            }) || null;
+            if (!this._codeIndex) this.rebuildCodeIndex();
+            return this._codeIndex.get('b:' + q) || this._codeIndex.get('s:' + q) || null;
         },
 
         /** A scanned IMEI (1 or 2) of a phone in stock → { product, imei } using the phone's main IMEI. */
@@ -3273,28 +3343,36 @@ function posSystem() {
                 this.showToast('This phone (IMEI ' + imei + ') is already in the cart', 'warning');
                 return;
             }
+            this._scanLockUntil = Date.now() + 180;
             this.pushCartLine(product, imei);
         },
 
-        onSearchInput() {
-            if (this.checkoutModalOpen || this.invoiceModalOpen) return;
-            const q = (this.search || '').trim();
-            // Barcode scanners type fast; auto-add on exact barcode/SKU match (no click needed)
-            if (q.length < 3) return;
-            const phone = this.findImeiScanMatch(q);
-            if (phone) {
-                this.addScannedPhone(phone);
-                return;
-            }
-            const match = this.findExactScanMatch(q);
-            if (match) {
-                this.addToCart(match);
-            }
+        onSearchInput(event) {
+            if (this.checkoutModalOpen || this.invoiceModalOpen || this.imeiModalOpen) return;
+            // Keep Alpine model in sync with the live DOM value (scanner race fix)
+            if (event?.target) this.search = event.target.value;
+            clearTimeout(this._scanTimer);
+            // Wait for the scanner burst to finish before matching — avoids
+            // partial matches (e.g. barcode "8" matching while scanning "81").
+            this._scanTimer = setTimeout(() => {
+                const q = (this.search || '').trim();
+                if (!q) return;
+                this.commitScan(q, false);
+            }, 90);
         },
 
-        onSearchEnter() {
-            if (this.checkoutModalOpen || this.invoiceModalOpen) return;
-            const q = (this.search || '').trim();
+        onSearchEnter(event) {
+            if (this.checkoutModalOpen || this.invoiceModalOpen || this.imeiModalOpen) return;
+            // Read from the input element — x-model can lag behind the last scanner keystroke
+            const raw = event?.target?.value ?? this.search;
+            this.search = raw;
+            clearTimeout(this._scanTimer);
+            this.commitScan(raw, true);
+        },
+
+        commitScan(raw, allowFuzzy) {
+            if (Date.now() < this._scanLockUntil) return;
+            const q = String(raw || '').trim();
             if (!q) return;
 
             const phone = this.findImeiScanMatch(q);
@@ -3310,16 +3388,20 @@ function posSystem() {
                 return;
             }
 
-            // Prefer exact barcode / SKU
             const exact = this.findExactScanMatch(q);
             if (exact) {
+                this._scanLockUntil = Date.now() + 180;
                 this.addToCart(exact);
                 return;
             }
 
-            // Otherwise add if only one header search match
+            if (!allowFuzzy) return;
+
+            // Keep headerSearchMatches in sync with the committed query
+            this.search = q;
             const matches = this.headerSearchMatches();
             if (matches.length === 1) {
+                this._scanLockUntil = Date.now() + 180;
                 this.addToCart(matches[0]);
                 return;
             }
@@ -3330,7 +3412,6 @@ function posSystem() {
                 this.search = '';
                 this.$nextTick(() => this.$refs.searchInput?.focus());
             } else {
-                // Multiple matches — push query into catalog filter so cashier can pick
                 this.catalogQuery = q;
                 this.page = 1;
                 this.search = '';

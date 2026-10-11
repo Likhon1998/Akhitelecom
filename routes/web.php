@@ -172,6 +172,7 @@ Route::middleware([
         Route::post('/products-import/csv', [ProductController::class, 'importStore'])->name('products.import.store');
         Route::get('/products-barcodes', [ProductController::class, 'barcodes'])->name('products.barcodes');
         Route::get('/products-barcodes/print', [ProductController::class, 'barcodesPrint'])->name('products.barcodes.print');
+        Route::get('/products-barcode-lookup', [ProductController::class, 'barcodeLookup'])->name('products.barcode-lookup');
         Route::get('/stock-ledger', fn () => redirect()->route('supply.adjustments.index'))->name('stock.index');
         Route::post('/stock-ledger', [StockAdjustmentController::class, 'store'])->name('stock.store');
     });

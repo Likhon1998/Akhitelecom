@@ -133,6 +133,8 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
+        $this->mergeDescriptionRowsIntoRequest($request);
+
         $shopId = Auth::user()->shop_id;
         $isGadget = $request->input('product_mode') === 'gadget';
 
@@ -164,7 +166,7 @@ class ProductController extends Controller
             'selling_price' => 'required|numeric|min:0',
             'pos_discount_type' => 'nullable|in:percent,fixed',
             'pos_discount_value' => 'nullable|numeric|min:0.01|required_with:pos_discount_type',
-            'short_description' => 'nullable|string|max:2000',
+            'short_description' => 'nullable|string|max:5000',
             'category_id' => [
                 'nullable',
                 Rule::exists('categories', 'id')->where(fn ($q) => $q->where('shop_id', $shopId)),
@@ -453,6 +455,8 @@ class ProductController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
+        $this->mergeDescriptionRowsIntoRequest($request);
+
         $request->validate([
             'name' => 'required|string|max:255',
             'barcode' => 'required|string|unique:products,barcode,' . $product->id,
@@ -473,7 +477,7 @@ class ProductController extends Controller
             'selling_price' => 'required|numeric',
             'pos_discount_type' => 'nullable|in:percent,fixed',
             'pos_discount_value' => 'nullable|numeric|min:0.01|required_with:pos_discount_type',
-            'short_description' => 'nullable|string|max:2000',
+            'short_description' => 'nullable|string|max:5000',
             'category_id' => [
                 'nullable',
                 Rule::exists('categories', 'id')->where(fn ($q) => $q->where('shop_id', $product->shop_id)),
@@ -1042,6 +1046,37 @@ class ProductController extends Controller
         return (float) $raw;
     }
 
+    public function barcodeLookup(Request $request)
+    {
+        $shopId = Auth::user()->shop_id;
+        $barcode = trim((string) $request->query('barcode', ''));
+        $excludeId = (int) $request->query('exclude_id', 0);
+
+        if ($barcode === '') {
+            return response()->json(['found' => false]);
+        }
+
+        $query = Product::query()
+            ->where('shop_id', $shopId)
+            ->where('barcode', $barcode);
+
+        if ($excludeId > 0) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        $product = $query->first(['id', 'name', 'barcode', 'sku']);
+
+        return response()->json([
+            'found' => (bool) $product,
+            'product' => $product ? [
+                'id' => $product->id,
+                'name' => $product->name,
+                'barcode' => $product->barcode,
+                'sku' => $product->sku,
+            ] : null,
+        ]);
+    }
+
     public function barcodes(Request $request)
     {
         $shopId = Auth::user()->shop_id;
@@ -1443,6 +1478,34 @@ class ProductController extends Controller
         $lines = preg_split('/[\r\n,;]+/', $rawList) ?: [];
 
         return $product->syncAvailableImeis($lines);
+    }
+
+    /**
+     * Build short_description from heading|detail form rows when provided.
+     */
+    private function mergeDescriptionRowsIntoRequest(Request $request): void
+    {
+        $rows = $request->input('description_rows');
+        if (! is_array($rows)) {
+            return;
+        }
+
+        $lines = [];
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $heading = trim((string) ($row['heading'] ?? ''));
+            $detail = trim((string) ($row['detail'] ?? ''));
+            if ($heading === '' && $detail === '') {
+                continue;
+            }
+            $lines[] = $heading === '' ? $detail : ($heading.' | '.$detail);
+        }
+
+        $request->merge([
+            'short_description' => $lines === [] ? null : implode("\n", $lines),
+        ]);
     }
 
     /**

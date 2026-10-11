@@ -372,9 +372,40 @@
             </div>
 
             @if($product->short_description)
+                @php
+                    $descLines = preg_split("/\r\n|\n|\r/", (string) $product->short_description) ?: [];
+                    $descRows = [];
+                    $descPlain = [];
+                    foreach ($descLines as $line) {
+                        $line = trim($line);
+                        if ($line === '') continue;
+                        if (str_contains($line, '|')) {
+                            [$h, $d] = array_map('trim', explode('|', $line, 2));
+                            $descRows[] = ['heading' => $h, 'detail' => $d];
+                        } else {
+                            $descPlain[] = $line;
+                        }
+                    }
+                @endphp
                 <div x-show="tab==='description'">
                     <h3 class="text-sm font-semibold text-slate-900 mb-1.5">About this item</h3>
-                    <div class="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{{ $product->short_description }}</div>
+                    @if(count($descRows))
+                        <div class="pd-spec-table overflow-hidden rounded-lg border border-slate-200">
+                            <table class="w-full text-sm">
+                                <tbody>
+                                    @foreach($descRows as $row)
+                                        <tr class="border-b border-slate-100 last:border-0">
+                                            <th class="w-[38%] max-w-[12rem] bg-slate-50 px-3 py-2.5 text-left font-semibold text-slate-700 align-top">{{ $row['heading'] !== '' ? $row['heading'] : '—' }}</th>
+                                            <td class="px-3 py-2.5 text-slate-600 align-top">{{ $row['detail'] }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                    @if(count($descPlain))
+                        <div class="text-sm text-slate-600 leading-relaxed whitespace-pre-line {{ count($descRows) ? 'mt-3' : '' }}">{{ implode("\n", $descPlain) }}</div>
+                    @endif
                 </div>
             @endif
 

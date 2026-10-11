@@ -1,7 +1,9 @@
 /**
  * Admin top progress bar — fills while navigating between pages.
+ * Disabled: was showing a busy/progress cursor on routine clicks.
  */
 export function initAdminProgress() {
+    return;
     if (!document.body?.classList.contains('admin-panel')) {
         return;
     }

@@ -541,25 +541,7 @@
 </head>
 <body class="gaget-store bg-white antialiased" id="storefront-root" x-data="storefrontCart()" @keydown.escape.window="cartOpen=false; checkoutOpen=false; mobileOpen=false; mobileCatsOpen=false; mobileBrandsOpen=false">
 
-{{-- Joyful full-page loader (shown on first paint + every navigation) --}}
-<div id="gaget-page-loader" class="gaget-page-loader is-active" role="status" aria-live="polite" aria-busy="true" aria-label="Loading">
-    <div class="gaget-page-loader__bar" aria-hidden="true"></div>
-    <div class="gaget-page-loader__inner">
-        <div class="gaget-page-loader__stage" aria-hidden="true">
-            <div class="gaget-page-loader__orbit">
-                <span class="gaget-page-loader__spark"></span>
-                <span class="gaget-page-loader__spark"></span>
-                <span class="gaget-page-loader__spark"></span>
-            </div>
-            <div class="gaget-page-loader__bag"></div>
-        </div>
-        <p class="gaget-page-loader__text">
-            {{ $settings->store_name ?? config('app.name', 'Akhi Telecom') }}
-            <span class="gaget-page-loader__dots" aria-hidden="true"><span></span><span></span><span></span></span>
-        </p>
-        <p class="gaget-page-loader__sub" id="gaget-loader-msg">Getting things ready</p>
-    </div>
-</div>
+{{-- Page loader disabled (was showing on every navigation without need) --}}
 
 @include('website.partials.header')
 
@@ -840,134 +822,8 @@ document.addEventListener('click', function (event) {
 });
 </script>
 <script>
-(function () {
-    const el = document.getElementById('gaget-page-loader');
-    const msgEl = document.getElementById('gaget-loader-msg');
-    if (!el) return;
-
-    const messages = [
-        'Getting things ready',
-        'Almost there',
-        'Finding great picks',
-        'Packing the goodies',
-        'Just a moment',
-        'Making it snappy',
-    ];
-    let shownAt = Date.now();
-    let msgTimer = null;
-    let msgIndex = 0;
-    let hideTimer = null;
-    const MIN_MS = 420;
-
-    function setMessage(text) {
-        if (msgEl && text) msgEl.textContent = text;
-    }
-
-    function startMessages() {
-        stopMessages();
-        msgIndex = Math.floor(Math.random() * messages.length);
-        setMessage(messages[msgIndex]);
-        msgTimer = setInterval(function () {
-            msgIndex = (msgIndex + 1) % messages.length;
-            setMessage(messages[msgIndex]);
-        }, 1400);
-    }
-
-    function stopMessages() {
-        if (msgTimer) {
-            clearInterval(msgTimer);
-            msgTimer = null;
-        }
-    }
-
-    function show(message) {
-        if (hideTimer) {
-            clearTimeout(hideTimer);
-            hideTimer = null;
-        }
-        shownAt = Date.now();
-        el.classList.add('is-active');
-        el.classList.remove('is-hidden');
-        el.setAttribute('aria-busy', 'true');
-        if (message) setMessage(message);
-        else startMessages();
-    }
-
-    function hide() {
-        const wait = Math.max(0, MIN_MS - (Date.now() - shownAt));
-        if (hideTimer) clearTimeout(hideTimer);
-        hideTimer = setTimeout(function () {
-            stopMessages();
-            el.classList.add('is-hidden');
-            el.classList.remove('is-active');
-            el.setAttribute('aria-busy', 'false');
-            hideTimer = null;
-        }, wait);
-    }
-
-    window.GagetLoader = { show: show, hide: hide };
-
-    // First paint: hide after page is ready
-    function onReady() {
-        if (document.readyState === 'complete') hide();
-        else window.addEventListener('load', hide, { once: true });
-    }
-    onReady();
-
-    // Back/forward cache
-    window.addEventListener('pageshow', function (e) {
-        if (e.persisted) hide();
-    });
-
-    function shouldInterceptLink(a, event) {
-        if (!a || !a.href) return false;
-        if (a.target && a.target !== '_self') return false;
-        if (a.hasAttribute('download')) return false;
-        if (a.dataset.noLoader !== undefined) return false;
-        if (event.defaultPrevented) return false;
-        if (event.button !== 0) return false;
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
-
-        let url;
-        try { url = new URL(a.href, window.location.href); }
-        catch (e) { return false; }
-
-        if (url.origin !== window.location.origin) return false;
-        if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash) return false;
-        // Same URL (no navigation)
-        if (url.href.split('#')[0] === window.location.href.split('#')[0]) return false;
-
-        return true;
-    }
-
-    document.addEventListener('click', function (event) {
-        const a = event.target.closest('a[href]');
-        if (!shouldInterceptLink(a, event)) return;
-        show();
-    }, true);
-
-    document.addEventListener('submit', function (event) {
-        const form = event.target;
-        if (!(form instanceof HTMLFormElement)) return;
-        if (form.dataset.noLoader !== undefined) return;
-        if (form.target && form.target !== '_self') return;
-        // AJAX forms often preventDefault — skip those
-        // We show anyway; if submit is cancelled shortly after, pageshow won't fire — use short timeout fallback
-        show('Saving your request');
-        setTimeout(function () {
-            // If still on same page after a short wait (AJAX / validation stay), hide
-            if (!el.classList.contains('is-hidden')) hide();
-        }, 3500);
-    }, true);
-
-    // Soft loader for in-page fetch (checkout / auth) via custom events
-    window.addEventListener('gaget:loading', function (e) {
-        show((e && e.detail && e.detail.message) || 'Working on it');
-    });
-    window.addEventListener('gaget:loaded', function () {
-        hide();
-    });
-})();
+/* Auto full-page loader disabled */
+window.GagetLoader = { show: function () {}, hide: function () {} };
 </script>
 @stack('scripts')
 </body>

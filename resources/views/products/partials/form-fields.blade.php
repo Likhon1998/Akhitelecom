@@ -19,6 +19,28 @@
         ->filter(fn ($messages, $key) => preg_match('/^(imeis|variants\.\d+\.imeis)\.\d+(\.imei2)?$/', $key))
         ->map(fn ($messages) => $messages[0])
         ->all();
+
+    $rawDescription = old('short_description', $product?->short_description ?? '');
+    $descriptionRows = old('description_rows');
+    if (! is_array($descriptionRows)) {
+        $descriptionRows = [];
+        $lines = preg_split("/\r\n|\n|\r/", (string) $rawDescription) ?: [];
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+            if (str_contains($line, '|')) {
+                [$h, $d] = array_map('trim', explode('|', $line, 2));
+                $descriptionRows[] = ['heading' => $h, 'detail' => $d];
+            } else {
+                $descriptionRows[] = ['heading' => '', 'detail' => $line];
+            }
+        }
+        if ($descriptionRows === []) {
+            $descriptionRows = [['heading' => '', 'detail' => '']];
+        }
+    }
 @endphp
 
 <div class="space-y-5"
@@ -30,6 +52,12 @@
         ram: @js(old('ram', $product?->ram ?? '')),
         variantGroup: @js(old('variant_group', $product?->variant_group ?? '')),
         selling: @js(old('selling_price', $product?->selling_price ?? '')),
+        barcodeValue: @js(old('barcode', $product?->barcode ?? '')),
+        barcodeConflict: '',
+        barcodeLookupUrl: @js(route('products.barcode-lookup')),
+        excludeProductId: @js($product?->id ?? 0),
+        _barcodeCheckTimer: null,
+        descriptionRows: @js(collect($descriptionRows)->values()->all()),
         autoGroup: true,
         productMode: @js(old('product_mode', $isEdit ? 'simple' : '')),
         requiresImei: @js((bool) old('requires_imei', $product?->requires_imei ?? false)),
@@ -116,10 +144,84 @@
         get hasMode() { return {{ $isEdit ? 'true' : 'false' }} || this.productMode === 'simple' || this.productMode === 'gadget'; },
         get isMulti() { return this.productMode === 'gadget'; },
         get isSimple() { return this.productMode === 'simple' || {{ $isEdit ? 'true' : 'false' }}; },
+        get descriptionSerialized() {
+            return (this.descriptionRows || [])
+                .map(r => {
+                    const h = String(r.heading || '').trim();
+                    const d = String(r.detail || '').trim();
+                    if (!h && !d) return '';
+                    if (!h) return d;
+                    return h + ' | ' + d;
+                })
+                .filter(Boolean)
+                .join('\n');
+        },
         chooseMode(mode) {
             this.productMode = mode;
             this.syncGroup();
             this.$nextTick(() => document.getElementById('product_name_input')?.focus());
+        },
+        addDescriptionRow() {
+            this.descriptionRows.push({ heading: '', detail: '' });
+        },
+        removeDescriptionRow(i) {
+            if ((this.descriptionRows || []).length <= 1) {
+                this.descriptionRows = [{ heading: '', detail: '' }];
+                return;
+            }
+            this.descriptionRows.splice(i, 1);
+        },
+        onBarcodeScanned(event) {
+            const raw = (event?.target?.value ?? this.barcodeValue ?? '').trim();
+            this.barcodeValue = raw;
+            if (event?.target) event.target.value = raw;
+            this.checkBarcodeConflict(raw);
+        },
+        onBarcodeInput(event) {
+            this.barcodeValue = event?.target?.value ?? this.barcodeValue;
+            clearTimeout(this._barcodeCheckTimer);
+            this._barcodeCheckTimer = setTimeout(() => this.checkBarcodeConflict(this.barcodeValue), 250);
+        },
+        async checkBarcodeConflict(code) {
+            const barcode = String(code || '').trim();
+            if (!barcode) {
+                this.barcodeConflict = '';
+                return;
+            }
+            try {
+                const url = new URL(this.barcodeLookupUrl, window.location.origin);
+                url.searchParams.set('barcode', barcode);
+                if (this.excludeProductId) url.searchParams.set('exclude_id', this.excludeProductId);
+                const res = await fetch(url.toString(), {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.found && data.product) {
+                    this.barcodeConflict = 'Already used by “' + data.product.name + '” (#' + data.product.id + '). Scan writes the code here — pick a unique barcode to save.';
+                } else {
+                    this.barcodeConflict = '';
+                }
+            } catch (e) {}
+        },
+        async onVariantBarcodeInput(index) {
+            const row = this.variants[index];
+            if (!row) return;
+            const barcode = String(row.barcode || '').trim();
+            row._conflict = '';
+            if (!barcode) return;
+            try {
+                const url = new URL(this.barcodeLookupUrl, window.location.origin);
+                url.searchParams.set('barcode', barcode);
+                const res = await fetch(url.toString(), {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.found && data.product) {
+                    row._conflict = 'Already used by “' + data.product.name + '”.';
+                }
+            } catch (e) {}
         },
         slugify(s) {
             return String(s || '').toLowerCase().trim()
@@ -431,12 +533,18 @@
                 </div>
                 <div x-show="isSimple">
                     <label class="block text-xs font-semibold text-slate-600 mb-1.5">Barcode <span class="text-red-500">*</span></label>
-                    <input type="text" name="barcode" value="{{ old('barcode', $product?->barcode ?? '') }}"
+                    <input type="text" name="barcode" x-model="barcodeValue" x-ref="barcodeInput"
                            :required="isSimple"
                            :disabled="isMulti"
+                           autocomplete="off"
+                           autocorrect="off"
+                           spellcheck="false"
                            class="block w-full rounded-lg border-slate-200 bg-white focus:border-blue-500 focus:ring-blue-500 text-sm py-2.5 font-mono"
-                           placeholder="Unique barcode / product code…">
-                    <p class="text-[11px] text-slate-400 mt-1">Unique code for this item (like AGL7373).</p>
+                           :placeholder="barcodeValue ? barcodeValue : 'Scan or type unique barcode…'"
+                           @input="onBarcodeInput($event)"
+                           @keydown.enter.prevent="onBarcodeScanned($event)">
+                    <p class="text-[11px] text-slate-400 mt-1">Scan with a barcode gun — the code appears in this field. Must be unique.</p>
+                    <p class="text-amber-600 text-xs mt-1" x-show="barcodeConflict" x-text="barcodeConflict" x-cloak></p>
                     @error('barcode') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
             </div>
@@ -637,8 +745,12 @@
                             <div class="lg:col-span-2">
                                 <label class="block text-[10px] font-semibold text-slate-500 mb-1">Barcode *</label>
                                 <input type="text" :name="'variants['+index+'][barcode]'" x-model="row.barcode"
+                                       autocomplete="off" spellcheck="false"
                                        class="block w-full rounded-md border-slate-200 text-sm py-2 font-mono"
-                                       placeholder="e.g. CAB-BK-01">
+                                       :placeholder="row.barcode ? row.barcode : 'Scan barcode…'"
+                                       @input.debounce.250ms="onVariantBarcodeInput(index)"
+                                       @keydown.enter.prevent="row.barcode = String(row.barcode || '').trim(); onVariantBarcodeInput(index)">
+                                <p class="text-[10px] text-amber-600 mt-0.5" x-show="row._conflict" x-text="row._conflict" x-cloak></p>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-semibold text-slate-500 mb-1">Color</label>
@@ -712,14 +824,47 @@
     <section class="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/80">
             <h3 class="text-sm font-semibold text-slate-800">{{ $isEdit ? '6' : '7' }}. Store description & visibility</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Shown under Description on the product page.</p>
+            <p class="text-xs text-slate-500 mt-0.5">Add rows as a form — storefront shows them as a table (heading | detail).</p>
         </div>
         <div class="p-4 space-y-4">
             <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1.5">Short description</label>
-                <textarea name="short_description" rows="4"
-                          class="block w-full rounded-lg border-slate-200 text-sm"
-                          placeholder="About this item — features, condition, what’s included…">{{ old('short_description', $product?->short_description ?? '') }}</textarea>
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <label class="block text-xs font-semibold text-slate-600">Description rows</label>
+                    <button type="button" @click="addDescriptionRow()"
+                            class="text-xs font-semibold text-blue-700 hover:text-blue-800 px-2 py-1 rounded-md border border-blue-200 bg-blue-50">
+                        + Add row
+                    </button>
+                </div>
+                <input type="hidden" name="short_description" :value="descriptionSerialized">
+                <div class="rounded-lg border border-slate-200 overflow-hidden">
+                    <div class="grid grid-cols-12 gap-0 bg-slate-50 border-b border-slate-200 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                        <div class="col-span-4 px-3 py-2">Heading</div>
+                        <div class="col-span-7 px-3 py-2">Description</div>
+                        <div class="col-span-1 px-2 py-2"></div>
+                    </div>
+                    <template x-for="(row, index) in descriptionRows" :key="'desc-'+index">
+                        <div class="grid grid-cols-12 gap-0 border-b border-slate-100 last:border-0 items-stretch">
+                            <div class="col-span-4 p-1.5">
+                                <input type="text" x-model="row.heading"
+                                       :name="'description_rows['+index+'][heading]'"
+                                       class="block w-full rounded-md border-slate-200 text-sm py-2"
+                                       placeholder="e.g. Display">
+                            </div>
+                            <div class="col-span-7 p-1.5">
+                                <input type="text" x-model="row.detail"
+                                       :name="'description_rows['+index+'][detail]'"
+                                       class="block w-full rounded-md border-slate-200 text-sm py-2"
+                                       placeholder="e.g. 6.1&quot; OLED">
+                            </div>
+                            <div class="col-span-1 p-1.5 flex items-center justify-center">
+                                <button type="button" @click="removeDescriptionRow(index)"
+                                        class="text-slate-400 hover:text-red-600 text-lg leading-none" title="Remove row">&times;</button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1.5">Left column = heading, right column = detail. Shown as a table on the product page.</p>
+                @error('short_description') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
 
             <div class="flex flex-wrap gap-4">
