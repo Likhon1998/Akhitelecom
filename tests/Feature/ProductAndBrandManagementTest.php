@@ -80,7 +80,7 @@ class ProductAndBrandManagementTest extends TestCase
     {
         $product = $this->makeProduct();
 
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->delete(route('products.destroy', $product))
             ->assertRedirect(route('products.index'))
             ->assertSessionHas('success');
@@ -93,7 +93,7 @@ class ProductAndBrandManagementTest extends TestCase
         $product = $this->makeProduct(['barcode' => 'SOLD-123']);
         $item = $this->sellProduct($product);
 
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->delete(route('products.destroy', $product))
             ->assertRedirect(route('products.index'))
             ->assertSessionHas('success');
@@ -113,7 +113,7 @@ class ProductAndBrandManagementTest extends TestCase
 
     public function test_brand_can_be_created_without_logo(): void
     {
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->post(route('brands.store'), ['name' => 'Walton', 'is_active' => 1])
             ->assertRedirect(route('brands.index'));
 
@@ -122,7 +122,7 @@ class ProductAndBrandManagementTest extends TestCase
 
     public function test_brand_can_be_created_from_product_form_quick_add(): void
     {
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->postJson(route('brands.store'), ['name' => 'Symphony', 'is_active' => true])
             ->assertOk()
             ->assertJsonPath('brand.name', 'Symphony');
@@ -151,7 +151,7 @@ class ProductAndBrandManagementTest extends TestCase
 
     public function test_brand_can_be_created_with_large_photo_logo(): void
     {
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->post(route('brands.store'), [
                 'name' => 'Realme',
                 'is_active' => 1,
@@ -169,7 +169,7 @@ class ProductAndBrandManagementTest extends TestCase
 
     public function test_black_logo_on_transparent_background_is_kept(): void
     {
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->post(route('brands.store'), [
                 'name' => 'Sony',
                 'is_active' => 1,
@@ -189,7 +189,7 @@ class ProductAndBrandManagementTest extends TestCase
     public function test_brand_logo_that_cannot_be_processed_still_saves_brand(): void
     {
         // A solid black image has no "content" pixels for the auto-cropper.
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->post(route('brands.store'), [
                 'name' => 'Itel',
                 'is_active' => 1,
@@ -206,7 +206,7 @@ class ProductAndBrandManagementTest extends TestCase
     {
         $brand = Brand::create(['shop_id' => $this->shop->id, 'name' => 'Vivo', 'is_active' => true]);
 
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->put(route('brands.update', $brand), [
                 'name' => 'Vivo',
                 'is_active' => 1,
@@ -225,7 +225,7 @@ class ProductAndBrandManagementTest extends TestCase
         $this->sellProduct($product);
         $product->archive();
 
-        $this->actingAs($this->admin);
+        $this->actingAs($this->admin, 'admin');
         app(\App\Services\StockService::class)->apply($product, 'in', 1, 'REFUND-1', 'return');
 
         $this->assertSame(6, Product::withTrashed()->find($product->id)->stock_quantity);
@@ -233,15 +233,15 @@ class ProductAndBrandManagementTest extends TestCase
 
     private function createGadgetWithSharedPhotos(): array
     {
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->post(route('products.store'), [
                 'product_mode' => 'gadget',
                 'name' => 'Redmi Note 13',
                 'cost_price' => 18000,
                 'selling_price' => 21000,
                 'variants' => [
-                    ['barcode' => 'RN13-BLK', 'color' => 'Black', 'stock_quantity' => ''],
-                    ['barcode' => 'RN13-BLU', 'color' => 'Blue', 'stock_quantity' => ''],
+                    ['barcode' => 'RN13-BLK', 'color' => 'Black', 'cost_price' => 18000, 'selling_price' => 21000, 'stock_quantity' => ''],
+                    ['barcode' => 'RN13-BLU', 'color' => 'Blue', 'cost_price' => 18000, 'selling_price' => 21500, 'stock_quantity' => ''],
                 ],
                 'images' => [
                     UploadedFile::fake()->image('front.jpg', 600, 600),
@@ -259,7 +259,7 @@ class ProductAndBrandManagementTest extends TestCase
 
     public function test_simple_product_is_created_with_pictures(): void
     {
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->post(route('products.store'), [
                 'product_mode' => 'simple',
                 'name' => 'Anker Charger',
@@ -295,7 +295,7 @@ class ProductAndBrandManagementTest extends TestCase
         $shared = $blue->imagePaths();
         $this->assertSame($black->imagePaths(), $shared);
 
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->delete(route('products.destroy', $black))
             ->assertRedirect(route('products.index'));
 
@@ -303,7 +303,7 @@ class ProductAndBrandManagementTest extends TestCase
             Storage::disk('public')->assertExists($path);
         }
 
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->delete(route('products.destroy', $blue))
             ->assertRedirect(route('products.index'));
 
@@ -317,7 +317,7 @@ class ProductAndBrandManagementTest extends TestCase
         [$black, $blue] = $this->createGadgetWithSharedPhotos();
         $firstImage = $black->galleryImages()->first();
 
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->put(route('products.update', $black), [
                 'name' => $black->name,
                 'barcode' => $black->barcode,
@@ -346,7 +346,7 @@ class ProductAndBrandManagementTest extends TestCase
         $image = $product->galleryImages()->create(['path' => $path, 'sort_order' => 0]);
         $product->forceFill(['image' => $path])->save();
 
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->put(route('products.update', $product), [
                 'name' => $product->name,
                 'barcode' => $product->barcode,
@@ -362,7 +362,7 @@ class ProductAndBrandManagementTest extends TestCase
 
     public function test_product_with_stock_history_is_archived_not_erased(): void
     {
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->post(route('products.store'), [
                 'product_mode' => 'simple',
                 'name' => 'JBL Go 3',
@@ -393,7 +393,7 @@ class ProductAndBrandManagementTest extends TestCase
 
         $this->assertStringContainsString('/storage/brands/oppo.svg', $brand->logo_url);
 
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->get(route('brands.index'))
             ->assertOk()
             ->assertSee('/storage/brands/oppo.svg', false)
@@ -406,7 +406,7 @@ class ProductAndBrandManagementTest extends TestCase
         $keep = Brand::create(['shop_id' => $this->shop->id, 'name' => 'Tecno', 'logo_path' => $path, 'is_active' => true]);
         $dup = Brand::create(['shop_id' => $this->shop->id, 'name' => 'Tecno Mobile', 'logo_path' => $path, 'is_active' => true]);
 
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->delete(route('brands.destroy', $dup))
             ->assertRedirect(route('brands.index'));
 
@@ -431,7 +431,7 @@ class ProductAndBrandManagementTest extends TestCase
 
     private function imeiUpdate(Product $product, array $imeis, array $extra = []): \Illuminate\Testing\TestResponse
     {
-        return $this->actingAs($this->admin)->put(route('products.update', $product), array_merge([
+        return $this->actingAs($this->admin, 'admin')->put(route('products.update', $product), array_merge([
             'name' => $product->name,
             'barcode' => $product->barcode,
             'cost_price' => 20000,
@@ -446,7 +446,7 @@ class ProductAndBrandManagementTest extends TestCase
     {
         $imeis = ['356938035643801', '356938035643802', '356938035643803', '356938035643804', '356938035643805'];
 
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->post(route('products.store'), [
                 'product_mode' => 'simple',
                 'name' => 'Galaxy A15 — Black / 8GB / 128GB',
@@ -524,7 +524,7 @@ class ProductAndBrandManagementTest extends TestCase
 
     private function postIphone(array $imeis, array $extra = []): \Illuminate\Testing\TestResponse
     {
-        return $this->actingAs($this->admin)->post(route('products.store'), array_merge([
+        return $this->actingAs($this->admin, 'admin')->post(route('products.store'), array_merge([
             'product_mode' => 'simple',
             'name' => 'iPhone 17 Pro Max — Orange / 256GB',
             'barcode' => 'IP17PM-ORG-256',
@@ -580,7 +580,7 @@ class ProductAndBrandManagementTest extends TestCase
 
     public function test_imei_product_never_gets_stock_without_imeis(): void
     {
-        $this->actingAs($this->admin)->post(route('products.store'), [
+        $this->actingAs($this->admin, 'admin')->post(route('products.store'), [
             'product_mode' => 'simple',
             'name' => 'Pixel 9',
             'barcode' => 'PX9',
@@ -605,12 +605,12 @@ class ProductAndBrandManagementTest extends TestCase
             'selling_price' => 199000,
             'requires_imei' => 1,
             'variants' => [
-                ['barcode' => 'IP17-ORG', 'color' => 'Orange', 'stock_quantity' => 3, 'imeis' => $orange],
-                ['barcode' => 'IP17-BLU', 'color' => 'Blue', 'stock_quantity' => 2, 'imeis' => [$blue[0], $orange[0]]],
+                ['barcode' => 'IP17-ORG', 'color' => 'Orange', 'cost_price' => 180000, 'selling_price' => 199000, 'stock_quantity' => 3, 'imeis' => $orange],
+                ['barcode' => 'IP17-BLU', 'color' => 'Blue', 'cost_price' => 180000, 'selling_price' => 199000, 'stock_quantity' => 2, 'imeis' => [$blue[0], $orange[0]]],
             ],
         ];
 
-        $this->actingAs($this->admin)->post(route('products.store'), $payload)->assertSessionHasErrors([
+        $this->actingAs($this->admin, 'admin')->post(route('products.store'), $payload)->assertSessionHasErrors([
             'variants.1.imeis.1' => "Option 2, Phone 2: IMEI {$orange[0]} is already entered for Option 1, Phone 1.",
         ]);
 
@@ -740,7 +740,7 @@ class ProductAndBrandManagementTest extends TestCase
 
     public function test_add_product_page_shows_phone_count_for_imeis(): void
     {
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->get(route('products.create'))
             ->assertOk()
             ->assertSee('Number of phones', false)
@@ -751,7 +751,7 @@ class ProductAndBrandManagementTest extends TestCase
     {
         Brand::create(['shop_id' => $this->shop->id, 'name' => 'Nokia', 'is_active' => true]);
 
-        $this->actingAs($this->admin)
+        $this->actingAs($this->admin, 'admin')
             ->get(route('brands.index'))
             ->assertOk()
             ->assertSee('Nokia');

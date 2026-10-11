@@ -162,8 +162,8 @@ class ProductController extends Controller
             'requires_imei' => 'nullable|boolean',
             'imei_list' => 'nullable|string|max:10000',
             'availability' => 'nullable|in:in_stock,pre_order,up_coming,out_of_stock',
-            'cost_price' => 'required|numeric|min:0',
-            'selling_price' => 'required|numeric|min:0',
+            'cost_price' => $isGadget ? 'nullable|numeric|min:0' : 'required|numeric|min:0',
+            'selling_price' => $isGadget ? 'nullable|numeric|min:0' : 'required|numeric|min:0',
             'pos_discount_type' => 'nullable|in:percent,fixed',
             'pos_discount_value' => 'nullable|numeric|min:0.01|required_with:pos_discount_type',
             'short_description' => 'nullable|string|max:5000',
@@ -194,8 +194,8 @@ class ProductController extends Controller
             $rules['variants.*.color_hex'] = 'nullable|string|max:7';
             $rules['variants.*.ram'] = 'nullable|string|max:40';
             $rules['variants.*.storage'] = 'nullable|string|max:40';
-            $rules['variants.*.cost_price'] = 'nullable|numeric|min:0';
-            $rules['variants.*.selling_price'] = 'nullable|numeric|min:0';
+            $rules['variants.*.cost_price'] = 'required|numeric|min:0';
+            $rules['variants.*.selling_price'] = 'required|numeric|min:0';
             $rules['variants.*.stock_quantity'] = 'nullable|integer|min:0';
             $rules['variants.*.imei_list'] = 'nullable|string|max:10000';
             $rules['variants.*.imeis'] = 'nullable|array|max:500';
@@ -251,15 +251,25 @@ class ProductController extends Controller
         $uploadedPaths = [];
         $requiresImei = $request->boolean('requires_imei');
 
+        if ($isGadget) {
+            $firstVariant = $validated['variants'][0] ?? [];
+            $validated['cost_price'] = $validated['cost_price'] ?? $firstVariant['cost_price'] ?? 0;
+            $validated['selling_price'] = $validated['selling_price'] ?? $firstVariant['selling_price'] ?? 0;
+        }
+
         if (! empty($validated['pos_discount_type'])) {
-            $list = (float) $validated['selling_price'];
-            $offer = $validated['pos_discount_type'] === 'percent'
-                ? $list * (1 - (float) $validated['pos_discount_value'] / 100)
-                : $list - (float) $validated['pos_discount_value'];
-            if ($offer <= 0 || $offer >= $list) {
-                return back()->withErrors([
-                    'pos_discount_value' => 'Discount must leave an offer price below the selling price.',
-                ])->withInput();
+            $sellPrices = $isGadget
+                ? collect($validated['variants'])->pluck('selling_price')->map(fn ($v) => (float) $v)
+                : collect([(float) $validated['selling_price']]);
+            foreach ($sellPrices as $list) {
+                $offer = $validated['pos_discount_type'] === 'percent'
+                    ? $list * (1 - (float) $validated['pos_discount_value'] / 100)
+                    : $list - (float) $validated['pos_discount_value'];
+                if ($offer <= 0 || $offer >= $list) {
+                    return back()->withErrors([
+                        'pos_discount_value' => 'Discount must leave an offer price below every variant selling price.',
+                    ])->withInput();
+                }
             }
         } else {
             $validated['pos_discount_type'] = null;
@@ -331,21 +341,14 @@ class ProductController extends Controller
                 $first = null;
                 $gallerySource = null;
                 foreach ($validated['variants'] as $index => $row) {
-                    $cost = isset($row['cost_price']) && $row['cost_price'] !== '' && $row['cost_price'] !== null
-                        ? (float) $row['cost_price']
-                        : (float) $validated['cost_price'];
-                    $sell = isset($row['selling_price']) && $row['selling_price'] !== '' && $row['selling_price'] !== null
-                        ? (float) $row['selling_price']
-                        : (float) $validated['selling_price'];
-
                     $data = array_merge($shared, [
                         'barcode' => trim($row['barcode']),
                         'color' => $row['color'] ?? null,
                         'color_hex' => $row['color_hex'] ?? null,
                         'storage' => $row['storage'] ?? null,
                         'ram' => $row['ram'] ?? null,
-                        'cost_price' => $cost,
-                        'selling_price' => $sell,
+                        'cost_price' => (float) $row['cost_price'],
+                        'selling_price' => (float) $row['selling_price'],
                         'short_description' => $row['short_description'] ?? null,
                     ]);
                     $data = $this->normalizeVariantFields($data);
@@ -494,8 +497,8 @@ class ProductController extends Controller
             'imeis.*.imei' => 'nullable|string|max:32',
             'imeis.*.imei2' => 'nullable|string|max:32',
             'availability' => 'nullable|in:in_stock,pre_order,up_coming,out_of_stock',
-            'cost_price' => 'required|numeric',
-            'selling_price' => 'required|numeric',
+            'cost_price' => $isVariantEdit ? 'nullable|numeric|min:0' : 'required|numeric|min:0',
+            'selling_price' => $isVariantEdit ? 'nullable|numeric|min:0' : 'required|numeric|min:0',
             'pos_discount_type' => 'nullable|in:percent,fixed',
             'pos_discount_value' => 'nullable|numeric|min:0.01|required_with:pos_discount_type',
             'short_description' => 'nullable|string|max:5000',
@@ -529,8 +532,8 @@ class ProductController extends Controller
             $rules['variants.*.color_hex'] = 'nullable|string|max:7';
             $rules['variants.*.ram'] = 'nullable|string|max:40';
             $rules['variants.*.storage'] = 'nullable|string|max:40';
-            $rules['variants.*.cost_price'] = 'nullable|numeric|min:0';
-            $rules['variants.*.selling_price'] = 'nullable|numeric|min:0';
+            $rules['variants.*.cost_price'] = 'required|numeric|min:0';
+            $rules['variants.*.selling_price'] = 'required|numeric|min:0';
             $rules['variants.*.stock_quantity'] = 'nullable|integer|min:0';
             $rules['variants.*.imeis'] = 'nullable|array|max:500';
             $rules['variants.*.imeis.*'] = 'nullable';
@@ -604,14 +607,25 @@ class ProductController extends Controller
         $data = $this->applyBrandData($data);
         $data = $this->normalizeVariantFields($data);
 
-        if (! empty($data['pos_discount_type']) && isset($data['pos_discount_value'], $data['selling_price'])) {
-            $offer = $data['pos_discount_type'] === 'percent'
-                ? (float) $data['selling_price'] * (1 - (float) $data['pos_discount_value'] / 100)
-                : (float) $data['selling_price'] - (float) $data['pos_discount_value'];
-            if ($offer <= 0 || $offer >= (float) $data['selling_price']) {
-                return back()->withErrors([
-                    'pos_discount_value' => 'Discount must leave an offer price below the selling price.',
-                ])->withInput();
+        if ($isVariantEdit) {
+            $firstVariant = $validated['variants'][0] ?? [];
+            $data['cost_price'] = $data['cost_price'] ?? $firstVariant['cost_price'] ?? $product->cost_price;
+            $data['selling_price'] = $data['selling_price'] ?? $firstVariant['selling_price'] ?? $product->selling_price;
+        }
+
+        if (! empty($data['pos_discount_type']) && isset($data['pos_discount_value'])) {
+            $sellPrices = $isVariantEdit
+                ? collect($validated['variants'])->pluck('selling_price')->map(fn ($v) => (float) $v)
+                : collect([(float) ($data['selling_price'] ?? 0)]);
+            foreach ($sellPrices as $list) {
+                $offer = $data['pos_discount_type'] === 'percent'
+                    ? $list * (1 - (float) $data['pos_discount_value'] / 100)
+                    : $list - (float) $data['pos_discount_value'];
+                if ($offer <= 0 || $offer >= $list) {
+                    return back()->withErrors([
+                        'pos_discount_value' => 'Discount must leave an offer price below every variant selling price.',
+                    ])->withInput();
+                }
             }
         }
 
@@ -768,13 +782,6 @@ class ProductController extends Controller
                 continue;
             }
 
-            $cost = isset($row['cost_price']) && $row['cost_price'] !== '' && $row['cost_price'] !== null
-                ? (float) $row['cost_price']
-                : (float) ($sharedData['cost_price'] ?? $anchor->cost_price);
-            $sell = isset($row['selling_price']) && $row['selling_price'] !== '' && $row['selling_price'] !== null
-                ? (float) $row['selling_price']
-                : (float) ($sharedData['selling_price'] ?? $anchor->selling_price);
-
             $rowData = array_merge($sharedFields, [
                 'shop_id' => $anchor->shop_id,
                 'barcode' => $barcode,
@@ -782,8 +789,8 @@ class ProductController extends Controller
                 'color_hex' => $row['color_hex'] ?? null,
                 'storage' => $row['storage'] ?? null,
                 'ram' => $row['ram'] ?? null,
-                'cost_price' => $cost,
-                'selling_price' => $sell,
+                'cost_price' => (float) $row['cost_price'],
+                'selling_price' => (float) $row['selling_price'],
             ]);
             if (array_key_exists('short_description', $row)) {
                 $rowData['short_description'] = $row['short_description'] ?: null;

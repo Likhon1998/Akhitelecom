@@ -248,8 +248,8 @@
                     color_hex: this.colorHex || '#2563eb',
                     ram: this.ram || '',
                     storage: this.storage || '',
-                    cost_price: '',
-                    selling_price: '',
+                    cost_price: document.querySelector('input[name=cost_price]:not([disabled])')?.value || '',
+                    selling_price: this.selling || '',
                     stock_quantity: this.currentStock || 0,
                     imeis: (this.imeis || []).map((p) => ({ imei: p.imei || '', imei2: p.imei2 ?? null })),
                     description_rows: this.cloneDescriptionRows(this.descriptionRows),
@@ -711,30 +711,32 @@
         </div>
     </section>
 
-    {{-- Pricing --}}
+    {{-- Pricing (simple) / shared discount (variants) --}}
     <section class="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/80">
-            <h3 class="text-sm font-semibold text-slate-800">{{ $isEdit ? '4' : '5' }}. Pricing</h3>
+            <h3 class="text-sm font-semibold text-slate-800">{{ $isEdit ? '4' : '5' }}. <span x-text="isMulti ? 'Discount' : 'Pricing'"></span></h3>
             <p class="text-xs text-slate-500 mt-0.5">
                 <span x-show="isSimple">Cost &amp; selling price for this item.</span>
-                <span x-show="isMulti" x-cloak>Default price for all variants. You can override per color/option below.</span>
+                <span x-show="isMulti" x-cloak>Set cost &amp; selling on each color/storage option below. Optional discount here applies to the whole family.</span>
             </p>
         </div>
-        <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4" x-show="isSimple">
             <div>
                 <label class="block text-xs font-semibold text-slate-600 mb-1.5">Cost price (Tk) <span class="text-red-500">*</span></label>
-                <input type="number" step="0.01" name="cost_price" value="{{ old('cost_price', $product?->cost_price ?? '') }}" required
+                <input type="number" step="0.01" name="cost_price" value="{{ old('cost_price', $product?->cost_price ?? '') }}"
+                       :required="isSimple" :disabled="isMulti"
                        class="block w-full rounded-lg border-slate-200 text-sm py-2.5">
                 @error('cost_price') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-600 mb-1.5">Selling price (Tk) <span class="text-red-500">*</span></label>
-                <input type="number" step="0.01" name="selling_price" x-model="selling" value="{{ old('selling_price', $product?->selling_price ?? '') }}" required
+                <input type="number" step="0.01" name="selling_price" x-model="selling" value="{{ old('selling_price', $product?->selling_price ?? '') }}"
+                       :required="isSimple" :disabled="isMulti"
                        class="block w-full rounded-lg border-slate-200 text-sm py-2.5 font-medium text-blue-600">
                 @error('selling_price') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
         </div>
-        <div class="px-4 pb-4" x-data="{
+        <div class="px-4 pb-4" :class="isSimple ? '' : 'pt-4'" x-data="{
             dtype: @js(old('pos_discount_type', $product?->pos_discount_type ?? '')),
             dval: @js(old('pos_discount_value', $product?->pos_discount_value ?? '')),
         }">
@@ -898,7 +900,7 @@
                 @if($isEdit)
                 <div class="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-[12px] text-amber-900">
                     Edit every option here. Shared name, brand and visibility apply to the whole family.
-                    Stock and description are separate per option (shoppers see that option’s qty &amp; text when they switch).
+                    Price, stock and description are separate per option (shoppers see that option’s price/qty/text when they switch).
                     Removing an option archives it (barcode freed for reuse).
                 </div>
                 @endif
@@ -947,16 +949,16 @@
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             <div>
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-1">Cost (Tk)</label>
-                                <input type="number" step="0.01" min="0" :name="'variants['+index+'][cost_price]'" x-model="row.cost_price"
+                                <label class="block text-[10px] font-semibold text-slate-500 mb-1">Cost (Tk) <span class="text-red-500">*</span></label>
+                                <input type="number" step="0.01" min="0" required :name="'variants['+index+'][cost_price]'" x-model="row.cost_price"
                                        class="block w-full rounded-md border-slate-200 text-sm py-2"
-                                       placeholder="Same as default">
+                                       placeholder="This option’s cost">
                             </div>
                             <div>
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-1">Selling (Tk)</label>
-                                <input type="number" step="0.01" min="0" :name="'variants['+index+'][selling_price]'" x-model="row.selling_price"
+                                <label class="block text-[10px] font-semibold text-slate-500 mb-1">Selling (Tk) <span class="text-red-500">*</span></label>
+                                <input type="number" step="0.01" min="0" required :name="'variants['+index+'][selling_price]'" x-model="row.selling_price"
                                        class="block w-full rounded-md border-slate-200 text-sm py-2 font-medium text-blue-700"
-                                       :placeholder="selling ? ('Default Tk ' + selling) : 'Same as default'">
+                                       placeholder="This option’s price">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-semibold text-slate-500 mb-1"

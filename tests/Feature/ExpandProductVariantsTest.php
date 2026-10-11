@@ -193,6 +193,7 @@ class ExpandProductVariantsTest extends TestCase
             ],
         ]);
 
+        $response->assertSessionHasNoErrors();
         $response->assertRedirect(route('products.index'));
 
         $black->refresh();
@@ -241,6 +242,8 @@ class ExpandProductVariantsTest extends TestCase
                         'color_hex' => '#111111',
                         'storage' => '128GB',
                         'stock_quantity' => 1,
+                        'cost_price' => 90000,
+                        'selling_price' => 120000,
                         'description_rows' => [
                             ['heading' => 'Storage', 'detail' => '128 GB'],
                             ['heading' => 'Finish', 'detail' => 'Black titanium'],
@@ -252,6 +255,8 @@ class ExpandProductVariantsTest extends TestCase
                         'color_hex' => '#2563eb',
                         'storage' => '256GB',
                         'stock_quantity' => 1,
+                        'cost_price' => 95000,
+                        'selling_price' => 130000,
                         'description_rows' => [
                             ['heading' => 'Storage', 'detail' => '256 GB'],
                             ['heading' => 'Finish', 'detail' => 'Ultramarine'],
@@ -270,14 +275,14 @@ class ExpandProductVariantsTest extends TestCase
         $this->assertStringContainsString('256 GB', (string) $blue->short_description);
         $this->assertStringContainsString('Ultramarine', (string) $blue->short_description);
         $this->assertNotSame($black->short_description, $blue->short_description);
+        $this->assertEquals(120000, (float) $black->selling_price);
+        $this->assertEquals(130000, (float) $blue->selling_price);
 
         $this->actingAs($user, 'admin')
             ->put(route('products.update', $black), [
                 'product_mode' => 'gadget',
                 'name' => 'iPhone 16',
                 'variant_group' => 'iphone-16',
-                'cost_price' => 90000,
-                'selling_price' => 120000,
                 'category_id' => $category->id,
                 'brand_id' => $brand->id,
                 'is_published' => 1,
@@ -286,6 +291,8 @@ class ExpandProductVariantsTest extends TestCase
                         'id' => $black->id,
                         'barcode' => 'IP16-BLK-128',
                         'color' => 'Black',
+                        'cost_price' => 90000,
+                        'selling_price' => 120000,
                         'description_rows' => [
                             ['heading' => 'Storage', 'detail' => '128 GB updated'],
                         ],
@@ -294,6 +301,8 @@ class ExpandProductVariantsTest extends TestCase
                         'id' => $blue->id,
                         'barcode' => 'IP16-BLU-256',
                         'color' => 'Blue',
+                        'cost_price' => 95000,
+                        'selling_price' => 130000,
                         'description_rows' => [
                             ['heading' => 'Storage', 'detail' => '256 GB kept'],
                         ],
@@ -374,12 +383,16 @@ class ExpandProductVariantsTest extends TestCase
                         'id' => $black->id,
                         'barcode' => 'CABLE-BLK',
                         'color' => 'Black',
+                        'cost_price' => 100,
+                        'selling_price' => 200,
                         'stock_quantity' => 12,
                     ],
                     [
                         'id' => $white->id,
                         'barcode' => 'CABLE-WHT',
                         'color' => 'White',
+                        'cost_price' => 110,
+                        'selling_price' => 220,
                         'stock_quantity' => 3,
                     ],
                 ],
@@ -391,5 +404,7 @@ class ExpandProductVariantsTest extends TestCase
         $white->refresh();
         $this->assertSame(12, (int) $black->stock_quantity);
         $this->assertSame(3, (int) $white->stock_quantity);
+        $this->assertEquals(200, (float) $black->selling_price);
+        $this->assertEquals(220, (float) $white->selling_price);
     }
 }
