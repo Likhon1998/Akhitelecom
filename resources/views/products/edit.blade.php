@@ -24,7 +24,10 @@
             @csrf
             @method('PUT')
 
-            @include('products.partials.form-fields', ['product' => $product])
+            @include('products.partials.form-fields', [
+                'product' => $product,
+                'familyProducts' => $familyProducts ?? collect([$product]),
+            ])
 
             <div class="mt-5 flex items-center justify-end gap-2 sticky bottom-0 bg-[#F4F6FB]/95 backdrop-blur py-3 border-t border-slate-200/80">
                 <a href="{{ route('products.index') }}" class="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</a>

@@ -2,37 +2,69 @@
 @php
     $product = $product ?? null;
     $isEdit = $product !== null;
-    $siblingVariants = collect($siblingVariants ?? []);
-    $defaultVariants = old('variants', [
-        ['barcode' => '', 'color' => 'Black', 'color_hex' => '#1e293b', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 10, 'imeis' => []],
-        ['barcode' => '', 'color' => 'White', 'color_hex' => '#f8fafc', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 10, 'imeis' => []],
-        ['barcode' => '', 'color' => 'Red', 'color_hex' => '#dc2626', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 5, 'imeis' => []],
-    ]);
+    $familyProducts = collect($familyProducts ?? ($product ? [$product] : []));
+    $isExistingFamily = $isEdit && filled($product?->variant_group) && $familyProducts->count() > 1;
     $toPhone = fn ($v) => is_array($v)
         ? ['imei' => (string) ($v['imei'] ?? ''), 'imei2' => array_key_exists('imei2', $v) ? (string) $v['imei2'] : null]
         : ['imei' => (string) $v, 'imei2' => null];
+
+    $mapFamilyToVariants = function ($members) use ($toPhone) {
+        return collect($members)->values()->map(function ($p, $i) use ($toPhone) {
+            $imeis = $p->relationLoaded('availableImeis')
+                ? $p->availableImeis->map(fn ($r) => ['imei' => $r->imei, 'imei2' => $r->imei_2])->all()
+                : $p->availableImeis()->get(['imei', 'imei_2'])->map(fn ($r) => ['imei' => $r->imei, 'imei2' => $r->imei_2])->all();
+
+            return [
+                'id' => $p->id,
+                'barcode' => $p->displayBarcode(),
+                'color' => $p->color ?? '',
+                'color_hex' => $p->color_hex ?: '#2563eb',
+                'ram' => $p->ram ?? '',
+                'storage' => $p->storage ?? '',
+                'cost_price' => $p->cost_price,
+                'selling_price' => $p->selling_price,
+                'stock_quantity' => (int) $p->stock_quantity,
+                'imeis' => array_map($toPhone, $imeis),
+                '_key' => 'v'.($i + 1),
+            ];
+        })->all();
+    };
+
+    $oldVariants = old('variants');
+    if (is_array($oldVariants)) {
+        $defaultVariants = [];
+        foreach (array_values($oldVariants) as $i => $row) {
+            $defaultVariants[] = array_merge([
+                'id' => null, 'barcode' => '', 'color' => '', 'color_hex' => '#2563eb', 'ram' => '', 'storage' => '',
+                'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 1, 'imeis' => [],
+            ], is_array($row) ? $row : [], ['_key' => 'v'.($i + 1)]);
+            $defaultVariants[$i]['imeis'] = array_map($toPhone, array_values((array) ($defaultVariants[$i]['imeis'] ?? [])));
+        }
+    } elseif ($isEdit && ($isExistingFamily || old('product_mode') === 'gadget')) {
+        $defaultVariants = $mapFamilyToVariants($familyProducts->isNotEmpty() ? $familyProducts : collect([$product]));
+    } elseif ($isEdit) {
+        // Seed for convert-to-variant (used when user switches mode client-side)
+        $defaultVariants = $mapFamilyToVariants(collect([$product]));
+    } else {
+        $defaultVariants = [
+            ['id' => null, 'barcode' => '', 'color' => 'Black', 'color_hex' => '#1e293b', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 10, 'imeis' => []],
+            ['id' => null, 'barcode' => '', 'color' => 'White', 'color_hex' => '#f8fafc', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 10, 'imeis' => []],
+            ['id' => null, 'barcode' => '', 'color' => 'Red', 'color_hex' => '#dc2626', 'ram' => '', 'storage' => '', 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 5, 'imeis' => []],
+        ];
+    }
+
+    $editDefaultMode = old('product_mode', $isExistingFamily ? 'gadget' : 'simple');
+
     $initialImeis = old('imeis') !== null
         ? array_map($toPhone, array_values((array) old('imeis')))
         : (($isEdit && $product)
             ? $product->availableImeis()->get(['imei', 'imei_2'])->map(fn ($r) => ['imei' => $r->imei, 'imei2' => $r->imei_2])->all()
             : []);
     $imeiErrors = collect($errors->getMessages())
-        ->filter(fn ($messages, $key) => preg_match('/^(imeis|variants\.\d+\.imeis|new_variants\.\d+\.imeis)\.\d+(\.imei2)?$/', $key))
+        ->filter(fn ($messages, $key) => preg_match('/^(imeis|variants\.\d+\.imeis)\.\d+(\.imei2)?$/', $key))
         ->map(fn ($messages) => $messages[0])
         ->all();
-
-    $oldNewVariants = old('new_variants');
-    $defaultNewVariants = [];
-    if (is_array($oldNewVariants)) {
-        foreach (array_values($oldNewVariants) as $i => $row) {
-            $defaultNewVariants[] = array_merge([
-                'barcode' => '', 'color' => '', 'color_hex' => '#2563eb', 'ram' => '', 'storage' => '',
-                'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 1, 'imeis' => [],
-            ], is_array($row) ? $row : [], ['_key' => 'nv'.($i + 1)]);
-            $defaultNewVariants[$i]['imeis'] = array_map($toPhone, array_values((array) ($defaultNewVariants[$i]['imeis'] ?? [])));
-        }
-    }
-    $expandVariantsDefault = (bool) old('expand_variants', $defaultNewVariants !== [] || $siblingVariants->isNotEmpty());
+    $removedVariantIds = array_values(array_map('intval', (array) old('removed_variant_ids', [])));
 
     $rawDescription = old('short_description', $product?->short_description ?? '');
     $descriptionRows = old('description_rows');
@@ -63,20 +95,22 @@
         excludeProductId: @js($product?->id ?? 0),
         _barcodeCheckTimer: null,
         descriptionRows: @js(collect($descriptionRows)->values()->all()),
-        autoGroup: true,
-        productMode: @js(old('product_mode', $isEdit ? 'simple' : '')),
-        expandVariants: @js($expandVariantsDefault),
+        autoGroup: @js(! ($isEdit && filled($product?->variant_group))),
+        productMode: @js($isEdit ? $editDefaultMode : old('product_mode', '')),
+        removedVariantIds: @js($removedVariantIds),
         requiresImei: @js((bool) old('requires_imei', $product?->requires_imei ?? false)),
         openingQty: @js((int) old('stock_quantity', 0)),
         currentStock: @js((int) ($product?->stock_quantity ?? 0)),
         imeis: @js($initialImeis),
         imeiErrors: @js((object) $imeiErrors),
-        variantUid: {{ count($defaultVariants) }},
-        newVariantUid: {{ max(count($defaultNewVariants), 0) }},
+        variantUid: {{ max(count($defaultVariants), 1) }},
         variants: @js(collect($defaultVariants)->values()->map(function ($row, $i) use ($toPhone) {
-            return array_merge($row, ['_key' => 'v'.($i + 1), 'imeis' => array_map($toPhone, array_values((array) ($row['imeis'] ?? [])))]);
+            return array_merge($row, [
+                'id' => $row['id'] ?? null,
+                '_key' => $row['_key'] ?? ('v'.($i + 1)),
+                'imeis' => array_map($toPhone, array_values((array) ($row['imeis'] ?? []))),
+            ]);
         })->all()),
-        newVariants: @js($defaultNewVariants),
         normImei(v) { return String(v ?? '').replace(/\s+/g, ''); },
         resizeImeis(list, n) {
             n = Math.max(0, Math.min(500, parseInt(n) || 0));
@@ -149,9 +183,9 @@
         categoryUrl: @js(route('categories.store')),
         brandUrl: @js(route('brands.store')),
         csrf: @js(csrf_token()),
-        get hasMode() { return {{ $isEdit ? 'true' : 'false' }} || this.productMode === 'simple' || this.productMode === 'gadget'; },
+        get hasMode() { return this.productMode === 'simple' || this.productMode === 'gadget'; },
         get isMulti() { return this.productMode === 'gadget'; },
-        get isSimple() { return {{ $isEdit ? 'true' : 'false' }} || this.productMode === 'simple'; },
+        get isSimple() { return this.productMode === 'simple'; },
         get descriptionSerialized() {
             return (this.descriptionRows || [])
                 .map(r => {
@@ -169,52 +203,33 @@
             this.syncGroup();
             this.$nextTick(() => document.getElementById('product_name_input')?.focus());
         },
-        enableExpandVariants() {
-            this.expandVariants = true;
+        convertToVariantProduct() {
+            this.productMode = 'gadget';
             if (!this.variantGroup) {
                 this.autoGroup = true;
                 this.syncGroup();
             }
-            if ((this.newVariants || []).length === 0) this.addNewVariantRow();
-            this.$nextTick(() => document.querySelector('[data-new-variant-row]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
-        },
-        addNewVariantRow() {
-            this.newVariantUid++;
-            this.newVariants.push({
-                _key: 'nv' + this.newVariantUid,
-                barcode: '', color: '', color_hex: '#2563eb', ram: '', storage: '',
-                cost_price: '', selling_price: '', stock_quantity: 1, imeis: [],
-                _conflict: '',
-            });
-            const row = this.newVariants[this.newVariants.length - 1];
-            if (this.requiresImei) this.resizeImeis(row.imeis, row.stock_quantity);
-        },
-        removeNewVariantRow(i) {
-            this.newVariants.splice(i, 1);
-            if (this.newVariants.length === 0) this.expandVariants = {{ $siblingVariants->isNotEmpty() ? 'true' : 'false' }};
-        },
-        async onNewVariantBarcodeInput(index) {
-            const row = this.newVariants[index];
-            if (!row) return;
-            const barcode = String(row.barcode || '').trim();
-            row._conflict = '';
-            if (!barcode) return;
-            if (barcode === String(this.barcodeValue || '').trim()) {
-                row._conflict = 'Same as this product’s barcode — use a different code.';
-                return;
+            if (!this.variants || this.variants.length === 0) {
+                this.variants = [{
+                    _key: 'v1',
+                    id: this.excludeProductId || null,
+                    barcode: String(this.barcodeValue || ''),
+                    color: this.color || '',
+                    color_hex: this.colorHex || '#2563eb',
+                    ram: this.ram || '',
+                    storage: this.storage || '',
+                    cost_price: '',
+                    selling_price: '',
+                    stock_quantity: this.currentStock || 0,
+                    imeis: (this.imeis || []).map((p) => ({ imei: p.imei || '', imei2: p.imei2 ?? null })),
+                    _conflict: '',
+                }];
+                this.variantUid = 1;
+            } else if (this.variants.length === 1 && !this.variants[0].id && this.excludeProductId) {
+                this.variants[0].id = this.excludeProductId;
+                if (!this.variants[0].barcode) this.variants[0].barcode = String(this.barcodeValue || '');
             }
-            try {
-                const url = new URL(this.barcodeLookupUrl, window.location.origin);
-                url.searchParams.set('barcode', barcode);
-                const res = await fetch(url.toString(), {
-                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                });
-                if (!res.ok) return;
-                const data = await res.json();
-                if (data.found && data.product) {
-                    row._conflict = 'Already used by “' + data.product.name + '”.';
-                }
-            } catch (e) {}
+            this.$nextTick(() => document.querySelector('[data-variant-row]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
         },
         addDescriptionRow() {
             this.descriptionRows.push({ heading: '', detail: '' });
@@ -265,9 +280,15 @@
             const barcode = String(row.barcode || '').trim();
             row._conflict = '';
             if (!barcode) return;
+            const dup = this.variants.some((other, j) => j !== index && String(other.barcode || '').trim() === barcode);
+            if (dup) {
+                row._conflict = 'Same barcode as another option in this form.';
+                return;
+            }
             try {
                 const url = new URL(this.barcodeLookupUrl, window.location.origin);
                 url.searchParams.set('barcode', barcode);
+                if (row.id) url.searchParams.set('exclude_id', row.id);
                 const res = await fetch(url.toString(), {
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 });
@@ -285,7 +306,7 @@
                 .slice(0, 80);
         },
         syncGroup() {
-            if (this.autoGroup && !@js($isEdit && filled($product?->variant_group))) {
+            if (this.autoGroup) {
                 this.variantGroup = this.slugify(this.name);
             }
         },
@@ -295,16 +316,23 @@
         },
         addVariantRow() {
             this.variantUid++;
-            this.variants.push({
+            const row = {
                 _key: 'v' + this.variantUid,
+                id: null,
                 barcode: '', color: '', color_hex: '#2563eb', ram: '', storage: '',
-                cost_price: '', selling_price: '', stock_quantity: 1, imeis: this.requiresImei ? [''] : [],
-                _files: [],
-            });
+                cost_price: '', selling_price: '', stock_quantity: 1, imeis: [],
+                _files: [], _conflict: '',
+            };
+            this.variants.push(row);
+            if (this.requiresImei) this.resizeImeis(row.imeis, row.stock_quantity);
         },
         removeVariantRow(i) {
             if (this.variants.length <= 1) return;
             const row = this.variants[i];
+            if (row?.id) {
+                const id = parseInt(row.id, 10);
+                if (id && !this.removedVariantIds.includes(id)) this.removedVariantIds.push(id);
+            }
             (row._files || []).forEach((f) => { if (f?.url) URL.revokeObjectURL(f.url); });
             this.variants.splice(i, 1);
         },
@@ -465,7 +493,10 @@
         </div>
     </section>
     @else
-        <input type="hidden" name="product_mode" value="simple">
+        <input type="hidden" name="product_mode" :value="productMode">
+        <template x-for="rid in removedVariantIds" :key="'rm-'+rid">
+            <input type="hidden" name="removed_variant_ids[]" :value="rid">
+        </template>
     @endif
 
     <div x-show="hasMode" x-cloak class="space-y-5">
@@ -781,150 +812,47 @@
             </div>
 
             @if($isEdit)
-            <div class="rounded-xl border border-orange-200 bg-orange-50/40 p-4 space-y-3">
-                <input type="hidden" name="expand_variants" :value="expandVariants ? 1 : 0">
+            <div x-show="isSimple" class="rounded-xl border border-orange-200 bg-orange-50/40 p-4 space-y-3">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div class="min-w-0">
-                        <p class="text-sm font-semibold text-slate-800">More colors / options of this product?</p>
+                        <p class="text-sm font-semibold text-slate-800">Need colors / options later?</p>
                         <p class="text-xs text-slate-600 mt-0.5">
-                            Saved as a single item before? When the same brand/model arrives in another color or storage,
-                            add it here — this product stays, and new options join the same store page.
+                            Convert this single product into a multi-variant product. This item becomes the first option;
+                            then add Blue, 256GB, etc. — all share one store page. You can edit every option together.
                         </p>
                     </div>
-                    <button type="button" x-show="!expandVariants" @click="enableExpandVariants()"
+                    <button type="button" @click="convertToVariantProduct()"
                             class="shrink-0 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 px-3 py-2 rounded-lg">
-                        + Add another variant
+                        Convert to variant product
                     </button>
-                </div>
-
-                @if($siblingVariants->isNotEmpty())
-                    <div class="rounded-lg border border-white bg-white/80 px-3 py-2.5">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Already in this family</p>
-                        <div class="flex flex-wrap gap-2">
-                            <span class="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-800">
-                                <span class="h-2.5 w-2.5 rounded-full border border-slate-200" style="background: {{ $product->color_hex ?: '#94a3b8' }}"></span>
-                                This · {{ $product->color ?: 'No color' }}{{ $product->storage ? ' / '.$product->storage : '' }}
-                            </span>
-                            @foreach($siblingVariants as $sib)
-                                <a href="{{ route('products.edit', $sib) }}"
-                                   class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:border-orange-300 hover:bg-orange-50">
-                                    <span class="h-2.5 w-2.5 rounded-full border border-slate-200" style="background: {{ $sib->color_hex ?: '#94a3b8' }}"></span>
-                                    {{ $sib->color ?: 'Option' }}{{ $sib->storage ? ' / '.$sib->storage : '' }}
-                                    <span class="text-slate-400">#{{ $sib->barcode }}</span>
-                                </a>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
-
-                <div x-show="expandVariants" x-cloak class="space-y-3">
-                    <div class="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-[12px] text-amber-900">
-                        Tip: set <strong>color / storage</strong> above for <em>this</em> product (e.g. Black / 128GB),
-                        keep the same <strong>variant group key</strong>, then add each new option below with its own barcode.
-                    </div>
-                    <div class="flex items-center justify-between gap-2">
-                        <p class="text-xs font-semibold text-slate-700">New variants to add</p>
-                        <button type="button" @click="addNewVariantRow()"
-                                class="text-xs font-semibold text-orange-700 hover:text-orange-800 px-2 py-1 rounded-md border border-orange-200 bg-white">
-                            + Another option
-                        </button>
-                    </div>
-                    <template x-for="(row, index) in newVariants" :key="row._key">
-                        <div class="rounded-xl border border-slate-200 p-4 bg-white space-y-3" data-new-variant-row>
-                            <div class="flex items-center justify-between">
-                                <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide" x-text="'New option ' + (index + 1)"></span>
-                                <button type="button" @click="removeNewVariantRow(index)"
-                                        class="text-[11px] text-red-600 hover:text-red-700">Remove</button>
-                            </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
-                                <div class="lg:col-span-2">
-                                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">Barcode *</label>
-                                    <input type="text" :name="'new_variants['+index+'][barcode]'" x-model="row.barcode"
-                                           autocomplete="off" spellcheck="false"
-                                           class="block w-full rounded-md border-slate-200 text-sm py-2 font-mono"
-                                           placeholder="Scan unique barcode…"
-                                           @input.debounce.250ms="onNewVariantBarcodeInput(index)">
-                                    <p class="text-[10px] text-amber-600 mt-0.5" x-show="row._conflict" x-text="row._conflict" x-cloak></p>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">Color</label>
-                                    <input type="text" :name="'new_variants['+index+'][color]'" x-model="row.color"
-                                           class="block w-full rounded-md border-slate-200 text-sm py-2" placeholder="e.g. Blue">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">Swatch</label>
-                                    <input type="color" :name="'new_variants['+index+'][color_hex]'" x-model="row.color_hex"
-                                           class="h-9 w-full rounded-md border border-slate-200 cursor-pointer">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">RAM</label>
-                                    <input type="text" :name="'new_variants['+index+'][ram]'" x-model="row.ram"
-                                           class="block w-full rounded-md border-slate-200 text-sm py-2" placeholder="optional">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">Storage</label>
-                                    <input type="text" :name="'new_variants['+index+'][storage]'" x-model="row.storage"
-                                           class="block w-full rounded-md border-slate-200 text-sm py-2" placeholder="e.g. 256GB">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <div>
-                                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">Cost (Tk)</label>
-                                    <input type="number" step="0.01" min="0" :name="'new_variants['+index+'][cost_price]'" x-model="row.cost_price"
-                                           class="block w-full rounded-md border-slate-200 text-sm py-2" placeholder="Same as this product">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">Selling (Tk)</label>
-                                    <input type="number" step="0.01" min="0" :name="'new_variants['+index+'][selling_price]'" x-model="row.selling_price"
-                                           class="block w-full rounded-md border-slate-200 text-sm py-2 font-medium text-blue-700"
-                                           :placeholder="selling ? ('Default Tk ' + selling) : 'Same as this product'">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">Opening qty</label>
-                                    <input type="number" min="0" :name="'new_variants['+index+'][stock_quantity]'" x-model="row.stock_quantity"
-                                           @input="requiresImei && resizeImeis(row.imeis, row.stock_quantity)"
-                                           class="block w-full rounded-md border-slate-200 text-sm py-2">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-1.5">Pictures for this option (optional)</label>
-                                <input type="file" :name="'new_variants['+index+'][images][]'" multiple
-                                       accept="image/jpeg,image/png,image/webp,image/jpg,image/gif,image/*"
-                                       class="block w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-orange-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-orange-700">
-                                <p class="text-[10px] text-slate-400 mt-1">Leave empty to copy photos from this product.</p>
-                            </div>
-                            <div x-show="requiresImei" class="rounded-lg border border-orange-100 bg-orange-50/40 p-3">
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-1.5">IMEI of each phone for this option</label>
-                                <p class="text-[11px] text-slate-400" x-show="row.imeis.length === 0">Set opening qty above to add phones.</p>
-                                @include('products.partials.imei-rows', [
-                                    'list' => 'row.imeis',
-                                    'name' => "'new_variants['+index+'][imeis]'",
-                                    'errKey' => "'new_variants.'+index+'.imeis.'",
-                                    'owner' => 'row',
-                                    'countKey' => 'stock_quantity',
-                                ])
-                            </div>
-                        </div>
-                    </template>
-                    @error('new_variants') <p class="text-red-500 text-xs">{{ $message }}</p> @enderror
-                    @error('new_variants.*.barcode') <p class="text-red-500 text-xs">{{ $message }}</p> @enderror
                 </div>
             </div>
             @endif
 
-            @if(!$isEdit)
-            <div x-show="isMulti" x-cloak class="space-y-3">
+            <template x-if="isMulti">
+            <div class="space-y-3">
                 <div class="flex items-center justify-between gap-2">
-                    <p class="text-xs font-semibold text-slate-700">Variants <span class="font-normal text-slate-500">(barcode + stock + photos each)</span></p>
+                    <p class="text-xs font-semibold text-slate-700">
+                        Variants
+                        <span class="font-normal text-slate-500">(barcode + stock + photos each)</span>
+                    </p>
                     <button type="button" @click="addVariantRow()"
                             class="text-xs font-semibold text-orange-700 hover:text-orange-800 px-2 py-1 rounded-md border border-orange-200 bg-orange-50">
                         + Add color / option
                     </button>
                 </div>
+                @if($isEdit)
+                <div class="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-[12px] text-amber-900">
+                    Edit every option here. Shared name, brand, description and prices apply to the whole family.
+                    Removing an option archives it (barcode freed for reuse).
+                </div>
+                @endif
                 <template x-for="(row, index) in variants" :key="row._key">
-                    <div class="rounded-xl border border-slate-200 p-4 bg-slate-50/60 space-y-3">
+                    <div class="rounded-xl border border-slate-200 p-4 bg-slate-50/60 space-y-3" data-variant-row>
+                        <input type="hidden" :name="'variants['+index+'][id]'" :value="row.id || ''">
                         <div class="flex items-center justify-between">
-                            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide" x-text="'Option ' + (index + 1)"></span>
+                            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide"
+                                  x-text="(row.id ? 'Option ' : 'New option ') + (index + 1)"></span>
                             <button type="button" @click="removeVariantRow(index)" x-show="variants.length > 1"
                                     class="text-[11px] text-red-600 hover:text-red-700">Remove</button>
                         </div>
@@ -975,27 +903,39 @@
                                        :placeholder="selling ? ('Default Tk ' + selling) : 'Same as default'">
                             </div>
                             <div>
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-1">Opening qty</label>
-                                <input type="number" min="0" :name="'variants['+index+'][stock_quantity]'" x-model="row.stock_quantity"
-                                       @input="requiresImei && resizeImeis(row.imeis, row.stock_quantity)"
-                                       class="block w-full rounded-md border-slate-200 text-sm py-2">
+                                <label class="block text-[10px] font-semibold text-slate-500 mb-1"
+                                       x-text="row.id ? 'Stock (read via IMEI / adjustment)' : 'Opening qty'"></label>
+                                <template x-if="!row.id">
+                                    <input type="number" min="0" :name="'variants['+index+'][stock_quantity]'" x-model="row.stock_quantity"
+                                           @input="requiresImei && resizeImeis(row.imeis, row.stock_quantity)"
+                                           class="block w-full rounded-md border-slate-200 text-sm py-2">
+                                </template>
+                                <template x-if="row.id">
+                                    <div class="block w-full rounded-md border border-slate-200 bg-white text-sm py-2 px-3 text-slate-700"
+                                         x-text="(row.stock_quantity ?? 0) + ' units'"></div>
+                                </template>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-[10px] font-semibold text-slate-500 mb-1.5">Pictures for this color (add as many as you want)</label>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-1.5">
+                                Pictures for this color
+                                @if($isEdit)<span class="font-normal text-slate-400">(optional — leave empty to keep current)</span>@endif
+                            </label>
                             @include('products.partials.variant-image-uploads')
                         </div>
                         <div x-show="requiresImei" class="rounded-lg border border-orange-100 bg-white p-3">
                             <label class="block text-[10px] font-semibold text-slate-500 mb-1.5">
-                                IMEI of each phone <span class="font-normal">(opening qty sets how many phones)</span>
+                                IMEI of each phone
+                                <span class="font-normal" x-show="!row.id">(opening qty sets how many phones)</span>
                             </label>
-                            <p class="text-[11px] text-slate-400" x-show="row.imeis.length === 0">Set the opening qty above to add the phones.</p>
+                            <p class="text-[11px] text-slate-400" x-show="row.imeis.length === 0 && !row.id">Set the opening qty above to add the phones.</p>
                             @include('products.partials.imei-rows', [
                                 'list' => 'row.imeis',
                                 'name' => "'variants['+index+'][imeis]'",
                                 'errKey' => "'variants.'+index+'.imeis.'",
                                 'owner' => 'row',
                                 'countKey' => 'stock_quantity',
+                                'editable' => $isEdit,
                             ])
                         </div>
                     </div>
@@ -1003,7 +943,7 @@
                 @error('variants') <p class="text-red-500 text-xs">{{ $message }}</p> @enderror
                 @error('variants.*.barcode') <p class="text-red-500 text-xs">{{ $message }}</p> @enderror
             </div>
-            @endif
+            </template>
         </div>
     </section>
 

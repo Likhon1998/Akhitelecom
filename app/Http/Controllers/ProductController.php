@@ -447,19 +447,20 @@ class ProductController extends Controller
         $brands = Brand::where('shop_id', $shopId)->orderBy('name')->get();
         $product->load(['galleryImages', 'availableImeis']);
 
-        $siblingVariants = collect();
+        $familyProducts = collect([$product]);
         if (filled($product->variant_group)) {
-            $siblingVariants = Product::query()
+            $familyProducts = Product::query()
                 ->where('shop_id', $shopId)
                 ->where('variant_group', $product->variant_group)
-                ->where('id', '!=', $product->id)
-                ->orderBy('color')
-                ->orderBy('storage')
+                ->with(['availableImeis'])
                 ->orderBy('id')
-                ->get(['id', 'name', 'barcode', 'color', 'color_hex', 'storage', 'ram', 'stock_quantity']);
+                ->get();
+            if ($familyProducts->isEmpty()) {
+                $familyProducts = collect([$product]);
+            }
         }
 
-        return view('products.edit', compact('product', 'categories', 'brands', 'siblingVariants'));
+        return view('products.edit', compact('product', 'categories', 'brands', 'familyProducts'));
     }
 
     public function update(Request $request, Product $product)
@@ -470,9 +471,10 @@ class ProductController extends Controller
 
         $this->mergeDescriptionRowsIntoRequest($request);
 
-        $request->validate([
+        $isVariantEdit = $request->input('product_mode') === 'gadget';
+
+        $rules = [
             'name' => 'required|string|max:255',
-            'barcode' => 'required|string|unique:products,barcode,' . $product->id,
             'sku' => 'nullable|string|max:100',
             'variant_group' => 'nullable|string|max:120',
             'color' => 'nullable|string|max:80',
@@ -507,35 +509,64 @@ class ProductController extends Controller
             'is_new_arrival' => 'nullable|boolean',
             'is_best_seller' => 'nullable|boolean',
             'is_featured' => 'nullable|boolean',
-            'expand_variants' => 'nullable|boolean',
-            'new_variants' => 'nullable|array|max:30',
-            'new_variants.*.barcode' => ['nullable', 'string', 'max:100', Rule::unique('products', 'barcode')],
-            'new_variants.*.color' => 'nullable|string|max:80',
-            'new_variants.*.color_hex' => 'nullable|string|max:7',
-            'new_variants.*.ram' => 'nullable|string|max:40',
-            'new_variants.*.storage' => 'nullable|string|max:40',
-            'new_variants.*.cost_price' => 'nullable|numeric|min:0',
-            'new_variants.*.selling_price' => 'nullable|numeric|min:0',
-            'new_variants.*.stock_quantity' => 'nullable|integer|min:0',
-            'new_variants.*.imeis' => 'nullable|array|max:500',
-            'new_variants.*.imeis.*' => 'nullable',
-            'new_variants.*.imeis.*.imei' => 'nullable|string|max:32',
-            'new_variants.*.imeis.*.imei2' => 'nullable|string|max:32',
-            'new_variants.*.images' => 'nullable|array|max:20',
-            'new_variants.*.images.*' => 'image|mimes:jpeg,png,jpg,webp,gif|max:5120',
-        ]);
+            'product_mode' => 'nullable|in:simple,gadget',
+            'removed_variant_ids' => 'nullable|array',
+            'removed_variant_ids.*' => 'integer',
+        ];
+
+        if ($isVariantEdit) {
+            $rules['barcode'] = 'nullable|string|max:100';
+            $rules['variants'] = 'required|array|min:1';
+            $rules['variants.*.id'] = 'nullable|integer';
+            $rules['variants.*.barcode'] = 'required|string|max:100';
+            $rules['variants.*.color'] = 'nullable|string|max:80';
+            $rules['variants.*.color_hex'] = 'nullable|string|max:7';
+            $rules['variants.*.ram'] = 'nullable|string|max:40';
+            $rules['variants.*.storage'] = 'nullable|string|max:40';
+            $rules['variants.*.cost_price'] = 'nullable|numeric|min:0';
+            $rules['variants.*.selling_price'] = 'nullable|numeric|min:0';
+            $rules['variants.*.stock_quantity'] = 'nullable|integer|min:0';
+            $rules['variants.*.imeis'] = 'nullable|array|max:500';
+            $rules['variants.*.imeis.*'] = 'nullable';
+            $rules['variants.*.imeis.*.imei'] = 'nullable|string|max:32';
+            $rules['variants.*.imeis.*.imei2'] = 'nullable|string|max:32';
+            $rules['variants.*.images'] = 'nullable|array|max:20';
+            $rules['variants.*.images.*'] = 'image|mimes:jpeg,png,jpg,webp,gif|max:5120';
+        } else {
+            $rules['barcode'] = 'required|string|unique:products,barcode,'.$product->id;
+        }
+
+        $validated = $request->validate($rules);
+
+        if ($isVariantEdit) {
+            $barcodes = collect($validated['variants'])->pluck('barcode')->map(fn ($b) => trim((string) $b));
+            if ($barcodes->filter()->count() !== $barcodes->unique()->count()) {
+                return back()->withErrors(['variants' => 'Each variant must have a unique barcode.'])->withInput();
+            }
+            foreach ($validated['variants'] as $i => $row) {
+                $barcode = trim((string) $row['barcode']);
+                $ignoreId = (int) ($row['id'] ?? 0) ?: null;
+                $exists = Product::query()
+                    ->where('barcode', $barcode)
+                    ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                    ->exists();
+                if ($exists) {
+                    return back()->withErrors(["variants.$i.barcode" => "Barcode {$barcode} is already used."])->withInput();
+                }
+            }
+        }
 
         $data = $request->except([
             'image', 'image_2', 'image_3', 'images', 'remove_images', 'stock_quantity',
             'remove_image', 'remove_image_2', 'remove_image_3',
             'is_published', 'is_new_arrival', 'is_best_seller', 'is_featured',
-            'product_mode', 'imei_list', 'imeis', 'variants',
+            'product_mode', 'imei_list', 'imeis', 'variants', 'removed_variant_ids',
             'expand_variants', 'new_variants',
         ]);
 
         $imeiList = (string) $request->input('imei_list', '');
         $imeiRows = null;
-        if ($request->boolean('requires_imei') && $request->has('imeis')) {
+        if (! $isVariantEdit && $request->boolean('requires_imei') && $request->has('imeis')) {
             $seen = [];
             $imeiErrors = [];
             $imeiRows = $this->collectImeiRows(
@@ -573,21 +604,7 @@ class ProductController extends Controller
         $uploadedPaths = [];
         $removedPaths = [];
         $stockSyncedTo = null;
-        $addedVariantCount = 0;
-
-        $newVariantRows = collect($request->input('new_variants', []))
-            ->filter(fn ($row) => is_array($row) && trim((string) ($row['barcode'] ?? '')) !== '')
-            ->values();
-
-        if ($newVariantRows->isNotEmpty()) {
-            $barcodes = $newVariantRows->pluck('barcode')->map(fn ($b) => trim((string) $b));
-            if ($barcodes->count() !== $barcodes->unique()->count()) {
-                return back()->withErrors(['new_variants' => 'Each new variant must have a unique barcode.'])->withInput();
-            }
-            if ($barcodes->contains(trim((string) $request->input('barcode')))) {
-                return back()->withErrors(['new_variants' => 'A new variant barcode matches this product’s barcode.'])->withInput();
-            }
-        }
+        $familyCount = 1;
 
         try {
             DB::transaction(function () use (
@@ -596,21 +613,25 @@ class ProductController extends Controller
                 $data,
                 $imeiList,
                 $imeiRows,
-                $newVariantRows,
+                $isVariantEdit,
+                $validated,
                 &$uploadedPaths,
                 &$removedPaths,
                 &$stockSyncedTo,
-                &$addedVariantCount
+                &$familyCount
             ) {
-                // When adding siblings, ensure this product joins a variant family.
-                if ($newVariantRows->isNotEmpty()) {
-                    $group = trim((string) ($data['variant_group'] ?? $product->variant_group ?? ''));
-                    if ($group === '') {
-                        $group = $this->normalizeVariantFields([
-                            'variant_group' => $data['name'] ?? $product->name,
-                        ])['variant_group'] ?? null;
-                    }
-                    $data['variant_group'] = $group;
+                if ($isVariantEdit) {
+                    $familyCount = $this->syncVariantFamilyEdit(
+                        $request,
+                        $product,
+                        $data,
+                        $validated['variants'],
+                        (array) $request->input('removed_variant_ids', []),
+                        $uploadedPaths,
+                        $removedPaths
+                    );
+
+                    return;
                 }
 
                 $product->update($data);
@@ -628,16 +649,6 @@ class ProductController extends Controller
                     if ($before !== $after) {
                         $stockSyncedTo = $this->syncStockToImeiCount($product, count($after));
                     }
-                }
-
-                if ($newVariantRows->isNotEmpty()) {
-                    $created = $this->createSiblingVariants(
-                        $request,
-                        $product->fresh(['galleryImages']),
-                        $newVariantRows->all(),
-                        $uploadedPaths
-                    );
-                    $addedVariantCount = count($created);
                 }
             });
         } catch (\Throwable $e) {
@@ -662,10 +673,10 @@ class ProductController extends Controller
 
         Product::deleteUnusedImageFiles($removedPaths);
 
-        if ($addedVariantCount > 0) {
-            $message = $addedVariantCount === 1
-                ? 'Product updated and 1 new variant added to the same product family.'
-                : "Product updated and {$addedVariantCount} new variants added to the same product family.";
+        if ($isVariantEdit) {
+            $message = $familyCount > 1
+                ? "Variant product saved with {$familyCount} options (same store page)."
+                : 'Product converted to variant mode. Add more colors/options anytime.';
         } elseif ($stockSyncedTo !== null) {
             $message = "Product updated. Stock set to {$stockSyncedTo} to match the available IMEI list.";
         } else {
@@ -676,26 +687,63 @@ class ProductController extends Controller
     }
 
     /**
-     * Turn a previously-simple product into a variant family by creating siblings
-     * that share name/brand/category/description and the same variant_group.
+     * Convert/edit a product as a full variant family.
+     * Rows with id update existing members; rows without id create new ones.
+     * Shared fields (name, brand, description…) apply to every member.
      *
      * @param  list<array<string, mixed>>  $rows
+     * @param  list<int|string>  $removedIds
      * @param  list<string>  $uploadedPaths
-     * @return list<Product>
+     * @param  list<string>  $removedPaths
      */
-    private function createSiblingVariants(Request $request, Product $source, array $rows, array &$uploadedPaths): array
-    {
-        $group = $source->variant_group;
+    private function syncVariantFamilyEdit(
+        Request $request,
+        Product $anchor,
+        array $sharedData,
+        array $rows,
+        array $removedIds,
+        array &$uploadedPaths,
+        array &$removedPaths
+    ): int {
+        $group = trim((string) ($sharedData['variant_group'] ?? $anchor->variant_group ?? ''));
+        if ($group === '') {
+            $group = $this->normalizeVariantFields([
+                'variant_group' => $sharedData['name'] ?? $anchor->name,
+            ])['variant_group'] ?? null;
+        }
         if (! filled($group)) {
             throw ValidationException::withMessages([
-                'variant_group' => 'Set a variant group key before adding more options.',
+                'variant_group' => 'Variant group key is required for multi-option products.',
             ]);
         }
 
-        $requiresImei = (bool) $source->requires_imei;
-        $created = [];
+        $requiresImei = (bool) ($sharedData['requires_imei'] ?? false);
+        $sharedFields = [
+            'name' => $sharedData['name'] ?? $anchor->name,
+            'variant_group' => $group,
+            'sku' => $sharedData['sku'] ?? null,
+            'availability' => $sharedData['availability'] ?? 'in_stock',
+            'short_description' => $sharedData['short_description'] ?? null,
+            'category_id' => $sharedData['category_id'] ?? null,
+            'brand_id' => $sharedData['brand_id'] ?? null,
+            'brand_name' => $sharedData['brand_name'] ?? null,
+            'alert_quantity' => $sharedData['alert_quantity'] ?? $anchor->alert_quantity ?? 5,
+            'requires_imei' => $requiresImei,
+            'is_published' => (bool) ($sharedData['is_published'] ?? true),
+            'is_new_arrival' => (bool) ($sharedData['is_new_arrival'] ?? false),
+            'is_best_seller' => (bool) ($sharedData['is_best_seller'] ?? false),
+            'is_featured' => (bool) ($sharedData['is_featured'] ?? false),
+            'pos_discount_type' => $sharedData['pos_discount_type'] ?? null,
+            'pos_discount_value' => $sharedData['pos_discount_value'] ?? null,
+        ];
+
+        $keepIds = [];
         $seen = [];
         $imeiErrors = [];
+        $gallerySource = $anchor->relationLoaded('galleryImages')
+            ? $anchor
+            : $anchor->load('galleryImages');
+        $count = 0;
 
         foreach ($rows as $index => $row) {
             if (! is_array($row)) {
@@ -708,79 +756,119 @@ class ProductController extends Controller
 
             $cost = isset($row['cost_price']) && $row['cost_price'] !== '' && $row['cost_price'] !== null
                 ? (float) $row['cost_price']
-                : (float) $source->cost_price;
+                : (float) ($sharedData['cost_price'] ?? $anchor->cost_price);
             $sell = isset($row['selling_price']) && $row['selling_price'] !== '' && $row['selling_price'] !== null
                 ? (float) $row['selling_price']
-                : (float) $source->selling_price;
+                : (float) ($sharedData['selling_price'] ?? $anchor->selling_price);
 
-            $data = [
-                'shop_id' => $source->shop_id,
-                'name' => $source->name,
-                'sku' => null,
+            $rowData = array_merge($sharedFields, [
+                'shop_id' => $anchor->shop_id,
                 'barcode' => $barcode,
-                'variant_group' => $group,
                 'color' => $row['color'] ?? null,
                 'color_hex' => $row['color_hex'] ?? null,
                 'storage' => $row['storage'] ?? null,
                 'ram' => $row['ram'] ?? null,
-                'availability' => $source->availability ?? 'in_stock',
                 'cost_price' => $cost,
                 'selling_price' => $sell,
-                'pos_discount_type' => $source->pos_discount_type,
-                'pos_discount_value' => $source->pos_discount_value,
-                'short_description' => $source->short_description,
-                'category_id' => $source->category_id,
-                'brand_id' => $source->brand_id,
-                'brand_name' => $source->brand_name,
-                'stock_quantity' => 0,
-                'alert_quantity' => $source->alert_quantity ?? 5,
-                'requires_imei' => $requiresImei,
-                'is_published' => (bool) $source->is_published,
-                'is_new_arrival' => (bool) $source->is_new_arrival,
-                'is_best_seller' => (bool) $source->is_best_seller,
-                'is_featured' => (bool) $source->is_featured,
-            ];
-            $data = $this->normalizeVariantFields($data);
+            ]);
+            $rowData = $this->normalizeVariantFields($rowData);
 
-            $sibling = Product::create($data);
-
-            $variantFiles = $request->file("new_variants.{$index}.images");
-            $hasVariantImages = is_array($variantFiles) && collect($variantFiles)->filter()->isNotEmpty();
-            if ($hasVariantImages) {
-                $paths = $this->storeGalleryFiles($sibling, $variantFiles);
-                $uploadedPaths = array_merge($uploadedPaths, $paths);
-                $this->syncPrimaryImageFromGallery($sibling);
-            } else {
-                $this->cloneGalleryToProduct($source, $sibling);
+            $existingId = (int) ($row['id'] ?? 0);
+            $member = null;
+            if ($existingId > 0) {
+                $member = Product::query()
+                    ->where('shop_id', $anchor->shop_id)
+                    ->where('id', $existingId)
+                    ->first();
             }
 
-            $imeiCount = 0;
+            if ($member) {
+                $member->update($rowData);
+            } else {
+                $rowData['stock_quantity'] = 0;
+                $member = Product::create($rowData);
+            }
+            $keepIds[] = $member->id;
+            $count++;
+
+            $variantFiles = $request->file("variants.{$index}.images");
+            $hasVariantImages = is_array($variantFiles) && collect($variantFiles)->filter()->isNotEmpty();
+            if ($hasVariantImages) {
+                $paths = $this->storeGalleryFiles($member, $variantFiles);
+                $uploadedPaths = array_merge($uploadedPaths, $paths);
+                $this->syncPrimaryImageFromGallery($member);
+                $gallerySource = $member->fresh(['galleryImages']);
+            } elseif ($existingId === 0 && $gallerySource) {
+                $this->cloneGalleryToProduct($gallerySource, $member);
+            }
+
+            // Shared gallery edits apply to the anchor row when submitted via main images field
+            if ((int) $member->id === (int) $anchor->id) {
+                $removedPaths = array_merge(
+                    $removedPaths,
+                    $this->removeGalleryImages($member, (array) $request->input('remove_images', []))
+                );
+                $paths = $this->storeGalleryImages($request, $member);
+                $uploadedPaths = array_merge($uploadedPaths, $paths);
+                $this->syncPrimaryImageFromGallery($member);
+                $gallerySource = $member->fresh(['galleryImages']);
+            }
+
             if ($requiresImei && array_key_exists('imeis', $row)) {
-                $imeiRows = $this->collectImeiRows(
+                $rowsImei = $this->collectImeiRows(
                     (array) $row['imeis'],
-                    "new_variants.{$index}.imeis",
-                    'New option '.($index + 1).', ',
-                    null,
+                    "variants.{$index}.imeis",
+                    'Option '.($index + 1).', ',
+                    $member->id,
                     $seen,
                     $imeiErrors
                 );
                 if ($imeiErrors !== []) {
                     throw ValidationException::withMessages($imeiErrors);
                 }
-                $imeiCount = $sibling->syncAvailableImeis($imeiRows);
+                $before = $member->availableImeis()->pluck('imei')->sort()->values()->all();
+                $imeiCount = $member->syncAvailableImeis($rowsImei);
+                $after = $member->availableImeis()->pluck('imei')->sort()->values()->all();
+                if ($before !== $after) {
+                    $this->syncStockToImeiCount($member, $imeiCount);
+                }
+            } elseif ($existingId === 0 && ! $requiresImei) {
+                $qty = (int) ($row['stock_quantity'] ?? 0);
+                if ($qty > 0) {
+                    $this->stock->ensureDefaultLocations($member->shop_id);
+                    $movement = $this->stock->setOpeningStock($member, $qty);
+                    $this->accounts->postOpeningInventory($movement);
+                }
             }
-
-            $qty = $requiresImei ? $imeiCount : (int) ($row['stock_quantity'] ?? 0);
-            if ($qty > 0) {
-                $this->stock->ensureDefaultLocations($sibling->shop_id);
-                $movement = $this->stock->setOpeningStock($sibling, $qty);
-                $this->accounts->postOpeningInventory($movement);
-            }
-
-            $created[] = $sibling;
         }
 
-        return $created;
+        if ($count < 1) {
+            throw ValidationException::withMessages([
+                'variants' => 'Add at least one variant option with a barcode.',
+            ]);
+        }
+
+        // Soft-delete family members removed from the form
+        $remove = collect($removedIds)->map(fn ($id) => (int) $id)->filter()->unique();
+        $familyQuery = Product::query()
+            ->where('shop_id', $anchor->shop_id)
+            ->where('variant_group', $group)
+            ->whereNotIn('id', $keepIds);
+
+        if ($remove->isNotEmpty()) {
+            $familyQuery->whereIn('id', $remove->all());
+            $familyQuery->get()->each(function (Product $gone) {
+                // Free barcode for reuse after archive
+                if (! str_contains((string) $gone->barcode, Product::ARCHIVED_BARCODE_MARKER)) {
+                    $gone->forceFill([
+                        'barcode' => $gone->barcode.Product::ARCHIVED_BARCODE_MARKER.$gone->id,
+                    ])->saveQuietly();
+                }
+                $gone->delete();
+            });
+        }
+
+        return $count;
     }
 
     /**
