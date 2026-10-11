@@ -18,6 +18,22 @@ echo "=== migrate status (pending) ==="
 php artisan migrate:status 2>/dev/null | grep -i "Pending\|No pending" || php artisan migrate:status 2>/dev/null | tail -n 15
 
 echo ""
+echo "=== public_html index.php ==="
+INDEX="$HOME/public_html/index.php"
+if [[ -f "$INDEX" ]]; then
+  if grep -q "repositories/Akhitelecom\|usePublicPath" "$INDEX"; then
+    echo "front controller: ok (points at app / sets public path)"
+  elif grep -q "__DIR__.'/../vendor/autoload.php'" "$INDEX"; then
+    echo "front controller: BROKEN (stock Laravel paths — run bash scripts/sync-public-html.sh)"
+  else
+    echo "front controller: custom (review manually)"
+  fi
+  grep -E "laravelRoot|vendor/autoload|usePublicPath|__DIR__" "$INDEX" | head -n 8 || true
+else
+  echo "missing $INDEX"
+fi
+
+echo ""
 echo "=== hot files ==="
 ls -la public/hot 2>/dev/null || echo "repo public/hot: none"
 ls -la "$HOME/public_html/hot" 2>/dev/null || echo "public_html/hot: none"
