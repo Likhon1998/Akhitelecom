@@ -373,38 +373,34 @@
 
             @if($product->short_description)
                 @php
-                    $descLines = preg_split("/\r\n|\n|\r/", (string) $product->short_description) ?: [];
-                    $descRows = [];
-                    $descPlain = [];
-                    foreach ($descLines as $line) {
-                        $line = trim($line);
-                        if ($line === '') continue;
-                        if (str_contains($line, '|')) {
-                            [$h, $d] = array_map('trim', explode('|', $line, 2));
-                            $descRows[] = ['heading' => $h, 'detail' => $d];
-                        } else {
-                            $descPlain[] = $line;
-                        }
-                    }
+                    $parsedDesc = parse_product_description_rows($product->short_description);
+                    $descRows = $parsedDesc['rows'];
+                    $descIntro = $parsedDesc['intro'];
                 @endphp
-                <div x-show="tab==='description'">
-                    <h3 class="text-sm font-semibold text-slate-900 mb-1.5">About this item</h3>
+                <div x-show="tab==='description'" data-product-description="{{ $product->id }}">
+                    <h3 class="text-sm font-semibold text-slate-900 mb-2">About this item</h3>
+                    @if($descIntro !== '')
+                        <p class="text-sm text-slate-600 mb-3 leading-relaxed">{{ $descIntro }}</p>
+                    @endif
                     @if(count($descRows))
-                        <div class="pd-spec-table">
+                        <div class="pd-spec-table" role="region" aria-label="Product specifications">
                             <table>
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Feature</th>
+                                        <th scope="col">Details</th>
+                                    </tr>
+                                </thead>
                                 <tbody>
                                     @foreach($descRows as $row)
                                         <tr>
-                                            <th scope="row">{{ $row['heading'] !== '' ? $row['heading'] : '—' }}</th>
-                                            <td>{{ $row['detail'] }}</td>
+                                            <th scope="row">{{ $row['heading'] !== '' ? $row['heading'] : 'Details' }}</th>
+                                            <td>{!! nl2br(e($row['detail'])) !!}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
                             </table>
                         </div>
-                    @endif
-                    @if(count($descPlain))
-                        <div class="text-sm text-slate-600 leading-relaxed whitespace-pre-line {{ count($descRows) ? 'mt-3' : '' }}">{{ implode("\n", $descPlain) }}</div>
                     @endif
                 </div>
             @endif

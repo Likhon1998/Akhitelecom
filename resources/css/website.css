@@ -4347,56 +4347,86 @@ body.gaget-store,
     object-position: center !important;
 }
 
-/* Product description spec table (heading | detail) */
+/* Product description — true 2-column spec table */
 .pd-spec-table {
     overflow: hidden;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.65rem;
     background: #fff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 .pd-spec-table table {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
 }
-.pd-spec-table th,
-.pd-spec-table td {
-    padding: 0.65rem 0.85rem;
+.pd-spec-table thead th {
+    padding: 0.7rem 1rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #64748b;
+    background: #f1f5f9;
+    border-bottom: 1px solid #cbd5e1;
+    text-align: left;
+}
+.pd-spec-table thead th:first-child {
+    width: 32%;
+    border-right: 1px solid #cbd5e1;
+}
+.pd-spec-table tbody th,
+.pd-spec-table tbody td {
+    padding: 0.85rem 1rem;
     font-size: 0.875rem;
-    line-height: 1.45;
+    line-height: 1.5;
     vertical-align: top;
     word-break: break-word;
+    border-top: 1px solid #e2e8f0;
 }
-.pd-spec-table th {
-    width: 38%;
-    max-width: 12rem;
+.pd-spec-table tbody th {
+    width: 32%;
     text-align: left;
-    font-weight: 600;
-    color: #334155;
+    font-weight: 700;
+    color: #0f172a;
     background: #f8fafc;
     border-right: 1px solid #e2e8f0;
 }
-.pd-spec-table td {
-    color: #475569;
+.pd-spec-table tbody td {
+    color: #334155;
+    background: #fff;
 }
-.pd-spec-table tr + tr th,
-.pd-spec-table tr + tr td {
-    border-top: 1px solid #f1f5f9;
+.pd-spec-table tbody tr:nth-child(even) td {
+    background: #fcfcfd;
+}
+.pd-spec-table tbody tr:nth-child(even) th {
+    background: #f1f5f9;
 }
 @media (max-width: 640px) {
+    .pd-spec-table thead {
+        display: none;
+    }
+    .pd-spec-table,
+    .pd-spec-table tbody,
+    .pd-spec-table tr,
     .pd-spec-table th,
     .pd-spec-table td {
         display: block;
         width: 100%;
         max-width: none;
+    }
+    .pd-spec-table tbody th {
         border-right: 0;
+        border-top: 1px solid #cbd5e1;
+        padding-bottom: 0.25rem;
     }
-    .pd-spec-table td {
-        padding-top: 0.15rem;
-        padding-bottom: 0.85rem;
+    .pd-spec-table tbody td {
+        border-top: 0;
+        padding-top: 0.2rem;
+        padding-bottom: 0.95rem;
     }
-    .pd-spec-table tr + tr th {
-        border-top: 1px solid #e2e8f0;
+    .pd-spec-table tbody tr:first-child th {
+        border-top: 0;
     }
 }
 

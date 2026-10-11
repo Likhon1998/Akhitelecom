@@ -23,19 +23,10 @@
     $rawDescription = old('short_description', $product?->short_description ?? '');
     $descriptionRows = old('description_rows');
     if (! is_array($descriptionRows)) {
-        $descriptionRows = [];
-        $lines = preg_split("/\r\n|\n|\r/", (string) $rawDescription) ?: [];
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            if (str_contains($line, '|')) {
-                [$h, $d] = array_map('trim', explode('|', $line, 2));
-                $descriptionRows[] = ['heading' => $h, 'detail' => $d];
-            } else {
-                $descriptionRows[] = ['heading' => '', 'detail' => $line];
-            }
+        $parsed = parse_product_description_rows($rawDescription);
+        $descriptionRows = $parsed['rows'];
+        if ($parsed['intro'] !== '') {
+            array_unshift($descriptionRows, ['heading' => 'Overview', 'detail' => $parsed['intro']]);
         }
         if ($descriptionRows === []) {
             $descriptionRows = [['heading' => '', 'detail' => '']];

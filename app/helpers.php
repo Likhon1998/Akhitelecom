@@ -118,6 +118,145 @@ if (! function_exists('asian_date')) {
     }
 }
 
+if (! function_exists('parse_product_description_rows')) {
+    /**
+     * Turn a product short_description into table rows: [['heading'=>..., 'detail'=>...], ...].
+     * Supports:
+     *  - "Heading | Detail" (one row per line)
+     *  - "Heading: Detail" on one line
+     *  - Section blocks (heading line, then detail lines until the next heading)
+     *
+     * @return array{rows: list<array{heading: string, detail: string}>, intro: string}
+     */
+    function parse_product_description_rows(?string $text): array
+    {
+        $text = trim((string) $text);
+        if ($text === '') {
+            return ['rows' => [], 'intro' => ''];
+        }
+
+        $lines = preg_split("/\r\n|\n|\r/", $text) ?: [];
+        $lines = array_values(array_filter(array_map('trim', $lines), fn ($l) => $l !== ''));
+
+        if ($lines === []) {
+            return ['rows' => [], 'intro' => ''];
+        }
+
+        $pipeCount = 0;
+        foreach ($lines as $line) {
+            if (str_contains($line, '|')) {
+                $pipeCount++;
+            }
+        }
+
+        // Prefer explicit pipe rows when most lines use that format.
+        if ($pipeCount > 0 && $pipeCount >= (int) ceil(count($lines) / 2)) {
+            $rows = [];
+            $intro = [];
+            foreach ($lines as $line) {
+                if (str_contains($line, '|')) {
+                    [$h, $d] = array_map('trim', explode('|', $line, 2));
+                    $rows[] = ['heading' => $h, 'detail' => $d];
+                } else {
+                    $intro[] = $line;
+                }
+            }
+
+            return ['rows' => $rows, 'intro' => implode("\n", $intro)];
+        }
+
+        $isHeading = static function (string $line): bool {
+            if (mb_strlen($line) > 48) {
+                return false;
+            }
+            if (preg_match('/[.!?]$/u', $line)) {
+                return false;
+            }
+            // Headings are labels (Display, Camera) — anything with digits is a detail line
+            if (preg_match('/\d/', $line)) {
+                return false;
+            }
+            if (preg_match('/^[\d*•\-]/', $line)) {
+                return false;
+            }
+            if (str_contains($line, ':') && mb_strlen($line) > 40) {
+                return false;
+            }
+            $words = preg_split('/\s+/', $line) ?: [];
+            if (count($words) > 6) {
+                return false;
+            }
+
+            return (bool) preg_match('/^[\p{L}\p{N}][\p{L}\p{N}\s\/&\+\-–—,]{0,46}$/u', $line);
+        };
+
+        $rows = [];
+        $intro = [];
+        $currentHeading = null;
+        $buffer = [];
+
+        $flush = static function () use (&$rows, &$currentHeading, &$buffer) {
+            if ($currentHeading === null && $buffer === []) {
+                return;
+            }
+            $detail = trim(implode("\n", $buffer));
+            if ($currentHeading !== null || $detail !== '') {
+                $rows[] = [
+                    'heading' => (string) ($currentHeading ?? ''),
+                    'detail' => $detail,
+                ];
+            }
+            $currentHeading = null;
+            $buffer = [];
+        };
+
+        foreach ($lines as $i => $line) {
+            // Same-line "Heading: detail"
+            if (preg_match('/^([^:]{1,48}):\s+(.+)$/u', $line, $m) && $isHeading(trim($m[1]))) {
+                $flush();
+                $rows[] = ['heading' => trim($m[1]), 'detail' => trim($m[2])];
+                continue;
+            }
+
+            if ($isHeading($line)) {
+                // First short line with no buffer yet may be a title/intro if next is also heading-like
+                // or if it looks like a product title (contains brand-ish long name with —)
+                if ($currentHeading === null && $buffer === [] && $rows === [] && $intro === []
+                    && (str_contains($line, '—') || str_contains($line, ' - ') || mb_strlen($line) > 28)) {
+                    $intro[] = $line;
+                    continue;
+                }
+                $flush();
+                $currentHeading = $line;
+                continue;
+            }
+
+            if ($currentHeading === null && $rows === []) {
+                // Leading prose before first heading
+                if ($intro === [] || $buffer === []) {
+                    $intro[] = $line;
+                } else {
+                    $buffer[] = $line;
+                }
+                continue;
+            }
+
+            $buffer[] = $line;
+        }
+        $flush();
+
+        // If we failed to find structure, fall back to one row per non-empty line under "Details"
+        if ($rows === [] && $intro !== []) {
+            return [
+                'rows' => [['heading' => 'Details', 'detail' => implode("\n", $intro)]],
+                'intro' => '',
+            ];
+        }
+
+        return ['rows' => $rows, 'intro' => implode("\n", $intro)];
+    }
+}
+
 if (! function_exists('normalize_memory_size')) {
     /**
      * Normalize RAM / storage labels: "8GB", "8gb", "8 GB" → "8 GB".
