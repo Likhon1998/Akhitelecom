@@ -7,7 +7,7 @@
 <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
        class="admin-sidebar fixed inset-y-0 left-0 z-50 w-[min(260px,88vw)] bg-[#0B1220] text-slate-300 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto lg:w-[260px] flex flex-col border-r border-white/5">
 
-    <div class="admin-brand relative flex items-center gap-2.5 h-[4.25rem] px-5 shrink-0 border-b border-white/5">
+    <div class="admin-brand relative flex items-center gap-2.5 h-[3.75rem] px-4 shrink-0 border-b border-white/5">
         @php
             $navSettings = \App\Models\SiteSetting::current();
             $navName = $navSettings->store_name
@@ -265,7 +265,7 @@
     </nav>
 </aside>
 
-<header class="admin-topbar fixed top-0 right-0 left-0 lg:left-[260px] h-[4.25rem] bg-white/90 backdrop-blur border-b border-slate-100 z-30 flex items-center gap-3 px-4 sm:px-6">
+<header class="admin-topbar fixed top-0 right-0 left-0 lg:left-[260px] h-[3.75rem] bg-white/90 backdrop-blur border-b border-slate-100 z-30 flex items-center gap-2.5 px-3 sm:px-4">
     <button type="button" @click="sidebarOpen = true" class="lg:hidden text-slate-500 hover:text-slate-800 focus:outline-none">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>

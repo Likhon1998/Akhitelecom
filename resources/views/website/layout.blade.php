@@ -573,12 +573,12 @@
 <div x-show="cartOpen" x-cloak class="fixed inset-0 z-[70]">
     <div class="absolute inset-0 bg-black/50" @click="cartOpen=false"></div>
     <div class="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl flex flex-col">
-        <div class="flex items-center justify-between p-5 border-b">
-            <h3 class="text-lg font-bold">Your Cart (<span x-text="cartCount"></span>)</h3>
+        <div class="flex items-center justify-between px-4 py-3 border-b">
+            <h3 class="text-base font-bold">Your Cart (<span x-text="cartCount"></span>)</h3>
             <button @click="cartOpen=false" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
-        <div class="flex-1 overflow-y-auto p-5 space-y-4">
-            <template x-if="cart.length===0"><p class="text-gray-500 text-center py-10">Your cart is empty.</p></template>
+        <div class="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+            <template x-if="cart.length===0"><p class="text-gray-500 text-center py-6 text-sm">Your cart is empty.</p></template>
             <template x-for="(item,i) in cart" :key="item.id">
                 <div class="flex gap-3 border rounded-xl p-3">
                     <img :src="item.image" class="w-16 h-16 object-cover rounded-lg bg-gray-50" alt="">
@@ -595,8 +595,8 @@
                 </div>
             </template>
         </div>
-        <div class="border-t p-5" x-show="cart.length>0">
-            <div class="flex justify-between font-bold text-lg mb-3"><span>Total</span><span x-text="currency+cartTotal.toFixed(2)"></span></div>
+        <div class="border-t px-4 py-3" x-show="cart.length>0">
+            <div class="flex justify-between font-bold text-base mb-2"><span>Total</span><span x-text="currency+cartTotal.toFixed(2)"></span></div>
             <button @click="startCheckout()" class="w-full gaget-btn-primary text-center">Checkout</button>
         </div>
     </div>

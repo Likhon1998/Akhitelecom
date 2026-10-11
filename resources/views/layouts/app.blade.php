@@ -94,14 +94,14 @@
 
         <div class="admin-scroll-hide relative flex flex-col flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
             @isset($header)
-                <header class="bg-white/80 backdrop-blur border-b border-slate-100 mt-16 lg:mt-[4.25rem]">
-                    <div class="max-w-[1800px] mx-auto py-3 px-3 sm:px-6 lg:px-8">
+                <header class="bg-white/80 backdrop-blur border-b border-slate-100 mt-[3.75rem]">
+                    <div class="max-w-[1800px] mx-auto py-2 px-3 sm:px-4 lg:px-5">
                         {{ $header }}
                     </div>
                 </header>
             @endisset
 
-            <main class="w-full grow p-3 sm:p-4 lg:p-5 min-w-0 {{ !isset($header) ? 'mt-16 lg:mt-[4.25rem]' : '' }}">
+            <main class="w-full grow p-2.5 sm:p-3 lg:p-4 min-w-0 {{ !isset($header) ? 'mt-[3.75rem]' : '' }}">
                 <div class="w-full max-w-[1800px] mx-auto min-w-0">
                     {{ $slot }}
                 </div>
