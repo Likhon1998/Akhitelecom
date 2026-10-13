@@ -65,6 +65,39 @@ class Product extends Model
         ]));
     }
 
+    /**
+     * Older products only had image / image_2 / image_3. Copy those into product_images
+     * so the edit form and save path use one gallery (and don't wipe the thumbnails).
+     */
+    public function ensureGalleryFromLegacyColumns(): bool
+    {
+        if ($this->galleryImages()->exists()) {
+            return false;
+        }
+
+        $paths = array_values(array_unique(array_filter([
+            $this->image,
+            $this->image_2,
+            $this->image_3,
+        ])));
+
+        if ($paths === []) {
+            return false;
+        }
+
+        foreach ($paths as $i => $path) {
+            $this->galleryImages()->create([
+                'path' => $path,
+                'sort_order' => $i,
+            ]);
+        }
+
+        $this->unsetRelation('galleryImages');
+        $this->load('galleryImages');
+
+        return true;
+    }
+
     /** Sales, stock movements (accounts reference them), exchanges, purchases or sold IMEIs. */
     public function hasTransactionHistory(): bool
     {

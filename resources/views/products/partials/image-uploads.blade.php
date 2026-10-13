@@ -1,13 +1,20 @@
 {{-- Unlimited product gallery uploads (max 20). Optional $product when editing. --}}
 @php
-    $existingImages = isset($product)
-        ? $product->galleryImages->map(fn ($img) => [
+    if (isset($product)) {
+        $product->ensureGalleryFromLegacyColumns();
+        $gallery = $product->relationLoaded('galleryImages')
+            ? $product->galleryImages
+            : $product->galleryImages()->orderBy('sort_order')->orderBy('id')->get();
+        $existingImages = $gallery->map(fn ($img) => [
             'id' => $img->id,
             'url' => public_storage_url($img->path),
-        ])->values()->all()
-        : [];
+        ])->values()->all();
+    } else {
+        $existingImages = [];
+    }
 @endphp
 <div
+    data-product-gallery
     x-data="{
         existing: @js($existingImages),
         files: [],

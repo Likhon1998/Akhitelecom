@@ -360,6 +360,40 @@ class ProductAndBrandManagementTest extends TestCase
         $this->assertNull($product->fresh()->image);
     }
 
+    public function test_editing_product_keeps_legacy_and_gallery_pictures(): void
+    {
+        $legacy = UploadedFile::fake()->image('legacy.jpg')->store('products', 'public');
+        $product = $this->makeProduct(['name' => 'Legacy Phone']);
+        // Older rows only had image / image_2 — no product_images gallery yet.
+        $product->forceFill(['image' => $legacy, 'image_2' => null, 'image_3' => null])->save();
+        $this->assertSame(0, $product->galleryImages()->count());
+
+        $this->actingAs($this->admin, 'admin')
+            ->get(route('products.edit', $product))
+            ->assertOk()
+            ->assertSee(basename($legacy), false);
+
+        // Opening edit migrates legacy columns into the gallery.
+        $this->assertSame(1, $product->fresh()->galleryImages()->count());
+        $this->assertSame($legacy, $product->fresh()->galleryImages()->value('path'));
+
+        $this->put(route('products.update', $product), [
+            'product_mode' => 'simple',
+            'name' => 'Legacy Phone Renamed',
+            'barcode' => $product->barcode,
+            'cost_price' => 100,
+            'selling_price' => 150,
+            'is_published' => 1,
+        ])->assertSessionHasNoErrors();
+
+        $product->refresh();
+        $this->assertSame('Legacy Phone Renamed', $product->name);
+        $this->assertSame($legacy, $product->image);
+        $this->assertSame(1, $product->galleryImages()->count());
+        $this->assertSame($legacy, $product->galleryImages()->value('path'));
+        Storage::disk('public')->assertExists($legacy);
+    }
+
     public function test_product_with_stock_history_is_archived_not_erased(): void
     {
         $this->actingAs($this->admin, 'admin')
@@ -621,6 +655,73 @@ class ProductAndBrandManagementTest extends TestCase
         $this->assertSame(2, (int) Product::where('barcode', 'IP17-BLU')->value('stock_quantity'));
     }
 
+    public function test_renaming_a_gadget_phone_keeps_imeis_and_photos(): void
+    {
+        Storage::disk('public')->put('products/keep-me.jpg', 'fake-image');
+
+        $orange = $this->iphoneImeis(2);
+        $this->actingAs($this->admin, 'admin')->post(route('products.store'), [
+            'product_mode' => 'gadget',
+            'name' => 'iPhone 17 Pro Max',
+            'requires_imei' => 1,
+            'is_published' => 1,
+            'variants' => [
+                [
+                    'barcode' => 'IP17-ORG',
+                    'color' => 'Orange',
+                    'cost_price' => 180000,
+                    'selling_price' => 199000,
+                    'stock_quantity' => 2,
+                    'imeis' => [
+                        ['imei' => $orange[0]],
+                        ['imei' => $orange[1]],
+                    ],
+                ],
+            ],
+        ])->assertSessionHasNoErrors();
+
+        $product = Product::where('barcode', 'IP17-ORG')->firstOrFail();
+        $product->galleryImages()->create(['path' => 'products/keep-me.jpg', 'sort_order' => 0]);
+        $product->forceFill(['image' => 'products/keep-me.jpg'])->save();
+
+        $this->get(route('products.edit', $product))
+            ->assertOk()
+            ->assertSee('keep-me.jpg', false)
+            ->assertDontSee('enter IMEI 2', false);
+
+        $this->put(route('products.update', $product), [
+            'product_mode' => 'gadget',
+            'name' => 'iPhone 17 Pro Max Orange Edition',
+            'requires_imei' => 1,
+            'is_published' => 1,
+            'variants' => [
+                [
+                    'id' => $product->id,
+                    'barcode' => 'IP17-ORG',
+                    'color' => 'Orange',
+                    'cost_price' => 180000,
+                    'selling_price' => 199000,
+                    'stock_quantity' => 2,
+                    // Simulate empty IMEI 2 boxes left on the form (middleware turns '' into null).
+                    'imeis' => [
+                        ['imei' => $orange[0], 'imei2' => null],
+                        ['imei' => $orange[1], 'imei2' => ''],
+                    ],
+                ],
+            ],
+        ])->assertSessionHasNoErrors()->assertRedirect(route('products.index'));
+
+        $product->refresh();
+        $this->assertSame('iPhone 17 Pro Max Orange Edition', $product->name);
+        $this->assertSame(2, (int) $product->stock_quantity);
+        $this->assertNull($product->imeis()->where('imei', $orange[0])->value('imei_2'));
+        $this->assertDatabaseHas('product_images', [
+            'product_id' => $product->id,
+            'path' => 'products/keep-me.jpg',
+        ]);
+        $this->assertSame('products/keep-me.jpg', $product->image);
+    }
+
     public function test_edit_page_adds_and_removes_phones_by_imei_rows(): void
     {
         $this->postIphone($this->iphoneImeis(10))->assertSessionHasNoErrors();
@@ -679,17 +780,21 @@ class ProductAndBrandManagementTest extends TestCase
         [$a, $b, $c] = $this->iphoneImeis(3);
 
         $this->postIphone([
-            ['imei' => $a, 'imei2' => ''],
+            ['imei' => $a, 'imei2' => ''], // blank IMEI 2 is ignored (single-SIM phone)
             ['imei' => $b, 'imei2' => $a],
             ['imei' => $c, 'imei2' => '359123000077702'],
         ])->assertSessionHasErrors([
-            'imeis.0.imei2' => 'Phone 1: enter IMEI 2 (or remove it).',
             'imeis.1.imei2' => "Phone 2 (IMEI 2): IMEI {$a} is already entered for Phone 1.",
             'imeis.2.imei2' => 'Phone 3 (IMEI 2): IMEI 359123000077702 already belongs to "Galaxy S25".',
         ]);
         $this->assertDatabaseMissing('products', ['barcode' => 'IP17PM-ORG-256']);
 
         $this->postIphone([['imei' => '359123000077702']])->assertSessionHasErrors('imeis.0');
+
+        // Blank second box on create must not block saving a single-SIM phone.
+        $this->postIphone([['imei' => $a, 'imei2' => ''], ['imei' => $b]])->assertSessionHasNoErrors();
+        $product = Product::where('barcode', 'IP17PM-ORG-256')->firstOrFail();
+        $this->assertNull($product->imeis()->where('imei', $a)->value('imei_2'));
     }
 
     public function test_edit_can_add_move_and_remove_second_imei(): void

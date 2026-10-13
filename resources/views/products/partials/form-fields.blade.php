@@ -4,8 +4,12 @@
     $isEdit = $product !== null;
     $familyProducts = collect($familyProducts ?? ($product ? [$product] : []));
     $isExistingFamily = $isEdit && filled($product?->variant_group) && $familyProducts->count() > 1;
+    // null imei2 = no second box. Only cast when a value was actually supplied (incl. '' after a failed submit).
     $toPhone = fn ($v) => is_array($v)
-        ? ['imei' => (string) ($v['imei'] ?? ''), 'imei2' => array_key_exists('imei2', $v) ? (string) $v['imei2'] : null]
+        ? [
+            'imei' => (string) ($v['imei'] ?? ''),
+            'imei2' => (array_key_exists('imei2', $v) && $v['imei2'] !== null) ? (string) $v['imei2'] : null,
+        ]
         : ['imei' => (string) $v, 'imei2' => null];
 
     $toDescriptionRows = function (?string $raw): array {
@@ -24,8 +28,20 @@
     $mapFamilyToVariants = function ($members) use ($toPhone, $toDescriptionRows) {
         return collect($members)->values()->map(function ($p, $i) use ($toPhone, $toDescriptionRows) {
             $imeis = $p->relationLoaded('availableImeis')
-                ? $p->availableImeis->map(fn ($r) => ['imei' => $r->imei, 'imei2' => $r->imei_2])->all()
-                : $p->availableImeis()->get(['imei', 'imei_2'])->map(fn ($r) => ['imei' => $r->imei, 'imei2' => $r->imei_2])->all();
+                ? $p->availableImeis->map(fn ($r) => array_filter(
+                    ['imei' => $r->imei, 'imei2' => $r->imei_2],
+                    fn ($v, $k) => $k === 'imei' || ($v !== null && $v !== ''),
+                    ARRAY_FILTER_USE_BOTH,
+                ))->all()
+                : $p->availableImeis()->get(['imei', 'imei_2'])->map(fn ($r) => array_filter(
+                    ['imei' => $r->imei, 'imei2' => $r->imei_2],
+                    fn ($v, $k) => $k === 'imei' || ($v !== null && $v !== ''),
+                    ARRAY_FILTER_USE_BOTH,
+                ))->all();
+
+            $gallery = $p->relationLoaded('galleryImages')
+                ? $p->galleryImages
+                : $p->galleryImages()->orderBy('sort_order')->orderBy('id')->get();
 
             return [
                 'id' => $p->id,
@@ -39,6 +55,11 @@
                 'stock_quantity' => (int) $p->stock_quantity,
                 'imeis' => array_map($toPhone, $imeis),
                 'description_rows' => $toDescriptionRows($p->short_description),
+                '_existing' => $gallery->map(fn ($img) => [
+                    'id' => $img->id,
+                    'url' => public_storage_url($img->path),
+                ])->values()->all(),
+                '_removeIds' => [],
                 '_key' => 'v'.($i + 1),
             ];
         })->all();
@@ -49,16 +70,34 @@
     $oldVariants = old('variants');
     if (is_array($oldVariants)) {
         $defaultVariants = [];
+        $familyById = ($familyProducts ?? collect())->keyBy('id');
         foreach (array_values($oldVariants) as $i => $row) {
             $row = is_array($row) ? $row : [];
             if (! isset($row['description_rows']) || ! is_array($row['description_rows'])) {
                 $row['description_rows'] = $toDescriptionRows($row['short_description'] ?? '');
             }
+            $memberId = (int) ($row['id'] ?? 0);
+            $member = $memberId > 0 ? $familyById->get($memberId) : null;
+            $existingGallery = [];
+            if ($member) {
+                $gallery = $member->relationLoaded('galleryImages')
+                    ? $member->galleryImages
+                    : $member->galleryImages()->orderBy('sort_order')->orderBy('id')->get();
+                $removed = array_map('intval', (array) ($row['remove_images'] ?? []));
+                $existingGallery = $gallery
+                    ->reject(fn ($img) => in_array((int) $img->id, $removed, true))
+                    ->map(fn ($img) => ['id' => $img->id, 'url' => public_storage_url($img->path)])
+                    ->values()->all();
+            }
             $defaultVariants[] = array_merge([
                 'id' => null, 'barcode' => '', 'color' => '', 'color_hex' => '#2563eb', 'ram' => '', 'storage' => '',
                 'cost_price' => '', 'selling_price' => '', 'stock_quantity' => 1, 'imeis' => [],
                 'description_rows' => $emptyDescriptionRows,
-            ], $row, ['_key' => 'v'.($i + 1)]);
+            ], $row, [
+                '_key' => 'v'.($i + 1),
+                '_existing' => $existingGallery,
+                '_removeIds' => array_values(array_map('intval', (array) ($row['remove_images'] ?? []))),
+            ]);
             $defaultVariants[$i]['imeis'] = array_map($toPhone, array_values((array) ($defaultVariants[$i]['imeis'] ?? [])));
         }
     } elseif ($isEdit && ($isExistingFamily || old('product_mode') === 'gadget')) {
@@ -79,7 +118,11 @@
     $initialImeis = old('imeis') !== null
         ? array_map($toPhone, array_values((array) old('imeis')))
         : (($isEdit && $product)
-            ? $product->availableImeis()->get(['imei', 'imei_2'])->map(fn ($r) => ['imei' => $r->imei, 'imei2' => $r->imei_2])->all()
+            ? $product->availableImeis()->get(['imei', 'imei_2'])->map(fn ($r) => array_filter(
+                ['imei' => $r->imei, 'imei2' => $r->imei_2],
+                fn ($v, $k) => $k === 'imei' || ($v !== null && $v !== ''),
+                ARRAY_FILTER_USE_BOTH,
+            ))->map($toPhone)->all()
             : []);
     $imeiErrors = collect($errors->getMessages())
         ->filter(fn ($messages, $key) => preg_match('/^(imeis|variants\.\d+\.imeis)\.\d+(\.imei2)?$/', $key))
@@ -127,6 +170,9 @@
             return array_merge($row, [
                 'id' => $row['id'] ?? null,
                 '_key' => $row['_key'] ?? ('v'.($i + 1)),
+                '_existing' => array_values((array) ($row['_existing'] ?? [])),
+                '_removeIds' => array_values((array) ($row['_removeIds'] ?? [])),
+                '_files' => [],
                 'imeis' => array_map($toPhone, array_values((array) ($row['imeis'] ?? []))),
                 'description_rows' => collect($descRows)->values()->map(fn ($r) => [
                     'heading' => (string) ($r['heading'] ?? ''),
@@ -239,6 +285,11 @@
                 this.autoGroup = true;
                 this.syncGroup();
             }
+            // Carry over photos already shown in the simple gallery so they do not vanish
+            // when switching to options mode before save.
+            const galleryEl = this.$el.querySelector('[data-product-gallery]');
+            const simpleGallery = galleryEl && (galleryEl._x_dataStack || [])[0];
+            const carried = (simpleGallery?.existing || []).map((img) => ({ id: img.id, url: img.url }));
             if (!this.variants || this.variants.length === 0) {
                 this.variants = [{
                     _key: 'v1',
@@ -253,6 +304,9 @@
                     stock_quantity: this.currentStock || 0,
                     imeis: (this.imeis || []).map((p) => ({ imei: p.imei || '', imei2: p.imei2 ?? null })),
                     description_rows: this.cloneDescriptionRows(this.descriptionRows),
+                    _files: [],
+                    _existing: carried,
+                    _removeIds: [],
                     _conflict: '',
                 }];
                 this.variantUid = 1;
@@ -261,6 +315,9 @@
                 if (!this.variants[0].barcode) this.variants[0].barcode = String(this.barcodeValue || '');
                 if (!this.variants[0].description_rows?.length) {
                     this.variants[0].description_rows = this.cloneDescriptionRows(this.descriptionRows);
+                }
+                if (!(this.variants[0]._existing || []).length && carried.length) {
+                    this.variants[0]._existing = carried;
                 }
             }
             this.$nextTick(() => document.querySelector('[data-variant-row]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
@@ -375,7 +432,7 @@
                 barcode: '', color: '', color_hex: '#2563eb', ram: '', storage: '',
                 cost_price: '', selling_price: '', stock_quantity: 1, imeis: [],
                 description_rows: this.cloneDescriptionRows(this.variants[0]?.description_rows),
-                _files: [], _conflict: '',
+                _files: [], _existing: [], _removeIds: [], _conflict: '',
             };
             this.variants.push(row);
             if (this.requiresImei) this.resizeImeis(row.imeis, row.stock_quantity);
@@ -399,12 +456,20 @@
             (row._files || []).forEach((item) => dt.items.add(item.file));
             input.files = dt.files;
         },
+        markRemoveVariantImage(index, imageId) {
+            const row = this.variants[index];
+            if (!row) return;
+            if (!row._removeIds) row._removeIds = [];
+            if (!row._removeIds.includes(imageId)) row._removeIds.push(imageId);
+            row._existing = (row._existing || []).filter((img) => img.id !== imageId);
+        },
         pickVariantImages(index, event) {
             const row = this.variants[index];
             if (!row) return;
             if (!row._files) row._files = [];
+            if (!row._existing) row._existing = [];
             const picked = Array.from(event.target.files || []);
-            const room = 20 - row._files.length;
+            const room = 20 - row._files.length - row._existing.length;
             picked.slice(0, room).forEach((file) => {
                 row._files.push({ name: file.name, url: URL.createObjectURL(file), file });
             });
@@ -609,18 +674,20 @@
         </div>
     </section>
 
-    {{-- Gallery: single item (or edit) only — multi uses photos per variant --}}
-    <template x-if="isSimple">
-    <section class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+    {{-- Gallery: single item (or edit) only — multi uses photos per variant.
+         Use x-show (not x-if) so Alpine keeps the nested uploader mounted and existing photos stay visible. --}}
+    <section x-show="isSimple" x-cloak class="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/80">
             <h3 class="text-sm font-semibold text-slate-800">{{ $isEdit ? '2' : '3' }}. Product gallery</h3>
             <p class="text-xs text-slate-500 mt-0.5">Add as many photos as you want (up to 20). First photo is the main thumbnail.</p>
         </div>
-        <div class="p-4">
-            @include('products.partials.image-uploads', ['product' => $product ?? null])
-        </div>
+        {{-- fieldset disabled when hidden so images/remove_images are not posted in gadget mode --}}
+        <fieldset class="min-w-0 border-0 p-0 m-0" :disabled="!isSimple">
+            <div class="p-4">
+                @include('products.partials.image-uploads', ['product' => $product ?? null])
+            </div>
+        </fieldset>
     </section>
-    </template>
 
     {{-- Basic info --}}
     <section class="rounded-xl border border-slate-200 bg-white overflow-hidden">

@@ -455,18 +455,20 @@ class ProductController extends Controller
         $categories = Category::where('shop_id', $shopId)->orderBy('name')->get();
         $brands = Brand::where('shop_id', $shopId)->orderBy('name')->get();
         $product->load(['galleryImages', 'availableImeis']);
+        $product->ensureGalleryFromLegacyColumns();
 
         $familyProducts = collect([$product]);
         if (filled($product->variant_group)) {
             $familyProducts = Product::query()
                 ->where('shop_id', $shopId)
                 ->where('variant_group', $product->variant_group)
-                ->with(['availableImeis'])
+                ->with(['availableImeis', 'galleryImages'])
                 ->orderBy('id')
                 ->get();
             if ($familyProducts->isEmpty()) {
                 $familyProducts = collect([$product]);
             }
+            $familyProducts->each(fn (Product $member) => $member->ensureGalleryFromLegacyColumns());
         }
 
         return view('products.edit', compact('product', 'categories', 'brands', 'familyProducts'));
@@ -545,6 +547,8 @@ class ProductController extends Controller
             $rules['variants.*.description_rows.*.detail'] = 'nullable|string|max:2000';
             $rules['variants.*.images'] = 'nullable|array|max:20';
             $rules['variants.*.images.*'] = 'image|mimes:jpeg,png,jpg,webp,gif|max:5120';
+            $rules['variants.*.remove_images'] = 'nullable|array';
+            $rules['variants.*.remove_images.*'] = 'integer';
         } else {
             $rules['barcode'] = 'required|string|unique:products,barcode,'.$product->id;
         }
@@ -663,6 +667,7 @@ class ProductController extends Controller
                 }
 
                 $product->update($data);
+                $product->ensureGalleryFromLegacyColumns();
                 $removedPaths = $this->removeGalleryImages($product, (array) $request->input('remove_images', []));
                 $uploadedPaths = $this->storeGalleryImages($request, $product);
                 $this->syncPrimaryImageFromGallery($product);
@@ -808,6 +813,7 @@ class ProductController extends Controller
 
             if ($member) {
                 $member->update($rowData);
+                $member->ensureGalleryFromLegacyColumns();
             } else {
                 $rowData['stock_quantity'] = 0;
                 $rowData['short_description'] = $rowData['short_description'] ?? null;
@@ -816,29 +822,7 @@ class ProductController extends Controller
             $keepIds[] = $member->id;
             $count++;
 
-            $variantFiles = $request->file("variants.{$index}.images");
-            $hasVariantImages = is_array($variantFiles) && collect($variantFiles)->filter()->isNotEmpty();
-            if ($hasVariantImages) {
-                $paths = $this->storeGalleryFiles($member, $variantFiles);
-                $uploadedPaths = array_merge($uploadedPaths, $paths);
-                $this->syncPrimaryImageFromGallery($member);
-                $gallerySource = $member->fresh(['galleryImages']);
-            } elseif ($existingId === 0 && $gallerySource) {
-                $this->cloneGalleryToProduct($gallerySource, $member);
-            }
-
-            // Shared gallery edits apply to the anchor row when submitted via main images field
-            if ((int) $member->id === (int) $anchor->id) {
-                $removedPaths = array_merge(
-                    $removedPaths,
-                    $this->removeGalleryImages($member, (array) $request->input('remove_images', []))
-                );
-                $paths = $this->storeGalleryImages($request, $member);
-                $uploadedPaths = array_merge($uploadedPaths, $paths);
-                $this->syncPrimaryImageFromGallery($member);
-                $gallerySource = $member->fresh(['galleryImages']);
-            }
-
+            // Validate IMEIs before touching pictures so a rename never blanks the gallery.
             if ($requiresImei && array_key_exists('imeis', $row)) {
                 $rowsImei = $this->collectImeiRows(
                     (array) $row['imeis'],
@@ -865,6 +849,36 @@ class ProductController extends Controller
                     (int) $row['stock_quantity'],
                     $existingId === 0 ? null : 'Variant stock updated on product edit'
                 );
+            }
+
+            $removedPaths = array_merge(
+                $removedPaths,
+                $this->removeGalleryImages($member, (array) ($row['remove_images'] ?? []))
+            );
+
+            $variantFiles = $request->file("variants.{$index}.images");
+            $hasVariantImages = is_array($variantFiles) && collect($variantFiles)->filter()->isNotEmpty();
+            if ($hasVariantImages) {
+                $paths = $this->storeGalleryFiles($member, $variantFiles);
+                $uploadedPaths = array_merge($uploadedPaths, $paths);
+                $this->syncPrimaryImageFromGallery($member);
+                $gallerySource = $member->fresh(['galleryImages']);
+            } elseif ($existingId === 0 && $gallerySource) {
+                $this->cloneGalleryToProduct($gallerySource, $member);
+            }
+
+            // Shared gallery edits apply to the anchor row when submitted via main images field
+            if ((int) $member->id === (int) $anchor->id) {
+                $removedPaths = array_merge(
+                    $removedPaths,
+                    $this->removeGalleryImages($member, (array) $request->input('remove_images', []))
+                );
+                $paths = $this->storeGalleryImages($request, $member);
+                $uploadedPaths = array_merge($uploadedPaths, $paths);
+                $this->syncPrimaryImageFromGallery($member);
+                $gallerySource = $member->fresh(['galleryImages']);
+            } elseif ($hasVariantImages || ! empty($row['remove_images'])) {
+                $this->syncPrimaryImageFromGallery($member);
             }
         }
 
@@ -1736,7 +1750,11 @@ class ProductController extends Controller
 
         foreach (array_values($rows) as $i => $raw) {
             $phone = $labelPrefix.'Phone '.($i + 1);
-            $hasSecond = is_array($raw) && array_key_exists('imei2', $raw);
+            // Blank/null IMEI 2 means "no second IMEI" (box left empty or never opened).
+            $imei2Raw = is_array($raw) && array_key_exists('imei2', $raw)
+                ? ProductImei::normalize(is_scalar($raw['imei2']) ? (string) $raw['imei2'] : '')
+                : '';
+            $hasSecond = $imei2Raw !== '';
 
             $imei = $this->checkPhoneImei(
                 is_array($raw) ? ($raw['imei'] ?? '') : $raw,
@@ -1744,7 +1762,7 @@ class ProductController extends Controller
                 $productId, $seen, $errors,
             );
             $imei2 = $hasSecond ? $this->checkPhoneImei(
-                $raw['imei2'],
+                $imei2Raw,
                 "{$key}.{$i}.imei2", "{$phone} (IMEI 2)", "{$phone}: enter IMEI 2 (or remove it).",
                 $productId, $seen, $errors,
             ) : null;
@@ -1949,11 +1967,14 @@ class ProductController extends Controller
 
     private function syncPrimaryImageFromGallery(Product $product): void
     {
-        $first = $product->galleryImages()->orderBy('sort_order')->orderBy('id')->value('path');
+        // Callers must run ensureGalleryFromLegacyColumns() before remove/upload so older
+        // image/image_2/image_3 photos are in the gallery first. Do not migrate here —
+        // that would revive pictures the user just removed.
+        $paths = $product->galleryImages()->orderBy('sort_order')->orderBy('id')->pluck('path')->filter()->values();
         $product->forceFill([
-            'image' => $first,
-            'image_2' => null,
-            'image_3' => null,
+            'image' => $paths->get(0),
+            'image_2' => $paths->get(1),
+            'image_3' => $paths->get(2),
         ])->saveQuietly();
     }
 
