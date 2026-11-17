@@ -13,13 +13,19 @@ class ReorderLevelController extends Controller
 
     public function index()
     {
+        $lowStockCount = Product::where('shop_id', $this->shopId())
+            ->whereColumn('stock_quantity', '<=', 'alert_quantity')
+            ->count();
+
         $products = Product::where('shop_id', $this->shopId())
             ->orderBy('name')
-            ->get();
+            ->paginate(25)
+            ->withQueryString();
 
-        $lowStock = $products->filter(fn ($p) => $p->stock_quantity <= $p->alert_quantity);
-
-        return view('supply.reorder-levels.index', compact('products', 'lowStock'));
+        return view('supply.reorder-levels.index', [
+            'products' => $products,
+            'lowStockCount' => $lowStockCount,
+        ]);
     }
 
     public function update(Request $request)

@@ -10,10 +10,10 @@
         </div>
     </div>
 
-    @if($lowStock->count())
+    @if($lowStockCount > 0)
         <div class="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
             <p class="text-sm font-semibold text-amber-800">
-                {{ $lowStock->count() }} product(s) at or below alert level.
+                {{ $lowStockCount }} product(s) at or below alert level.
             </p>
             <a href="{{ route('supply.purchase-orders.create', ['from_reorder' => 1]) }}"
                class="inline-flex items-center justify-center text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-lg">
@@ -40,8 +40,11 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
-                    @forelse($products as $i => $product)
-                        @php $isLow = $product->stock_quantity <= $product->alert_quantity; @endphp
+                    @forelse($products as $product)
+                        @php
+                            $i = $loop->index;
+                            $isLow = $product->stock_quantity <= $product->alert_quantity;
+                        @endphp
                         <tr class="{{ $isLow ? 'bg-amber-50/70' : '' }}">
                             <td class="p-3 font-semibold text-gray-900">
                                 {{ $product->name }}
@@ -77,10 +80,13 @@
             </table>
         </div>
         @if($products->count())
-            <div class="p-3 border-t border-gray-100">
+            <div class="p-3 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg font-bold">
                     Save reorder levels
                 </button>
+                @if($products->hasPages())
+                    <div>{{ $products->links() }}</div>
+                @endif
             </div>
         @endif
     </form>

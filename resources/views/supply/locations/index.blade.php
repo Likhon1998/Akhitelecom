@@ -44,7 +44,21 @@
                 'qty' => (int) $ws->quantity,
             ]))->filter(fn ($r) => $r['qty'] > 0)->values();
         @endphp
-        <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+        <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm"
+             x-data="{
+                rows: @js($stockRows),
+                page: 1,
+                perPage: 25,
+                get filteredCount() { return this.rows.length; },
+                get totalPages() { return Math.max(1, Math.ceil(this.filteredCount / this.perPage)); },
+                get paginated() {
+                    const start = (this.page - 1) * this.perPage;
+                    return this.rows.slice(start, start + this.perPage);
+                },
+                get rangeStart() { return this.filteredCount ? (this.page - 1) * this.perPage + 1 : 0; },
+                get rangeEnd() { return Math.min(this.page * this.perPage, this.filteredCount); },
+                goToPage(p) { this.page = Math.min(Math.max(1, p), this.totalPages); },
+             }">
             <div class="px-5 py-4 border-b bg-slate-50 flex items-center justify-between gap-3">
                 <div>
                     <h3 class="font-bold text-gray-900">Warehouse stock on hand</h3>
@@ -61,17 +75,21 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
-                    @forelse($stockRows as $row)
+                    <template x-for="(row, idx) in paginated" :key="'ws-' + idx + '-' + row.product">
                         <tr>
-                            <td class="p-4 font-semibold">{{ $row['product'] }}</td>
-                            <td class="p-4 text-gray-500">{{ $row['location'] }}</td>
-                            <td class="p-4 text-right font-bold">{{ $row['qty'] }}</td>
+                            <td class="p-4 font-semibold" x-text="row.product"></td>
+                            <td class="p-4 text-gray-500" x-text="row.location"></td>
+                            <td class="p-4 text-right font-bold" x-text="row.qty"></td>
                         </tr>
-                    @empty
-                        <tr><td colspan="3" class="p-10 text-center text-gray-400">No warehouse stock yet. Receive a PO into the warehouse first.</td></tr>
-                    @endforelse
+                    </template>
+                    <tr x-show="rows.length === 0">
+                        <td colspan="3" class="p-10 text-center text-gray-400">No warehouse stock yet. Receive a PO into the warehouse first.</td>
+                    </tr>
                 </tbody>
             </table>
+            <div x-show="rows.length > 0">
+                <x-alpine-pager />
+            </div>
         </div>
     @endif
 </x-supply-layout>

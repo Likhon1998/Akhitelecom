@@ -118,7 +118,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-50">
-                            <template x-for="c in filtered" :key="c.id">
+                            <template x-for="c in paginated" :key="c.id">
                                 <tr class="group transition hover:bg-slate-50/80">
                                     <td class="px-5 py-3.5">
                                         <div class="flex items-center gap-3">
@@ -183,15 +183,13 @@
                     <p class="mt-1 text-xs text-slate-400" x-text="emptyHint"></p>
                 </div>
 
-                <div class="flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-5 py-2.5 text-[11px] font-semibold text-slate-400">
-                    <span>
-                        Showing <span class="text-slate-700" x-text="filtered.length"></span>
-                        of <span class="text-slate-700" x-text="rows.length"></span>
-                    </span>
-                    <span x-show="tab !== 'all'" x-cloak>
+                <div class="border-t border-slate-100 bg-slate-50/60">
+                    <x-alpine-pager class="!border-0 bg-transparent" total-key="filteredCount" />
+                    <div class="px-5 pb-2.5 text-[11px] font-semibold text-slate-400" x-show="tab !== 'all'" x-cloak>
                         Filter:
                         <span class="text-slate-700" x-text="tab === 'online' ? 'Online only' : 'Offline only'"></span>
-                    </span>
+                        · <span x-text="rows.length"></span> total loaded
+                    </div>
                 </div>
             </div>
         </div>
@@ -206,6 +204,8 @@
             csrf,
             tab: 'all',
             q: '',
+            page: 1,
+            perPage: 25,
             get filtered() {
                 const q = this.q.trim().toLowerCase();
                 return this.rows.filter((c) => {
@@ -214,6 +214,32 @@
                     if (!q) return true;
                     const hay = `${c.name || ''} ${c.phone || ''} ${c.email || ''} ${c.address || ''}`.toLowerCase();
                     return hay.includes(q);
+                });
+            },
+            get filteredCount() {
+                return this.filtered.length;
+            },
+            get totalPages() {
+                return Math.max(1, Math.ceil(this.filteredCount / this.perPage));
+            },
+            get paginated() {
+                const start = (this.page - 1) * this.perPage;
+                return this.filtered.slice(start, start + this.perPage);
+            },
+            get rangeStart() {
+                return this.filteredCount ? (this.page - 1) * this.perPage + 1 : 0;
+            },
+            get rangeEnd() {
+                return Math.min(this.page * this.perPage, this.filteredCount);
+            },
+            goToPage(page) {
+                this.page = Math.min(Math.max(1, page), this.totalPages);
+            },
+            init() {
+                this.$watch('q', () => { this.page = 1; });
+                this.$watch('tab', () => { this.page = 1; });
+                this.$watch('filteredCount', () => {
+                    if (this.page > this.totalPages) this.page = this.totalPages;
                 });
             },
             get emptyTitle() {

@@ -84,6 +84,9 @@
                     </tbody>
                 </table>
             </div>
+            @if($customers->hasPages())
+                <div class="border-t border-slate-100 px-4 py-3">{{ $customers->links() }}</div>
+            @endif
         </div>
 
         {{-- Collect partial payment modal --}}

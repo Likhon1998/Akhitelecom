@@ -61,6 +61,9 @@
                     </tbody>
                 </table>
             </div>
+            @if(method_exists($ledgerEntries, 'hasPages') && $ledgerEntries->hasPages())
+                <div class="border-t border-gray-100 px-4 py-3">{{ $ledgerEntries->links() }}</div>
+            @endif
         @endif
     </x-accounts.panel>
 </div>

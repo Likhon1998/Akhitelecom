@@ -57,5 +57,8 @@
                 </tbody>
             </table>
         </div>
+        @if($suppliers->hasPages())
+            <div class="border-t border-gray-50 p-4">{{ $suppliers->links() }}</div>
+        @endif
     </div>
 </x-supply-layout>

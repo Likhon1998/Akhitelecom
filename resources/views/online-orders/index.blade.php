@@ -132,7 +132,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <template x-for="order in filteredOrders" :key="order.id">
+                            <template x-for="order in paginatedOrders" :key="order.id">
                                 <tr class="bg-white border-b hover:bg-gray-50 transition-colors" :class="order.is_voided ? 'bg-red-50/10' : ''">
                                     <td class="px-4 py-3 align-top">
                                         <a :href="order.show_url" class="font-bold text-indigo-600 hover:underline mb-0.5 block" x-text="order.invoice"></a>
@@ -198,10 +198,8 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="px-4 py-2.5 border-t border-gray-100 text-[11px] text-gray-400 bg-gray-50/60" x-show="allOrders.length">
-                    Showing <span class="font-semibold text-gray-600" x-text="filteredOrders.length"></span>
-                    of <span class="font-semibold text-gray-600" x-text="allOrders.length"></span> loaded orders
-                    <span x-show="search"> · filtered instantly</span>
+                <div class="bg-gray-50/60" x-show="allOrders.length">
+                    <x-alpine-pager class="!border-gray-100" total-key="filteredCount" />
                 </div>
             </div>
         </div>
@@ -214,6 +212,8 @@
                 search: initialSearch || '',
                 status: initialStatus && initialStatus !== '' ? initialStatus : 'all',
                 date: initialDate || '',
+                page: 1,
+                perPage: 25,
                 statusTabs: [
                     { key: 'all', label: 'All' },
                     { key: 'pending', label: 'Pending' },
@@ -227,6 +227,32 @@
                         if (this.status !== 'all' && order.status !== this.status) return false;
                         if (!q) return true;
                         return (order.search_blob || '').includes(q);
+                    });
+                },
+                get filteredCount() {
+                    return this.filteredOrders.length;
+                },
+                get totalPages() {
+                    return Math.max(1, Math.ceil(this.filteredCount / this.perPage));
+                },
+                get paginatedOrders() {
+                    const start = (this.page - 1) * this.perPage;
+                    return this.filteredOrders.slice(start, start + this.perPage);
+                },
+                get rangeStart() {
+                    return this.filteredCount ? (this.page - 1) * this.perPage + 1 : 0;
+                },
+                get rangeEnd() {
+                    return Math.min(this.page * this.perPage, this.filteredCount);
+                },
+                goToPage(page) {
+                    this.page = Math.min(Math.max(1, page), this.totalPages);
+                },
+                init() {
+                    this.$watch('search', () => { this.page = 1; });
+                    this.$watch('status', () => { this.page = 1; });
+                    this.$watch('filteredCount', () => {
+                        if (this.page > this.totalPages) this.page = this.totalPages;
                     });
                 },
                 statusLabel(status) {

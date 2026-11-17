@@ -70,6 +70,9 @@
                     </tbody>
                 </table>
             </div>
+            @if(method_exists($cashBookEntries, 'hasPages') && $cashBookEntries->hasPages())
+                <div class="border-t border-gray-100 px-4 py-3">{{ $cashBookEntries->links() }}</div>
+            @endif
         @endif
     </x-accounts.panel>
 </div>

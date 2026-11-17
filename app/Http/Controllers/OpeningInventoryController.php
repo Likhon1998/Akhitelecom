@@ -30,7 +30,8 @@ class OpeningInventoryController extends Controller
             ->whereNotIn('id', $openedProductIds)
             ->where('stock_quantity', 0)
             ->orderBy('name')
-            ->get();
+            ->paginate(25, ['*'], 'products_page')
+            ->withQueryString();
 
         $openedRecords = StockMovement::where('shop_id', $this->shopId())
             ->where(function ($q) {
@@ -39,7 +40,8 @@ class OpeningInventoryController extends Controller
             })
             ->with('product:id,name,stock_quantity')
             ->orderByDesc('created_at')
-            ->get();
+            ->paginate(25, ['*'], 'opened_page')
+            ->withQueryString();
 
         return view('supply.opening-inventory.index', compact('products', 'openedRecords'));
     }

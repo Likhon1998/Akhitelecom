@@ -8,6 +8,7 @@ use App\Models\Counter;
 use App\Services\AccountService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 
 class AccountController extends Controller
@@ -84,10 +85,20 @@ class AccountController extends Controller
                 ->whereHas('transaction', fn ($q) => $q->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()]))
                 ->with(['transaction', 'counter'])
                 ->get()
-                ->sortBy(fn ($entry) => $entry->transaction->transaction_date . $entry->id);
+                ->sortBy(fn ($entry) => $entry->transaction->transaction_date.$entry->id)
+                ->values();
+
+            $page = max(1, (int) $request->integer('page', 1));
+            $perPage = 25;
+            $total = $periodEntries->count();
+            $offset = ($page - 1) * $perPage;
 
             $runningBalance = $opening;
-            $ledgerEntries = $periodEntries->map(function ($entry) use ($ledgerAccount, &$runningBalance) {
+            foreach ($periodEntries->take($offset) as $entry) {
+                $runningBalance += $this->entryDelta($ledgerAccount, $entry);
+            }
+
+            $pageRows = $periodEntries->slice($offset, $perPage)->map(function ($entry) use ($ledgerAccount, &$runningBalance) {
                 $delta = $this->entryDelta($ledgerAccount, $entry);
                 $runningBalance += $delta;
 
@@ -97,7 +108,18 @@ class AccountController extends Controller
                     'credit' => $entry->entry_type === 'credit' ? $entry->amount : 0,
                     'balance' => $runningBalance,
                 ];
-            });
+            })->values();
+
+            $ledgerEntries = new LengthAwarePaginator(
+                $pageRows,
+                $total,
+                $perPage,
+                $page,
+                [
+                    'path' => $request->url(),
+                    'query' => $request->query(),
+                ]
+            );
         }
 
         $cashAccounts = $this->accounts->cashAccounts($shopId);
@@ -122,7 +144,8 @@ class AccountController extends Controller
                 ->orderBy('account_transactions.transaction_date')
                 ->orderBy('account_entries.id')
                 ->select('account_entries.*')
-                ->get();
+                ->paginate(25)
+                ->withQueryString();
         }
 
         $cashBookBalance = $cashBookAccount ? ($balances[$cashBookAccount->id] ?? 0) : 0;

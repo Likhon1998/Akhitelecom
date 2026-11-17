@@ -18,7 +18,10 @@ class SupplierController extends Controller
 
     public function index()
     {
-        $suppliers = Supplier::where('shop_id', $this->shopId())->latest()->get();
+        $suppliers = Supplier::where('shop_id', $this->shopId())
+            ->latest()
+            ->paginate(25)
+            ->withQueryString();
 
         return view('supply.suppliers.index', compact('suppliers'));
     }

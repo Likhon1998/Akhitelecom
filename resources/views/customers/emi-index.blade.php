@@ -25,7 +25,7 @@
                 <div class="rounded-2xl border border-indigo-200 bg-indigo-50 px-5 py-4 shadow-sm">
                     <p class="text-[11px] font-bold uppercase tracking-wider text-indigo-700">Total EMI outstanding</p>
                     <p class="mt-1 text-3xl font-black text-indigo-950">৳{{ number_format($totalOutstanding, 2) }}</p>
-                    <p class="mt-1 text-xs text-indigo-700/80">{{ $plans->count() }} active plan(s)</p>
+                    <p class="mt-1 text-xs text-indigo-700/80">{{ $plans->total() }} active plan(s)</p>
                 </div>
                 <div class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 shadow-sm">
                     <p class="text-[11px] font-bold uppercase tracking-wider text-amber-700">Overdue installments</p>
@@ -110,6 +110,9 @@
                     </tbody>
                 </table>
             </div>
+            @if($plans->hasPages())
+                <div class="border-t border-slate-100 px-4 py-3">{{ $plans->links() }}</div>
+            @endif
         </div>
     </div>
 </x-app-layout>

@@ -21,26 +21,32 @@ class CustomerEmiController extends Controller
         $shopId = Auth::user()->shop_id;
         $this->emi->markOverdueInstallments($shopId);
 
-        $plans = CustomerEmiPlan::with([
+        $base = CustomerEmiPlan::where('shop_id', $shopId)
+            ->where('status', 'active')
+            ->where('remaining_amount', '>', 0);
+
+        $totalOutstanding = (float) (clone $base)->sum('remaining_amount');
+        $today = now()->toDateString();
+        $overdueCount = \App\Models\CustomerEmiInstallment::query()
+            ->whereHas('plan', function ($q) use ($shopId) {
+                $q->where('shop_id', $shopId)
+                    ->where('status', 'active')
+                    ->where('remaining_amount', '>', 0);
+            })
+            ->whereIn('status', ['overdue', 'pending', 'partial'])
+            ->whereDate('due_date', '<', $today)
+            ->count();
+
+        $plans = (clone $base)
+            ->with([
                 'customer:id,name,phone',
                 'order:id,invoice_no',
                 'order.items.product.galleryImages',
                 'installments',
             ])
-            ->where('shop_id', $shopId)
-            ->where('status', 'active')
-            ->where('remaining_amount', '>', 0)
             ->orderByDesc('id')
-            ->get();
-
-        $totalOutstanding = (float) $plans->sum('remaining_amount');
-        $today = now()->toDateString();
-        $overdueCount = $plans->sum(function ($p) use ($today) {
-            return $p->installments
-                ->whereIn('status', ['overdue', 'pending', 'partial'])
-                ->filter(fn ($i) => $i->due_date && $i->due_date->toDateString() < $today)
-                ->count();
-        });
+            ->paginate(25)
+            ->withQueryString();
 
         return view('customers.emi-index', compact('plans', 'totalOutstanding', 'overdueCount'));
     }

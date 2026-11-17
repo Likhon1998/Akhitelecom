@@ -19,12 +19,14 @@ class CustomerBakiController extends Controller
     {
         $shopId = Auth::user()->shop_id;
 
-        $customers = Customer::where('shop_id', $shopId)
-            ->where('baki_balance', '>', 0)
-            ->orderByDesc('baki_balance')
-            ->get();
+        $base = Customer::where('shop_id', $shopId)->where('baki_balance', '>', 0);
 
-        $totalOutstanding = (float) $customers->sum('baki_balance');
+        $totalOutstanding = (float) (clone $base)->sum('baki_balance');
+
+        $customers = (clone $base)
+            ->orderByDesc('baki_balance')
+            ->paginate(25)
+            ->withQueryString();
 
         return view('customers.baki-index', compact('customers', 'totalOutstanding'));
     }

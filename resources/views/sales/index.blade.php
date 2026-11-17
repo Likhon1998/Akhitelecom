@@ -160,7 +160,7 @@
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-100">
-                            <template x-for="order in filteredPhysical" :key="'p-' + order.id">
+                            <template x-for="order in paginatedPhysical" :key="'p-' + order.id">
                                 <tr class="hover:bg-gray-50 transition" :class="order.is_voided ? 'bg-red-50/30' : ''">
                                     <td class="px-4 py-2.5 whitespace-nowrap text-xs text-gray-500 font-medium" x-text="order.created_at"></td>
                                     <td class="px-4 py-2.5 whitespace-nowrap text-sm font-black tracking-tight" :class="order.is_voided ? 'text-red-500 line-through opacity-70' : 'text-indigo-600'">
@@ -240,7 +240,7 @@
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-100">
-                            <template x-for="order in filteredOnline" :key="'o-' + order.id">
+                            <template x-for="order in paginatedOnline" :key="'o-' + order.id">
                                 <tr class="hover:bg-gray-50 transition" :class="order.is_voided ? 'bg-red-50/30' : ''">
                                     <td class="px-4 py-2.5 whitespace-nowrap text-xs text-gray-500 font-medium" x-text="order.created_at"></td>
                                     <td class="px-4 py-2.5">
@@ -309,8 +309,47 @@
                     </table>
                 </div>
 
-                <div class="px-4 py-2.5 border-t border-gray-50 text-[11px] text-gray-400"
-                     x-text="'Showing ' + (channel === 'online' ? filteredOnline.length : filteredPhysical.length) + ' of ' + (channel === 'online' ? online.length : physical.length) + ' loaded · instant filter'">
+                <div class="px-4 py-3 border-t border-gray-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p class="text-[11px] text-gray-500">
+                        Showing
+                        <span class="font-bold text-gray-700" x-text="rangeStart"></span>
+                        to
+                        <span class="font-bold text-gray-700" x-text="rangeEnd"></span>
+                        of
+                        <span class="font-bold text-gray-700" x-text="filteredCount"></span>
+                        <span x-show="filteredCount !== (channel === 'online' ? online.length : physical.length)">
+                            (filtered from <span class="font-bold text-gray-700" x-text="channel === 'online' ? online.length : physical.length"></span>)
+                        </span>
+                    </p>
+                    <div class="flex items-center gap-1.5" x-show="totalPages > 1">
+                        <button type="button" @click="goToPage(1)" :disabled="page === 1"
+                                class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                title="First page">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/></svg>
+                        </button>
+                        <button type="button" @click="goToPage(page - 1)" :disabled="page === 1"
+                                class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                title="Previous">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                        </button>
+                        <template x-for="p in totalPages" :key="'pg-' + p">
+                            <button type="button" @click="goToPage(p)"
+                                    class="min-w-[2rem] h-8 px-2 rounded-lg text-xs font-bold transition"
+                                    :class="page === p ? 'bg-indigo-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'"
+                                    x-text="p"
+                                    x-show="totalPages <= 7 || p === 1 || p === totalPages || Math.abs(p - page) <= 1"></button>
+                        </template>
+                        <button type="button" @click="goToPage(page + 1)" :disabled="page === totalPages"
+                                class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                title="Next">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        </button>
+                        <button type="button" @click="goToPage(totalPages)" :disabled="page === totalPages"
+                                class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                title="Last page">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -411,6 +450,8 @@
                 csrf: cfg.csrf,
                 search: '',
                 status: 'all',
+                page: 1,
+                perPage: 25,
                 statusTabs: [
                     { key: 'all', label: 'All' },
                     { key: 'pending', label: 'Pending' },
@@ -448,6 +489,29 @@
                         return (o.search_blob || '').includes(q);
                     });
                 },
+                get filteredCount() {
+                    return this.channel === 'online' ? this.filteredOnline.length : this.filteredPhysical.length;
+                },
+                get totalPages() {
+                    return Math.max(1, Math.ceil(this.filteredCount / this.perPage));
+                },
+                get paginatedPhysical() {
+                    const start = (this.page - 1) * this.perPage;
+                    return this.filteredPhysical.slice(start, start + this.perPage);
+                },
+                get paginatedOnline() {
+                    const start = (this.page - 1) * this.perPage;
+                    return this.filteredOnline.slice(start, start + this.perPage);
+                },
+                get rangeStart() {
+                    return this.filteredCount ? (this.page - 1) * this.perPage + 1 : 0;
+                },
+                get rangeEnd() {
+                    return Math.min(this.page * this.perPage, this.filteredCount);
+                },
+                goToPage(page) {
+                    this.page = Math.min(Math.max(1, page), this.totalPages);
+                },
                 setChannel(ch) {
                     if (ch === 'online' && !this.canViewOnline) {
                         return;
@@ -455,6 +519,7 @@
                     this.channel = ch;
                     this.search = '';
                     this.status = 'all';
+                    this.page = 1;
                     const url = new URL(window.location.href);
                     url.searchParams.set('channel', ch);
                     url.searchParams.delete('search');
@@ -473,6 +538,13 @@
                 },
                 init() {
                     this.syncHeaderAction();
+                    this.$watch('search', () => { this.page = 1; });
+                    this.$watch('status', () => { this.page = 1; });
+                    this.$watch('filteredCount', () => {
+                        if (this.page > this.totalPages) {
+                            this.page = this.totalPages;
+                        }
+                    });
                 },
                 physicalBadgeLabel(order) {
                     if (order.status === 'refunded') return 'Refunded';
