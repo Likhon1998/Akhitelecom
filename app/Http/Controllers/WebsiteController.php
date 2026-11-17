@@ -672,77 +672,25 @@ class WebsiteController extends Controller
         $shopId = $this->website->shopId();
         abort_unless($shopId, 404);
 
-        $isAppointment = $request->boolean('appointment')
-            || str_starts_with(strtolower((string) $request->input('subject', '')), 'appointment');
-
         $data = $request->validate([
             'name' => 'required|string|max:120',
-            'email' => ($isAppointment ? 'nullable' : 'required').'|email|max:255',
-            'phone' => ($isAppointment ? 'required' : 'nullable').'|string|max:32',
+            'email' => 'required|email|max:255',
             'subject' => 'required|string|max:200',
             'order_number' => 'nullable|string|max:80',
-            'preferred_date' => 'nullable|date|after_or_equal:today',
-            'preferred_time' => 'nullable|string|max:40',
-            'service' => 'nullable|string|max:120',
             'message' => 'required|string|max:5000',
-            'appointment' => 'nullable|boolean',
         ]);
-
-        $phone = trim((string) ($data['phone'] ?? ''));
-        $email = trim((string) ($data['email'] ?? ''));
-        if ($email === '') {
-            $digits = preg_replace('/\D+/', '', $phone) ?: 'guest';
-            $email = 'appointment+'.$digits.'@akhitelecom.local';
-        }
-
-        $messageBody = $data['message'];
-        if ($isAppointment) {
-            $bits = [];
-            if ($phone !== '') {
-                $bits[] = 'Phone: '.$phone;
-            }
-            if (! empty($data['service'])) {
-                $bits[] = 'Service: '.$data['service'];
-            }
-            if (! empty($data['preferred_date'])) {
-                $bits[] = 'Preferred date: '.$data['preferred_date'];
-            }
-            if (! empty($data['preferred_time'])) {
-                $bits[] = 'Preferred time: '.$data['preferred_time'];
-            }
-            if ($bits !== []) {
-                $messageBody = implode("\n", $bits)."\n\n".$messageBody;
-            }
-            if (! str_starts_with(strtolower($data['subject']), 'appointment')) {
-                $data['subject'] = 'Appointment: '.$data['subject'];
-            }
-        }
 
         \App\Models\CmsContactMessage::create([
             'shop_id' => $shopId,
             'name' => $data['name'],
-            'email' => $email,
+            'email' => $data['email'],
             'subject' => $data['subject'],
             'order_number' => $data['order_number'] ?? null,
-            'message' => $messageBody,
+            'message' => $data['message'],
             'is_read' => false,
         ]);
 
-        if ($request->expectsJson() || $request->ajax()) {
-            return response()->json([
-                'ok' => true,
-                'message' => $isAppointment
-                    ? 'Appointment request sent. We will confirm by phone soon.'
-                    : 'Thanks! Your message has been sent. We\'ll get back to you soon.',
-            ]);
-        }
-
-        return back()->with(
-            'contact_success',
-            $isAppointment
-                ? 'Appointment request sent. We will confirm by phone soon.'
-                : 'Thanks! Your message has been sent. We\'ll get back to you soon.'
-        );
+        return back()->with('contact_success', 'Thanks! Your message has been sent. We\'ll get back to you soon.');
     }
 
     public function trackOrder()
