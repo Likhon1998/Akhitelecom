@@ -538,6 +538,31 @@
         .tn-footer-credit{border-top:1px solid #eef2f7;padding:14px 16px 18px;text-align:center;background:#f8f9fc}
         .powered-by,.powered-by--footer{margin:0;font-size:12px;font-weight:500;letter-spacing:.02em;color:#94a3b8}
         .powered-by strong,.powered-by--footer strong{color:#0f172a;font-weight:800}
+        /* Mobile hero + appointment FAB (critical; full styles also in website.css) */
+        @media (max-width:768px){.tn-hero{aspect-ratio:16/9;min-height:180px;max-height:52vh}.tn-hero-img{object-fit:cover;object-position:center center}}
+        .tn-appt-fab{position:fixed;right:16px;bottom:20px;z-index:55;display:inline-flex;align-items:center;gap:8px;padding:12px 16px;border:0;border-radius:999px;background:#0f172a;color:#fff;font-size:13px;font-weight:700;box-shadow:0 12px 28px rgba(15,23,42,.28);cursor:pointer}
+        .tn-appt-fab-icon{width:18px;height:18px;flex-shrink:0}
+        .tn-appt-overlay{position:fixed;inset:0;z-index:80;background:rgba(15,23,42,.55);display:flex;align-items:flex-end;justify-content:center}
+        .tn-appt-sheet{width:100%;max-width:520px;max-height:min(92vh,720px);overflow:auto;background:#fff;border-radius:20px 20px 0 0;padding:18px;box-shadow:0 -8px 40px rgba(15,23,42,.2)}
+        .tn-appt-sheet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+        .tn-appt-kicker{margin:0 0 4px;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#64748b}
+        .tn-appt-title{margin:0;font-size:1.25rem;font-weight:800;color:#0f172a}
+        .tn-appt-sub{margin:6px 0 0;font-size:12.5px;color:#64748b;line-height:1.45}
+        .tn-appt-close{width:36px;height:36px;border-radius:999px;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+        .tn-appt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+        .tn-appt-field{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:700;color:#475569}
+        .tn-appt-field--full{grid-column:1/-1}
+        .tn-appt-field input,.tn-appt-field select,.tn-appt-field textarea{width:100%;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:14px;font-weight:500;color:#0f172a;background:#fff}
+        .tn-appt-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+        .tn-appt-btn{border-radius:12px;padding:11px 16px;font-size:13px;font-weight:700;border:0;cursor:pointer}
+        .tn-appt-btn--ghost{background:#f1f5f9;color:#334155}
+        .tn-appt-btn--primary{background:#2563eb;color:#fff}
+        .tn-appt-error{margin:10px 0 0;font-size:12.5px;font-weight:600;color:#be123c}
+        .tn-appt-success{margin:10px 0 0;font-size:12.5px;font-weight:600;color:#047857}
+        @media (min-width:640px){.tn-appt-overlay{align-items:center;padding:24px}.tn-appt-sheet{border-radius:20px}}
+        @media (max-width:480px){.tn-appt-fab{left:12px;right:12px;bottom:14px;justify-content:center}.tn-appt-grid{grid-template-columns:1fr}}
+        html.tn-appt-lock,html.tn-appt-lock body{overflow:hidden}
+        .tn-hero-poster{border:0;background:transparent;padding:0;cursor:pointer;width:100%;height:100%}
     </style>
 </head>
 <body class="gaget-store bg-white antialiased" id="storefront-root" x-data="storefrontCart()" @keydown.escape.window="cartOpen=false; checkoutOpen=false; mobileOpen=false; mobileCatsOpen=false; mobileBrandsOpen=false">
@@ -568,6 +593,7 @@
 </main>
 
 @include('website.partials.footer')
+@include('website.partials.appointment-booking')
 
 {{-- Cart drawer --}}
 <div x-show="cartOpen" x-cloak class="fixed inset-0 z-[70]">

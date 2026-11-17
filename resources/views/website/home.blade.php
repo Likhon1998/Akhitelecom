@@ -22,20 +22,43 @@
                 $posterUrl .= '?v='.(is_file($full) ? filemtime($full) : time());
             }
             $link = $slide->button_url ?: route('website.shop');
+            $opensAppointment = is_string($link) && (
+                $link === '#appointment'
+                || str_contains(strtolower($link), '#appointment')
+                || str_contains(strtolower((string) ($slide->title ?? '')), 'appointment')
+                || str_contains(strtolower((string) ($slide->button_text ?? '')), 'appointment')
+            );
         @endphp
         <div class="tn-hero-slide" x-show="slide==={{ $i }}" @if($i > 0) x-cloak @endif>
             @if($posterUrl)
-                <a href="{{ $link }}" class="tn-hero-poster" aria-label="{{ $slide->title }}">
-                    <img
-                        src="{{ $posterUrl }}"
-                        alt="{{ $slide->title }}"
-                        class="tn-hero-img"
-                        width="1920"
-                        height="640"
-                        decoding="async"
-                        @if($i === 0) fetchpriority="high" @endif
-                    >
-                </a>
+                @if($opensAppointment)
+                    <button type="button"
+                            class="tn-hero-poster"
+                            aria-label="{{ $slide->title }}"
+                            onclick="window.dispatchEvent(new CustomEvent('open-appointment'))">
+                        <img
+                            src="{{ $posterUrl }}"
+                            alt="{{ $slide->title }}"
+                            class="tn-hero-img"
+                            width="1920"
+                            height="640"
+                            decoding="async"
+                            @if($i === 0) fetchpriority="high" @endif
+                        >
+                    </button>
+                @else
+                    <a href="{{ $link }}" class="tn-hero-poster" aria-label="{{ $slide->title }}">
+                        <img
+                            src="{{ $posterUrl }}"
+                            alt="{{ $slide->title }}"
+                            class="tn-hero-img"
+                            width="1920"
+                            height="640"
+                            decoding="async"
+                            @if($i === 0) fetchpriority="high" @endif
+                        >
+                    </a>
+                @endif
             @else
                 <div class="tn-hero-fallback">
                     <div class="tn-container tn-hero-fallback-inner">

@@ -39,8 +39,8 @@
             </div>
             <div class="md:col-span-2">
                 <label class="text-xs font-bold uppercase text-slate-500">Click URL (optional)</label>
-                <input name="button_url" value="{{ old('button_url', $slide->button_url) }}" class="mt-1 w-full rounded-xl border-slate-200" placeholder="/shop or https://...">
-                <p class="mt-1 text-[11px] text-slate-400">If set, the whole poster is clickable.</p>
+                <input name="button_url" value="{{ old('button_url', $slide->button_url) }}" class="mt-1 w-full rounded-xl border-slate-200" placeholder="/shop or #appointment">
+                <p class="mt-1 text-[11px] text-slate-400">If set, the whole poster is clickable. Use <code class="text-[10px] bg-slate-100 px-1 rounded">#appointment</code> to open the Book Appointment sheet (slides stay visible; form opens on tap).</p>
             </div>
             <div>
                 <label class="text-xs font-bold uppercase text-slate-500">Sort order</label>
