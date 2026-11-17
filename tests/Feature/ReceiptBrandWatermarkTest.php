@@ -73,6 +73,10 @@ class ReceiptBrandWatermarkTest extends TestCase
             'subtotal' => 150,
         ]);
 
+        $logoUrl = SiteSetting::current()->storeLogoUrl();
+        $this->assertNotNull($logoUrl);
+        $this->assertStringContainsString('/storage/'.$logo, $logoUrl);
+
         $this->actingAs($admin, 'admin')
             ->get(route('pos.receipt', $order))
             ->assertOk()

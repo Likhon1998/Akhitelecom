@@ -59,4 +59,36 @@ class SiteSetting extends Model
             'currency_symbol' => '৳',
         ]);
     }
+
+    /**
+     * Absolute URL for the store logo uploaded in CMS Landing
+     * (“Full logo”) — same file used on the homepage header/footer.
+     */
+    public function storeLogoUrl(): ?string
+    {
+        $path = $this->logo_path;
+        if (! filled($path)) {
+            return null;
+        }
+
+        $url = public_storage_url($path);
+        if (! $url) {
+            return null;
+        }
+
+        if (! preg_match('#^(https?:)?//#i', (string) $path)) {
+            $mtime = @filemtime(public_storage_path($path)) ?: time();
+            $url .= (str_contains($url, '?') ? '&' : '?').'v='.$mtime;
+        }
+
+        // Absolute URL so receipt/invoice print still loads the logo.
+        if (str_starts_with($url, '//')) {
+            return (request()->isSecure() ? 'https:' : 'http:').$url;
+        }
+        if (str_starts_with($url, '/')) {
+            return url($url);
+        }
+
+        return $url;
+    }
 }

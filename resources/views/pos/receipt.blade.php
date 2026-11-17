@@ -29,12 +29,11 @@
         }
         $creditDue = round((float) ($order->credit_amount ?? 0), 2);
         $hasOpenCredit = $creditDue > 0.009;
+        // Same CMS Landing “Full logo” as the homepage — no separate watermark upload.
         $siteSettings = \App\Models\SiteSetting::current();
-        $brandLogoPath = $siteSettings->logo_path ?: $siteSettings->favicon_path;
-        $brandLogoUrl = $brandLogoPath ? public_storage_url($brandLogoPath) : null;
-        if ($brandLogoUrl && $brandLogoPath && ! preg_match('#^(https?:)?//#i', (string) $brandLogoPath)) {
-            $mtime = @filemtime(public_storage_path($brandLogoPath)) ?: time();
-            $brandLogoUrl .= (str_contains($brandLogoUrl, '?') ? '&' : '?').'v='.$mtime;
+        $brandLogoUrl = $siteSettings->storeLogoUrl();
+        if (filled($siteSettings->store_name)) {
+            $shopName = $siteSettings->store_name;
         }
     @endphp
     <style>

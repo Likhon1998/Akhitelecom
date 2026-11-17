@@ -44,7 +44,7 @@
                         :existing="$settings->logo_path ? public_storage_url($settings->logo_path) : null"
                         preview-class="h-14 max-w-full object-contain rounded-lg bg-black p-1 border border-slate-200"
                     />
-                    <p class="mt-1 text-[11px] text-slate-400">Header, footer, login, and admin sidebar. Black backgrounds are auto-removed. Preview shows before save.</p>
+                    <p class="mt-1 text-[11px] text-slate-400">Used on header, footer, login, admin sidebar, and as the watermark on printed receipts / invoices. Black backgrounds are auto-removed. Preview shows before save.</p>
                 </div>
                 <div>
                     <label class="text-xs font-bold uppercase text-slate-500">Browser tab icon (favicon)</label>
