@@ -102,7 +102,7 @@ class ReceiptBrandWatermarkTest extends TestCase
             ->assertSee('data:image/', false);
     }
 
-    public function test_receipt_falls_back_to_homepage_favicon_when_full_logo_missing(): void
+    public function test_receipt_prefers_homepage_favicon_like_header(): void
     {
         $favicon = UploadedFile::fake()->image('favicon.png', 64, 64)->store('cms/favicon', 'public');
         SiteSetting::query()->updateOrCreate([], [
@@ -124,5 +124,50 @@ class ReceiptBrandWatermarkTest extends TestCase
             ->assertOk()
             ->assertSee('class="logo-watermark"', false)
             ->assertSee('data:image/', false);
+    }
+
+    public function test_receipt_skips_missing_logo_and_uses_existing_favicon(): void
+    {
+        $favicon = UploadedFile::fake()->image('favicon.png', 64, 64)->store('cms/favicon', 'public');
+        SiteSetting::query()->updateOrCreate([], [
+            'default_shop_id' => $this->shop->id,
+            'store_name' => 'Akhi Telecom',
+            'logo_path' => 'cms/logo/missing-on-disk.png',
+            'favicon_path' => $favicon,
+            'currency_code' => 'BDT',
+            'currency_symbol' => '৳',
+        ]);
+
+        $settings = SiteSetting::current();
+        $this->assertSame($favicon, $settings->storeBrandImagePath());
+        $this->assertStringStartsWith('data:image/', (string) $settings->storeLogoSrc());
+
+        $order = $this->makeOrder();
+
+        $this->actingAs($this->admin, 'admin')
+            ->get(route('pos.receipt', $order))
+            ->assertOk()
+            ->assertSee('data:image/', false)
+            ->assertDontSee('cms/logo/missing-on-disk.png', false);
+    }
+
+    public function test_store_logo_url_uses_same_origin_path_not_app_url_host(): void
+    {
+        config(['app.url' => 'http://wrong-app-url.test']);
+
+        $favicon = UploadedFile::fake()->image('favicon.png', 64, 64)->store('cms/favicon', 'public');
+        SiteSetting::query()->updateOrCreate([], [
+            'default_shop_id' => $this->shop->id,
+            'store_name' => 'Akhi Telecom',
+            'favicon_path' => $favicon,
+            'currency_code' => 'BDT',
+            'currency_symbol' => '৳',
+        ]);
+
+        // Force URL fallback by pointing at a path we will not embed in this assertion helper.
+        $url = SiteSetting::current()->storeLogoUrl();
+        $this->assertNotNull($url);
+        $this->assertStringStartsWith('/storage/', $url);
+        $this->assertStringNotContainsString('wrong-app-url.test', $url);
     }
 }

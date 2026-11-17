@@ -62,21 +62,36 @@ class SiteSetting extends Model
 
     /**
      * Path of the brand image shown on the public homepage (CMS Landing).
-     * Prefers Full logo, then favicon — same sources as header/footer.
+     * Same order as header/footer: favicon, then full logo. Prefers a file that exists on disk.
      */
     public function storeBrandImagePath(): ?string
     {
-        foreach ([$this->logo_path, $this->favicon_path] as $path) {
+        $candidates = [];
+        foreach ([$this->favicon_path, $this->logo_path] as $path) {
             if (filled($path)) {
-                return (string) $path;
+                $candidates[] = (string) $path;
             }
         }
 
-        return null;
+        if ($candidates === []) {
+            return null;
+        }
+
+        foreach ($candidates as $path) {
+            if (preg_match('#^(https?:)?//#i', $path)) {
+                return $path;
+            }
+            if ($this->brandImageAbsolutePath($path)) {
+                return $path;
+            }
+        }
+
+        return $candidates[0];
     }
 
     /**
-     * Absolute URL for the homepage brand image (logo or favicon).
+     * Browser URL for the homepage brand image (path-only, same as storefront).
+     * Avoids absolute APP_URL links that break when APP_URL differs from the request host.
      */
     public function storeLogoUrl(): ?string
     {
@@ -94,23 +109,14 @@ class SiteSetting extends Model
             return null;
         }
 
-        $mtime = @filemtime(public_storage_path($path)) ?: time();
-        $url .= (str_contains($url, '?') ? '&' : '?').'v='.$mtime;
+        $mtime = @filemtime($this->brandImageAbsolutePath($path) ?? '') ?: time();
 
-        // Absolute URL so receipt/invoice print still loads the logo.
-        if (str_starts_with($url, '//')) {
-            return (request()->isSecure() ? 'https:' : 'http:').$url;
-        }
-        if (str_starts_with($url, '/')) {
-            return url($url);
-        }
-
-        return $url;
+        return $url.(str_contains($url, '?') ? '&' : '?').'v='.$mtime;
     }
 
     /**
      * Data-URI of the homepage brand image for print (works offline / thermal).
-     * Falls back to storeLogoUrl() when the file cannot be read from disk.
+     * Falls back to a same-origin storage URL when the file cannot be read from disk.
      */
     public function storeLogoSrc(): ?string
     {
@@ -123,30 +129,65 @@ class SiteSetting extends Model
             return $path;
         }
 
-        $absolute = public_storage_path($path);
-        if (is_file($absolute) && is_readable($absolute)) {
+        $absolute = $this->brandImageAbsolutePath($path);
+        if ($absolute) {
             $bytes = @file_get_contents($absolute);
             if ($bytes !== false && $bytes !== '') {
-                $mime = 'image/png';
-                if (function_exists('mime_content_type')) {
-                    $detected = @mime_content_type($absolute);
-                    if (is_string($detected) && str_starts_with($detected, 'image/')) {
-                        $mime = $detected;
-                    }
-                } elseif (preg_match('/\.(jpe?g)$/i', $path)) {
-                    $mime = 'image/jpeg';
-                } elseif (preg_match('/\.gif$/i', $path)) {
-                    $mime = 'image/gif';
-                } elseif (preg_match('/\.webp$/i', $path)) {
-                    $mime = 'image/webp';
-                } elseif (preg_match('/\.svg$/i', $path)) {
-                    $mime = 'image/svg+xml';
-                }
-
-                return 'data:'.$mime.';base64,'.base64_encode($bytes);
+                return 'data:'.$this->brandImageMime($absolute, $path).';base64,'.base64_encode($bytes);
             }
         }
 
         return $this->storeLogoUrl();
+    }
+
+    /**
+     * Resolve a public-disk relative path to a readable absolute file.
+     * Tries Storage disk root, public/storage (web symlink), and storage/app/public.
+     */
+    private function brandImageAbsolutePath(string $path): ?string
+    {
+        $path = ltrim(str_replace('\\', '/', $path), '/');
+        if (str_starts_with($path, 'storage/')) {
+            $path = substr($path, strlen('storage/'));
+        }
+
+        $candidates = array_unique(array_filter([
+            public_storage_path($path),
+            public_path('storage/'.$path),
+            storage_path('app/public/'.$path),
+        ]));
+
+        foreach ($candidates as $absolute) {
+            if (is_string($absolute) && is_file($absolute) && is_readable($absolute)) {
+                return $absolute;
+            }
+        }
+
+        return null;
+    }
+
+    private function brandImageMime(string $absolute, string $path): string
+    {
+        if (function_exists('mime_content_type')) {
+            $detected = @mime_content_type($absolute);
+            if (is_string($detected) && str_starts_with($detected, 'image/')) {
+                return $detected;
+            }
+        }
+
+        if (preg_match('/\.(jpe?g)$/i', $path)) {
+            return 'image/jpeg';
+        }
+        if (preg_match('/\.gif$/i', $path)) {
+            return 'image/gif';
+        }
+        if (preg_match('/\.webp$/i', $path)) {
+            return 'image/webp';
+        }
+        if (preg_match('/\.svg$/i', $path)) {
+            return 'image/svg+xml';
+        }
+
+        return 'image/png';
     }
 }

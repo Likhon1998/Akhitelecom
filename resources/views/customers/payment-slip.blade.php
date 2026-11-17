@@ -14,7 +14,7 @@
         $method = strtoupper(str_replace('_', ' ', (string) ($entry->method ?? 'cash')));
         $cashier = $entry->user->name ?? '—';
         $customer = $entry->customer;
-        // Same brand image as the homepage (CMS logo, else favicon) — old & new slips.
+        // Same brand image as the homepage header (favicon, else full logo) — old & new slips.
         $siteSettings = \App\Models\SiteSetting::current();
         $brandLogoUrl = $siteSettings->storeLogoSrc();
         if (filled($siteSettings->store_name)) {
@@ -273,14 +273,14 @@
     <div class="sheet">
         @if($brandLogoUrl)
             <div class="logo-watermark" aria-hidden="true">
-                <img src="{{ $brandLogoUrl }}" alt="">
+                <img src="{{ $brandLogoUrl }}" alt="" onerror="this.parentElement.remove()">
             </div>
         @endif
         <div class="paid-seal" aria-hidden="true">PAID</div>
 
         <header class="brand">
             @if($brandLogoUrl)
-                <img src="{{ $brandLogoUrl }}" alt="{{ $shopName }}" class="brand-logo">
+                <img src="{{ $brandLogoUrl }}" alt="{{ $shopName }}" class="brand-logo" onerror="this.remove()">
             @endif
             <div class="doc-type">{{ $slipTitle }}</div>
             <h1>{{ $shopName }}</h1>

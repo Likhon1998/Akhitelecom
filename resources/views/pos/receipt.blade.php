@@ -29,7 +29,7 @@
         }
         $creditDue = round((float) ($order->credit_amount ?? 0), 2);
         $hasOpenCredit = $creditDue > 0.009;
-        // Same brand image as the homepage (CMS logo, else favicon) — old & new receipts.
+        // Same brand image as the homepage header (favicon, else full logo) — old & new receipts.
         $siteSettings = \App\Models\SiteSetting::current();
         $brandLogoUrl = $siteSettings->storeLogoSrc();
         if (filled($siteSettings->store_name)) {
@@ -106,7 +106,7 @@
             justify-content: center;
             pointer-events: none;
             z-index: 0;
-            opacity: .16;
+            opacity: .18;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
@@ -379,7 +379,7 @@
     <div class="sheet">
         @if($brandLogoUrl)
             <div class="logo-watermark" aria-hidden="true">
-                <img src="{{ $brandLogoUrl }}" alt="">
+                <img src="{{ $brandLogoUrl }}" alt="" onerror="this.parentElement.remove()">
             </div>
         @endif
         @if($isFullyPaid)
@@ -390,7 +390,7 @@
 
         <header class="brand">
             @if($brandLogoUrl)
-                <img src="{{ $brandLogoUrl }}" alt="{{ $shopName }}" class="brand-logo">
+                <img src="{{ $brandLogoUrl }}" alt="{{ $shopName }}" class="brand-logo" onerror="this.remove()">
             @endif
             <div class="doc-type">{{ $isOnline ? 'Tax Invoice / Online Order' : 'Sales Invoice / POS Receipt' }}</div>
             <h1>{{ $shopName }}</h1>
