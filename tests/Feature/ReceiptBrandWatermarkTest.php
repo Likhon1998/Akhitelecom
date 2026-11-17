@@ -18,12 +18,18 @@ class ReceiptBrandWatermarkTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_pos_receipt_and_invoice_show_brand_logo_watermark(): void
+    private Shop $shop;
+
+    private User $admin;
+
+    protected function setUp(): void
     {
+        parent::setUp();
+
         Storage::fake('public');
         $this->seed(RolesAndPermissionsSeeder::class);
 
-        $shop = Shop::create([
+        $this->shop = Shop::create([
             'name' => 'Akhi Telecom',
             'email' => 'shop@example.com',
             'phone' => '01700000000',
@@ -31,34 +37,28 @@ class ReceiptBrandWatermarkTest extends TestCase
             'is_active' => true,
         ]);
 
-        $admin = User::factory()->create([
-            'shop_id' => $shop->id,
+        $this->admin = User::factory()->create([
+            'shop_id' => $this->shop->id,
             'role' => 'admin',
         ]);
-        $admin->syncRoles(['Admin']);
+        $this->admin->syncRoles(['Admin']);
+    }
 
-        $logo = UploadedFile::fake()->image('brand-logo.png', 200, 200)->store('site', 'public');
-        SiteSetting::query()->updateOrCreate([], [
-            'default_shop_id' => $shop->id,
-            'store_name' => 'Akhi Telecom',
-            'logo_path' => $logo,
-            'currency_code' => 'BDT',
-            'currency_symbol' => '৳',
-        ]);
-
+    private function makeOrder(): Order
+    {
         $product = Product::create([
-            'shop_id' => $shop->id,
+            'shop_id' => $this->shop->id,
             'name' => 'Test Phone',
-            'barcode' => 'WM-TEST-1',
+            'barcode' => 'WM-TEST-'.uniqid(),
             'cost_price' => 100,
             'selling_price' => 150,
             'stock_quantity' => 5,
         ]);
 
         $order = Order::create([
-            'shop_id' => $shop->id,
-            'user_id' => $admin->id,
-            'invoice_no' => 'INV-WM-1',
+            'shop_id' => $this->shop->id,
+            'user_id' => $this->admin->id,
+            'invoice_no' => 'INV-WM-'.uniqid(),
             'total_amount' => 150,
             'paid_amount' => 150,
             'status' => 'completed',
@@ -73,16 +73,56 @@ class ReceiptBrandWatermarkTest extends TestCase
             'subtotal' => 150,
         ]);
 
-        $logoUrl = SiteSetting::current()->storeLogoUrl();
-        $this->assertNotNull($logoUrl);
-        $this->assertStringContainsString('/storage/'.$logo, $logoUrl);
+        return $order;
+    }
 
-        $this->actingAs($admin, 'admin')
+    public function test_pos_receipt_embeds_homepage_logo_for_old_and_new_invoices(): void
+    {
+        $logo = UploadedFile::fake()->image('brand-logo.png', 200, 200)->store('cms/logo', 'public');
+        SiteSetting::query()->updateOrCreate([], [
+            'default_shop_id' => $this->shop->id,
+            'store_name' => 'Akhi Telecom',
+            'logo_path' => $logo,
+            'currency_code' => 'BDT',
+            'currency_symbol' => '৳',
+        ]);
+
+        $src = SiteSetting::current()->storeLogoSrc();
+        $this->assertNotNull($src);
+        $this->assertStringStartsWith('data:image/', $src);
+
+        $order = $this->makeOrder();
+
+        $this->actingAs($this->admin, 'admin')
             ->get(route('pos.receipt', $order))
             ->assertOk()
             ->assertSee('class="logo-watermark"', false)
             ->assertSee('class="brand-logo"', false)
             ->assertSee('Sales Invoice / POS Receipt', false)
-            ->assertSee('/storage/'.$logo, false);
+            ->assertSee('data:image/', false);
+    }
+
+    public function test_receipt_falls_back_to_homepage_favicon_when_full_logo_missing(): void
+    {
+        $favicon = UploadedFile::fake()->image('favicon.png', 64, 64)->store('cms/favicon', 'public');
+        SiteSetting::query()->updateOrCreate([], [
+            'default_shop_id' => $this->shop->id,
+            'store_name' => 'Akhi Telecom',
+            'logo_path' => null,
+            'favicon_path' => $favicon,
+            'currency_code' => 'BDT',
+            'currency_symbol' => '৳',
+        ]);
+
+        $this->assertSame($favicon, SiteSetting::current()->storeBrandImagePath());
+        $this->assertStringStartsWith('data:image/', (string) SiteSetting::current()->storeLogoSrc());
+
+        $order = $this->makeOrder();
+
+        $this->actingAs($this->admin, 'admin')
+            ->get(route('pos.receipt', $order))
+            ->assertOk()
+            ->assertSee('class="logo-watermark"', false)
+            ->assertSee('data:image/', false);
     }
 }

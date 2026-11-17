@@ -61,14 +61,32 @@ class SiteSetting extends Model
     }
 
     /**
-     * Absolute URL for the store logo uploaded in CMS Landing
-     * (“Full logo”) — same file used on the homepage header/footer.
+     * Path of the brand image shown on the public homepage (CMS Landing).
+     * Prefers Full logo, then favicon — same sources as header/footer.
+     */
+    public function storeBrandImagePath(): ?string
+    {
+        foreach ([$this->logo_path, $this->favicon_path] as $path) {
+            if (filled($path)) {
+                return (string) $path;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Absolute URL for the homepage brand image (logo or favicon).
      */
     public function storeLogoUrl(): ?string
     {
-        $path = $this->logo_path;
-        if (! filled($path)) {
+        $path = $this->storeBrandImagePath();
+        if (! $path) {
             return null;
+        }
+
+        if (preg_match('#^(https?:)?//#i', $path)) {
+            return $path;
         }
 
         $url = public_storage_url($path);
@@ -76,10 +94,8 @@ class SiteSetting extends Model
             return null;
         }
 
-        if (! preg_match('#^(https?:)?//#i', (string) $path)) {
-            $mtime = @filemtime(public_storage_path($path)) ?: time();
-            $url .= (str_contains($url, '?') ? '&' : '?').'v='.$mtime;
-        }
+        $mtime = @filemtime(public_storage_path($path)) ?: time();
+        $url .= (str_contains($url, '?') ? '&' : '?').'v='.$mtime;
 
         // Absolute URL so receipt/invoice print still loads the logo.
         if (str_starts_with($url, '//')) {
@@ -90,5 +106,47 @@ class SiteSetting extends Model
         }
 
         return $url;
+    }
+
+    /**
+     * Data-URI of the homepage brand image for print (works offline / thermal).
+     * Falls back to storeLogoUrl() when the file cannot be read from disk.
+     */
+    public function storeLogoSrc(): ?string
+    {
+        $path = $this->storeBrandImagePath();
+        if (! $path) {
+            return null;
+        }
+
+        if (preg_match('#^(https?:)?//#i', $path)) {
+            return $path;
+        }
+
+        $absolute = public_storage_path($path);
+        if (is_file($absolute) && is_readable($absolute)) {
+            $bytes = @file_get_contents($absolute);
+            if ($bytes !== false && $bytes !== '') {
+                $mime = 'image/png';
+                if (function_exists('mime_content_type')) {
+                    $detected = @mime_content_type($absolute);
+                    if (is_string($detected) && str_starts_with($detected, 'image/')) {
+                        $mime = $detected;
+                    }
+                } elseif (preg_match('/\.(jpe?g)$/i', $path)) {
+                    $mime = 'image/jpeg';
+                } elseif (preg_match('/\.gif$/i', $path)) {
+                    $mime = 'image/gif';
+                } elseif (preg_match('/\.webp$/i', $path)) {
+                    $mime = 'image/webp';
+                } elseif (preg_match('/\.svg$/i', $path)) {
+                    $mime = 'image/svg+xml';
+                }
+
+                return 'data:'.$mime.';base64,'.base64_encode($bytes);
+            }
+        }
+
+        return $this->storeLogoUrl();
     }
 }

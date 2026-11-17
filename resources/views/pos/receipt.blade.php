@@ -29,9 +29,9 @@
         }
         $creditDue = round((float) ($order->credit_amount ?? 0), 2);
         $hasOpenCredit = $creditDue > 0.009;
-        // Same CMS Landing “Full logo” as the homepage — no separate watermark upload.
+        // Same brand image as the homepage (CMS logo, else favicon) — old & new receipts.
         $siteSettings = \App\Models\SiteSetting::current();
-        $brandLogoUrl = $siteSettings->storeLogoUrl();
+        $brandLogoUrl = $siteSettings->storeLogoSrc();
         if (filled($siteSettings->store_name)) {
             $shopName = $siteSettings->store_name;
         }
@@ -73,12 +73,14 @@
         }
         .brand .brand-logo {
             display: block;
-            margin: 0 auto 6px;
-            max-width: 72px;
-            max-height: 48px;
+            margin: 0 auto 8px;
+            max-width: 96px;
+            max-height: 64px;
             width: auto;
             height: auto;
             object-fit: contain;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
         .brand .doc-type {
             display: inline-block;
@@ -104,16 +106,15 @@
             justify-content: center;
             pointer-events: none;
             z-index: 0;
-            opacity: .1;
+            opacity: .16;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
         .logo-watermark img {
-            width: 72%;
-            max-width: 170px;
-            max-height: 170px;
+            width: 78%;
+            max-width: 190px;
+            max-height: 190px;
             object-fit: contain;
-            filter: grayscale(1);
         }
         .sheet > *:not(.logo-watermark) {
             position: relative;
@@ -363,7 +364,8 @@
                 border: 0;
                 box-shadow: none;
             }
-            .logo-watermark { opacity: .12 !important; }
+            .logo-watermark { opacity: .18 !important; }
+            .brand .brand-logo { opacity: 1 !important; }
             .no-print { display: none !important; }
             @page { margin: 4mm; size: auto; }
         }
