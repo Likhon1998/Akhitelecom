@@ -29,6 +29,13 @@
         }
         $creditDue = round((float) ($order->credit_amount ?? 0), 2);
         $hasOpenCredit = $creditDue > 0.009;
+        $siteSettings = \App\Models\SiteSetting::current();
+        $brandLogoPath = $siteSettings->logo_path ?: $siteSettings->favicon_path;
+        $brandLogoUrl = $brandLogoPath ? public_storage_url($brandLogoPath) : null;
+        if ($brandLogoUrl && $brandLogoPath && ! preg_match('#^(https?:)?//#i', (string) $brandLogoPath)) {
+            $mtime = @filemtime(public_storage_path($brandLogoPath)) ?: time();
+            $brandLogoUrl .= (str_contains($brandLogoUrl, '?') ? '&' : '?').'v='.$mtime;
+        }
     @endphp
     <style>
         :root {
@@ -65,6 +72,15 @@
             padding-bottom: 10px;
             margin-bottom: 10px;
         }
+        .brand .brand-logo {
+            display: block;
+            margin: 0 auto 6px;
+            max-width: 72px;
+            max-height: 48px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
         .brand .doc-type {
             display: inline-block;
             font-size: 9px;
@@ -80,6 +96,34 @@
             font-weight: 800;
             letter-spacing: .02em;
             line-height: 1.2;
+        }
+        .logo-watermark {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 0;
+            opacity: .1;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .logo-watermark img {
+            width: 72%;
+            max-width: 170px;
+            max-height: 170px;
+            object-fit: contain;
+            filter: grayscale(1);
+        }
+        .sheet > *:not(.logo-watermark) {
+            position: relative;
+            z-index: 1;
+        }
+        .sheet > .paid-seal,
+        .sheet > .due-seal {
+            position: absolute;
+            z-index: 8;
         }
         .brand .tagline {
             margin: 4px 0 0;
@@ -310,7 +354,7 @@
             color: #fff;
             cursor: pointer;
         }
-        @media print {
+            @media print {
             body { background: #fff !important; }
             .sheet {
                 width: 80mm;
@@ -320,6 +364,7 @@
                 border: 0;
                 box-shadow: none;
             }
+            .logo-watermark { opacity: .12 !important; }
             .no-print { display: none !important; }
             @page { margin: 4mm; size: auto; }
         }
@@ -331,6 +376,11 @@
     </div>
 
     <div class="sheet">
+        @if($brandLogoUrl)
+            <div class="logo-watermark" aria-hidden="true">
+                <img src="{{ $brandLogoUrl }}" alt="">
+            </div>
+        @endif
         @if($isFullyPaid)
             <div class="paid-seal" aria-hidden="true">PAID</div>
         @elseif($hasOpenDue)
@@ -338,6 +388,9 @@
         @endif
 
         <header class="brand">
+            @if($brandLogoUrl)
+                <img src="{{ $brandLogoUrl }}" alt="{{ $shopName }}" class="brand-logo">
+            @endif
             <div class="doc-type">{{ $isOnline ? 'Tax Invoice / Online Order' : 'Sales Invoice / POS Receipt' }}</div>
             <h1>{{ $shopName }}</h1>
             <p class="tagline">
