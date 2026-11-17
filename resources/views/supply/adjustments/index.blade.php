@@ -2,27 +2,71 @@
     title="Stock Adjustment"
     subtitle="Manual stock in/out plus full movement history. Sales and transfers change stock automatically — shown below with clear + / − signs."
 >
-    {{-- Manual adjustment form --}}
-    <form method="POST" action="{{ route('supply.adjustments.store') }}" class="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6 mb-6 grid md:grid-cols-4 gap-4 max-w-5xl shadow-sm"
-          x-data="{
-              productId: @js((string) old('product_id', $products->first()?->id)),
-              type: @js(old('type', 'in')),
-              qty: @js(old('quantity', '')),
-              picked: @js(array_values(old('imeis', []))),
-              phones: @js(array_values(old('phones', []))),
-              phoneIds: @js($products->where('requires_imei', true)->pluck('id')->map(fn ($id) => (string) $id)->values()),
-              stock: @js((object) $imeiStock),
-              isPhone() { return this.phoneIds.includes(String(this.productId)); },
-              imeiMode() { return this.isPhone() ? (this.type === 'out' ? 'pick' : 'enter') : ''; },
-          }">
+    @php
+        $productOptions = $products->map(fn ($p) => [
+            'id' => (string) $p->id,
+            'name' => $p->name,
+            'sku' => $p->barcode ?: ($p->sku ?: ''),
+            'stock' => (int) $p->stock_quantity,
+            'phone' => (bool) $p->requires_imei,
+        ])->values();
+        $oldProductId = old('product_id');
+    @endphp
+
+    {{-- Manual adjustment / restock form with product search --}}
+    <form method="POST" action="{{ route('supply.adjustments.store') }}"
+          class="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6 mb-6 grid md:grid-cols-4 gap-4 max-w-5xl shadow-sm"
+          x-data="stockAdjustmentForm(@js($productOptions), @js((object) $imeiStock), @js($oldProductId ? (string) $oldProductId : null))"
+          @submit="if (!productId) { $event.preventDefault(); open = true; }">
         @csrf
-        <div class="md:col-span-2">
+        <div class="md:col-span-2 relative">
             <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Product</label>
-            <select name="product_id" x-model="productId" class="w-full rounded-xl border-gray-200 mt-1 text-sm" required>
-                @foreach($products as $p)
-                    <option value="{{ $p->id }}">{{ $p->name }} (stock: {{ $p->stock_quantity }}){{ $p->requires_imei ? ' · IMEI' : '' }}</option>
-                @endforeach
-            </select>
+            <div class="relative mt-1">
+                <input type="search"
+                       x-model="query"
+                       @focus="open = true"
+                       @input="open = true"
+                       @keydown.escape.window="open = false"
+                       @click.outside="open = false"
+                       placeholder="Search by name, barcode or SKU…"
+                       class="w-full rounded-xl border-gray-200 py-2.5 pl-10 pr-3 text-sm"
+                       autocomplete="off">
+                <svg class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+            </div>
+            <input type="hidden" name="product_id" :value="productId" required>
+            <div x-show="open" x-cloak
+                 class="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg">
+                <template x-for="p in filtered()" :key="p.id">
+                    <button type="button"
+                            @click="selectProduct(p)"
+                            class="flex w-full items-center justify-between gap-3 border-b border-gray-50 px-3.5 py-2.5 text-left last:border-0 hover:bg-indigo-50"
+                            :class="String(productId) === String(p.id) && 'bg-indigo-50'">
+                        <div class="min-w-0">
+                            <div class="truncate text-sm font-semibold text-gray-900" x-text="p.name"></div>
+                            <div class="truncate text-xs text-gray-400">
+                                <span x-text="p.sku || 'No barcode'"></span>
+                                <span x-show="p.phone" class="text-orange-600 font-semibold"> · IMEI</span>
+                            </div>
+                        </div>
+                        <span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600"
+                              x-text="p.stock + ' on hand'"></span>
+                    </button>
+                </template>
+                <div x-show="filtered().length === 0" class="px-4 py-6 text-center text-sm text-gray-400">
+                    No products match that search.
+                </div>
+            </div>
+            <p class="mt-1.5 text-xs text-gray-500" x-show="selected" x-cloak>
+                Selected:
+                <span class="font-semibold text-gray-800" x-text="selected.name"></span>
+                <span class="text-gray-400">·</span>
+                <span x-text="selected.stock + ' on hand'"></span>
+            </p>
+            @error('product_id')
+                <p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>
+            @enderror
         </div>
         <div>
             <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Direction</label>
@@ -49,13 +93,13 @@
         </div>
         <div class="md:col-span-4">
             <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Reason / Reference</label>
-            <input name="reference" class="w-full rounded-xl border-gray-200 mt-1 text-sm" placeholder="e.g. Physical count correction" required>
+            <input name="reference" value="{{ old('reference') }}" class="w-full rounded-xl border-gray-200 mt-1 text-sm" placeholder="e.g. Restock from supplier / Physical count" required>
         </div>
         <div class="md:col-span-4 flex flex-wrap items-center gap-3">
             <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold">Save Adjustment</button>
             <p class="text-[11px] text-gray-500">
-                <span class="font-bold text-emerald-600">+ green</span> = stock increased ·
-                <span class="font-bold text-rose-600">− red</span> = stock decreased (sale / transfer out / damage)
+                Search a product above, then use <span class="font-bold text-emerald-600">Stock In</span> to restock.
+                <span class="font-bold text-rose-600">− red</span> = stock out / sale / damage.
             </p>
         </div>
     </form>
@@ -182,4 +226,52 @@
             @include('supply.adjustments.partials.results')
         </div>
     </div>
+
+    <style>[x-cloak]{display:none!important}</style>
+    <script>
+        function stockAdjustmentForm(products, imeiStock, initialId) {
+            return {
+                products: products || [],
+                stock: imeiStock || {},
+                query: '',
+                open: false,
+                productId: initialId ? String(initialId) : '',
+                type: @js(old('type', 'in')),
+                qty: @js(old('quantity', '')),
+                picked: @js(array_values(old('imeis', []))),
+                phones: @js(array_values(old('phones', []))),
+                get selected() {
+                    return this.products.find(p => String(p.id) === String(this.productId)) || null;
+                },
+                isPhone() {
+                    return !!(this.selected && this.selected.phone);
+                },
+                imeiMode() {
+                    return this.isPhone() ? (this.type === 'out' ? 'pick' : 'enter') : '';
+                },
+                filtered() {
+                    const q = String(this.query || '').trim().toLowerCase();
+                    const list = !q
+                        ? this.products
+                        : this.products.filter(p =>
+                            String(p.name || '').toLowerCase().includes(q) ||
+                            String(p.sku || '').toLowerCase().includes(q)
+                        );
+                    return list.slice(0, 50);
+                },
+                selectProduct(p) {
+                    this.productId = String(p.id);
+                    this.query = p.name;
+                    this.open = false;
+                    this.picked = [];
+                    this.phones = [];
+                },
+                init() {
+                    if (this.selected) {
+                        this.query = this.selected.name;
+                    }
+                },
+            };
+        }
+    </script>
 </x-supply-layout>

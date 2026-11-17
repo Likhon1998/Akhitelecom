@@ -308,4 +308,5 @@ class ImeiStockMovementTest extends TestCase
             ->assertOk()
             ->assertSee('IMEI of each phone');
     }
+
 }

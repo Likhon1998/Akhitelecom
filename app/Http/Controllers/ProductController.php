@@ -159,6 +159,8 @@ class ProductController extends Controller
             'color_hex' => 'nullable|string|max:7',
             'storage' => 'nullable|string|max:40',
             'ram' => 'nullable|string|max:40',
+            'option1_label' => 'nullable|string|max:40',
+            'option2_label' => 'nullable|string|max:40',
             'requires_imei' => 'nullable|boolean',
             'imei_list' => 'nullable|string|max:10000',
             'availability' => 'nullable|in:in_stock,pre_order,up_coming,out_of_stock',
@@ -283,6 +285,8 @@ class ProductController extends Controller
                     'name' => $validated['name'],
                     'sku' => $validated['sku'] ?? null,
                     'variant_group' => $validated['variant_group'] ?? null,
+                    'option1_label' => $validated['option1_label'] ?? null,
+                    'option2_label' => $validated['option2_label'] ?? null,
                     'availability' => $validated['availability'] ?? 'in_stock',
                     'cost_price' => $validated['cost_price'],
                     'selling_price' => $validated['selling_price'],
@@ -297,7 +301,7 @@ class ProductController extends Controller
                     'stock_quantity' => 0,
                     'alert_quantity' => $validated['alert_quantity'] ?? 5,
                     'requires_imei' => $requiresImei,
-                    'is_published' => $request->boolean('is_published', true),
+                    'is_published' => $request->boolean('is_published'),
                     'is_new_arrival' => $request->boolean('is_new_arrival'),
                     'is_best_seller' => $request->boolean('is_best_seller'),
                     'is_featured' => $request->boolean('is_featured'),
@@ -312,6 +316,8 @@ class ProductController extends Controller
                         'color_hex' => $validated['color_hex'] ?? null,
                         'storage' => $validated['storage'] ?? null,
                         'ram' => $validated['ram'] ?? null,
+                        // Simple items are listed alone — never auto-link via variant_group.
+                        'variant_group' => null,
                     ]);
                     $data = $this->normalizeVariantFields($data);
                     $product = Product::create($data);
@@ -492,6 +498,8 @@ class ProductController extends Controller
             'color_hex' => 'nullable|string|max:7',
             'storage' => 'nullable|string|max:40',
             'ram' => 'nullable|string|max:40',
+            'option1_label' => 'nullable|string|max:40',
+            'option2_label' => 'nullable|string|max:40',
             'requires_imei' => 'nullable|boolean',
             'imei_list' => 'nullable|string|max:10000',
             'imeis' => 'nullable|array|max:500',
@@ -756,13 +764,15 @@ class ProductController extends Controller
             'name' => $sharedData['name'] ?? $anchor->name,
             'variant_group' => $group,
             'sku' => $sharedData['sku'] ?? null,
+            'option1_label' => $sharedData['option1_label'] ?? null,
+            'option2_label' => $sharedData['option2_label'] ?? null,
             'availability' => $sharedData['availability'] ?? 'in_stock',
             'category_id' => $sharedData['category_id'] ?? null,
             'brand_id' => $sharedData['brand_id'] ?? null,
             'brand_name' => $sharedData['brand_name'] ?? null,
             'alert_quantity' => $sharedData['alert_quantity'] ?? $anchor->alert_quantity ?? 5,
             'requires_imei' => $requiresImei,
-            'is_published' => (bool) ($sharedData['is_published'] ?? true),
+            'is_published' => (bool) ($sharedData['is_published'] ?? false),
             'is_new_arrival' => (bool) ($sharedData['is_new_arrival'] ?? false),
             'is_best_seller' => (bool) ($sharedData['is_best_seller'] ?? false),
             'is_featured' => (bool) ($sharedData['is_featured'] ?? false),
@@ -1488,7 +1498,7 @@ class ProductController extends Controller
 
     private function normalizeVariantFields(array $data): array
     {
-        foreach (['variant_group', 'color', 'color_hex', 'storage', 'ram', 'sku', 'short_description'] as $key) {
+        foreach (['variant_group', 'color', 'color_hex', 'storage', 'ram', 'option1_label', 'option2_label', 'sku', 'short_description'] as $key) {
             if (array_key_exists($key, $data)) {
                 $val = is_string($data[$key]) ? trim($data[$key]) : $data[$key];
                 $data[$key] = ($val === '' || $val === null) ? null : $val;
@@ -1504,10 +1514,14 @@ class ProductController extends Controller
             $data['color_hex'] = null;
         }
 
-        if (array_key_exists('storage', $data) && is_string($data['storage'])) {
+        // Custom option labels keep free-text values (Size/Length/Watt). Phone RAM/ROM still normalize.
+        $customOption1 = filled($data['option1_label'] ?? null);
+        $customOption2 = filled($data['option2_label'] ?? null);
+
+        if (array_key_exists('storage', $data) && is_string($data['storage']) && ! $customOption2) {
             $data['storage'] = normalize_memory_size($data['storage']);
         }
-        if (array_key_exists('ram', $data) && is_string($data['ram'])) {
+        if (array_key_exists('ram', $data) && is_string($data['ram']) && ! $customOption1) {
             $data['ram'] = normalize_memory_size($data['ram']);
         }
 

@@ -8,6 +8,8 @@
         $currentPrice = $product->currentPrice();
         $compareAt = $product->compareAtPrice();
     $displayName = $product->storefrontDisplayName();
+    $option1Label = $variantOptions['option1_label'] ?? $product->option1Label();
+    $option2Label = $variantOptions['option2_label'] ?? $product->option2Label();
     $hasVariantPicker = count($variantOptions['colors'] ?? []) > 0
         || count($variantOptions['combos'] ?? []) > 0
         || count($variantOptions['storages'] ?? []) > 0
@@ -191,7 +193,7 @@
 
                 @if($hasCombos)
                     <div class="pd-variant-block">
-                        <p class="pd-variant-label">Storage</p>
+                        <p class="pd-variant-label">{{ $option1Label }} / {{ $option2Label }}</p>
                         <div class="pd-option-row">
                             @foreach($variantOptions['combos'] as $opt)
                                 <a href="{{ $opt['url'] }}"
@@ -208,7 +210,7 @@
                     </div>
                 @elseif($hasStorages || $product->storage)
                     <div class="pd-variant-block">
-                        <p class="pd-variant-label">Storage</p>
+                        <p class="pd-variant-label">{{ $option2Label }}</p>
                         @if($hasStorages)
                             <div class="pd-option-row">
                                 @foreach($variantOptions['storages'] as $opt)
@@ -221,14 +223,14 @@
                                 @endforeach
                             </div>
                         @else
-                            <p class="pd-meta-line"><strong>{{ normalize_memory_size($product->storage) ?? $product->storage }}</strong></p>
+                            <p class="pd-meta-line"><strong>{{ $product->option2DisplayValue() }}</strong></p>
                         @endif
                     </div>
                 @endif
 
                 @if($hasRams)
                     <div class="pd-variant-block pd-variant-block--full">
-                        <p class="pd-variant-label">RAM</p>
+                        <p class="pd-variant-label">{{ $option1Label }}</p>
                         <div class="pd-option-row">
                             @foreach($variantOptions['rams'] as $opt)
                                 <a href="{{ $opt['url'] }}"
@@ -242,8 +244,8 @@
                     </div>
                 @elseif($product->ram && ! $hasCombos)
                     <div class="pd-variant-block pd-variant-block--full">
-                        <p class="pd-variant-label">RAM</p>
-                        <p class="pd-meta-line"><strong>{{ normalize_memory_size($product->ram) ?? $product->ram }}</strong></p>
+                        <p class="pd-variant-label">{{ $option1Label }}</p>
+                        <p class="pd-meta-line"><strong>{{ $product->option1DisplayValue() }}</strong></p>
                     </div>
                 @endif
             </div>
@@ -254,10 +256,10 @@
                         <p class="pd-meta-line">Color: <strong>{{ $product->color }}</strong></p>
                     @endif
                     @if($product->storage)
-                        <p class="pd-meta-line">Storage: <strong>{{ normalize_memory_size($product->storage) ?? $product->storage }}</strong></p>
+                        <p class="pd-meta-line">{{ $option2Label }}: <strong>{{ $product->option2DisplayValue() }}</strong></p>
                     @endif
                     @if($product->ram)
-                        <p class="pd-meta-line">RAM: <strong>{{ normalize_memory_size($product->ram) ?? $product->ram }}</strong></p>
+                        <p class="pd-meta-line">{{ $option1Label }}: <strong>{{ $product->option1DisplayValue() }}</strong></p>
                     @endif
                 </div>
             @endif

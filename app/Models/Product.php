@@ -20,6 +20,7 @@ class Product extends Model
     protected $fillable = [
         'shop_id', 'category_id', 'brand_id', 'name', 'barcode', 'sku',
         'variant_group', 'color', 'color_hex', 'storage', 'ram',
+        'option1_label', 'option2_label',
         'requires_imei',
         'cost_price', 'selling_price', 'original_price',
         'sale_price', 'sale_starts_at', 'sale_ends_at',
@@ -455,22 +456,75 @@ class Product extends Model
             ->get();
     }
 
-    /** Model name without trailing "— Green / 8GB" style suffixes used for admin clarity. */
+    /**
+     * Exact product name as saved in admin (Add / Edit Product).
+     * Color, RAM and storage stay on their own fields / pickers — never strip
+     * hyphens from the title (e.g. "Galaxy A15 - Black" must show in full).
+     */
     public function storefrontDisplayName(): string
     {
-        if (! $this->variant_group) {
-            return (string) $this->name;
-        }
-
-        $name = trim(preg_replace('/\s*[—\-–].*$/u', '', (string) $this->name) ?? '');
-
-        return $name !== '' ? $name : (string) $this->name;
+        return (string) $this->name;
     }
 
-    /** Clean product title for receipts (without admin “— Color / Storage” suffix). */
+    /** Same as storefront — receipts also use the admin-entered title. */
     public function receiptDisplayName(): string
     {
         return $this->storefrontDisplayName();
+    }
+
+    /** Display label for option 1 values (stored in `ram`). Default: RAM. */
+    public function option1Label(): string
+    {
+        $label = trim((string) ($this->option1_label ?? ''));
+
+        return $label !== '' ? $label : 'RAM';
+    }
+
+    /** Display label for option 2 values (stored in `storage`). Default: Storage. */
+    public function option2Label(): string
+    {
+        $label = trim((string) ($this->option2_label ?? ''));
+
+        return $label !== '' ? $label : 'Storage';
+    }
+
+    /** True when admin set a custom label (not phone RAM/ROM defaults). */
+    public function hasCustomOption1Label(): bool
+    {
+        return trim((string) ($this->option1_label ?? '')) !== '';
+    }
+
+    public function hasCustomOption2Label(): bool
+    {
+        return trim((string) ($this->option2_label ?? '')) !== '';
+    }
+
+    /** Formatted option-1 value for display (memory-normalized only for default RAM). */
+    public function option1DisplayValue(): ?string
+    {
+        if (! filled($this->ram)) {
+            return null;
+        }
+
+        if ($this->hasCustomOption1Label()) {
+            return trim((string) $this->ram);
+        }
+
+        return normalize_memory_size($this->ram) ?? (string) $this->ram;
+    }
+
+    /** Formatted option-2 value for display (memory-normalized only for default Storage). */
+    public function option2DisplayValue(): ?string
+    {
+        if (! filled($this->storage)) {
+            return null;
+        }
+
+        if ($this->hasCustomOption2Label()) {
+            return trim((string) $this->storage);
+        }
+
+        return normalize_memory_size($this->storage) ?? (string) $this->storage;
     }
 
     /**
@@ -491,17 +545,18 @@ class Product extends Model
             $lines[] = ['label' => 'Color', 'value' => (string) $this->color];
         }
 
-        $ram = normalize_memory_size($this->ram) ?? (filled($this->ram) ? (string) $this->ram : null);
-        $storage = normalize_memory_size($this->storage) ?? (filled($this->storage) ? (string) $this->storage : null);
+        $opt1 = $this->option1DisplayValue();
+        $opt2 = $this->option2DisplayValue();
+        $custom = $this->hasCustomOption1Label() || $this->hasCustomOption2Label();
 
-        if ($ram && $storage) {
-            $lines[] = ['label' => 'Memory', 'value' => $ram.'/'.$storage];
+        if ($opt1 && $opt2 && ! $custom) {
+            $lines[] = ['label' => 'Memory', 'value' => $opt1.'/'.$opt2];
         } else {
-            if ($ram) {
-                $lines[] = ['label' => 'RAM', 'value' => $ram];
+            if ($opt1) {
+                $lines[] = ['label' => $this->option1Label(), 'value' => $opt1];
             }
-            if ($storage) {
-                $lines[] = ['label' => 'Storage', 'value' => $storage];
+            if ($opt2) {
+                $lines[] = ['label' => $this->option2Label(), 'value' => $opt2];
             }
         }
 

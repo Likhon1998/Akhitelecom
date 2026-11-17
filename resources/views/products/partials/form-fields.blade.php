@@ -144,6 +144,8 @@
         colorHex: @js(old('color_hex', $product?->color_hex ?: '#2563eb')),
         storage: @js(old('storage', $product?->storage ?? '')),
         ram: @js(old('ram', $product?->ram ?? '')),
+        option1Label: @js(old('option1_label', $product?->option1_label ?? '')),
+        option2Label: @js(old('option2_label', $product?->option2_label ?? '')),
         variantGroup: @js(old('variant_group', $product?->variant_group ?? '')),
         selling: @js(old('selling_price', $product?->selling_price ?? '')),
         barcodeValue: @js(old('barcode', $product?->barcode ?? '')),
@@ -416,8 +418,13 @@
                 .slice(0, 80);
         },
         syncGroup() {
-            if (this.autoGroup) {
+            // Only gadget (multi) products share a variant_group. Simple items stay solo
+            // so shop listing never collapses unrelated products, and names are untouched.
+            if (this.autoGroup && this.isMulti) {
                 this.variantGroup = this.slugify(this.name);
+            }
+            if (! this.isMulti && ! {{ $isEdit ? 'true' : 'false' }}) {
+                this.variantGroup = '';
             }
         },
         pickSwatch(hex, label) {
@@ -871,7 +878,32 @@
                 </p>
             </div>
             <div x-show="isSimple && !{{ $isEdit ? 'true' : 'false' }}" x-cloak>
-                <input type="hidden" name="variant_group" :value="variantGroup">
+                {{-- Simple create: no variant group — one product, one listing row --}}
+                <input type="hidden" name="variant_group" value="">
+            </div>
+
+            <div x-show="productMode" class="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-3" x-cloak>
+                <div>
+                    <p class="text-xs font-semibold text-slate-700">Option labels for the shop page</p>
+                    <p class="text-[11px] text-slate-500 mt-0.5">
+                        Phones: leave blank (shows as RAM / Storage). Cables, cases, chargers: set Size, Length, Watt, etc. —
+                        shoppers get the same chip picker as RAM/ROM.
+                    </p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">Option 1 label</label>
+                        <input type="text" name="option1_label" x-model="option1Label"
+                               class="block w-full rounded-md border-slate-200 text-sm py-2 bg-white"
+                               placeholder="RAM or Size / Watt">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">Option 2 label</label>
+                        <input type="text" name="option2_label" x-model="option2Label"
+                               class="block w-full rounded-md border-slate-200 text-sm py-2 bg-white"
+                               placeholder="Storage or Length">
+                    </div>
+                </div>
             </div>
 
             <div x-show="isSimple" class="space-y-4">
@@ -914,21 +946,23 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1.5">Storage / size (optional)</label>
-                        <input type="text" name="storage" x-model="storage" list="storage-presets"
+                        <label class="block text-xs font-semibold text-slate-600 mb-1.5"
+                               x-text="(option1Label || 'RAM') + ' (optional)'"></label>
+                        <input type="text" name="ram" x-model="ram" list="ram-presets"
                                class="block w-full rounded-lg border-slate-200 text-sm py-2.5"
-                               placeholder="e.g. 128GB or 2m">
-                        <datalist id="storage-presets">
-                            <option value="64GB"><option value="128GB"><option value="256GB"><option value="512GB"><option value="1TB">
+                               :placeholder="option1Label ? 'e.g. S, 65W, Large' : 'e.g. 8GB'">
+                        <datalist id="ram-presets">
+                            <option value="4GB"><option value="6GB"><option value="8GB"><option value="12GB"><option value="16GB">
                         </datalist>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1.5">RAM (optional)</label>
-                        <input type="text" name="ram" x-model="ram" list="ram-presets"
+                        <label class="block text-xs font-semibold text-slate-600 mb-1.5"
+                               x-text="(option2Label || 'Storage') + ' (optional)'"></label>
+                        <input type="text" name="storage" x-model="storage" list="storage-presets"
                                class="block w-full rounded-lg border-slate-200 text-sm py-2.5"
-                               placeholder="e.g. 8GB">
-                        <datalist id="ram-presets">
-                            <option value="4GB"><option value="6GB"><option value="8GB"><option value="12GB"><option value="16GB">
+                               :placeholder="option2Label ? 'e.g. 1m, 2m, XL' : 'e.g. 128GB'">
+                        <datalist id="storage-presets">
+                            <option value="64GB"><option value="128GB"><option value="256GB"><option value="512GB"><option value="1TB">
                         </datalist>
                     </div>
                 </div>
@@ -1004,14 +1038,18 @@
                                        class="h-9 w-full rounded-md border border-slate-200 cursor-pointer">
                             </div>
                             <div>
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-1">RAM</label>
+                                <label class="block text-[10px] font-semibold text-slate-500 mb-1"
+                                       x-text="option1Label || 'RAM'"></label>
                                 <input type="text" :name="'variants['+index+'][ram]'" x-model="row.ram"
-                                       class="block w-full rounded-md border-slate-200 text-sm py-2" placeholder="optional">
+                                       class="block w-full rounded-md border-slate-200 text-sm py-2"
+                                       :placeholder="option1Label ? 'e.g. S, 65W' : 'optional'">
                             </div>
                             <div>
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-1">Storage</label>
+                                <label class="block text-[10px] font-semibold text-slate-500 mb-1"
+                                       x-text="option2Label || 'Storage'"></label>
                                 <input type="text" :name="'variants['+index+'][storage]'" x-model="row.storage"
-                                       class="block w-full rounded-md border-slate-200 text-sm py-2" placeholder="optional">
+                                       class="block w-full rounded-md border-slate-200 text-sm py-2"
+                                       :placeholder="option2Label ? 'e.g. 1m, XL' : 'optional'">
                             </div>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1172,28 +1210,33 @@
             </div>
 
             <div class="flex flex-wrap gap-4">
+                {{-- Hidden 0 inputs: unchecked boxes are omitted from POST; without these, create used to force-publish. --}}
                 <label class="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <input type="hidden" name="is_published" value="0">
                     <input type="checkbox" name="is_published" value="1" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                           {{ old('is_published', $isEdit ? ($product?->is_published ?? true) : true) ? 'checked' : '' }}>
+                           {{ old('is_published', $isEdit ? (bool) ($product?->is_published) : false) ? 'checked' : '' }}>
                     Publish on website
                 </label>
                 <label class="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <input type="hidden" name="is_new_arrival" value="0">
                     <input type="checkbox" name="is_new_arrival" value="1" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                            {{ old('is_new_arrival', $product?->is_new_arrival ?? false) ? 'checked' : '' }}>
                     New Arrival
                 </label>
                 <label class="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <input type="hidden" name="is_best_seller" value="0">
                     <input type="checkbox" name="is_best_seller" value="1" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                            {{ old('is_best_seller', $product?->is_best_seller ?? false) ? 'checked' : '' }}>
                     Trending
                 </label>
                 <label class="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <input type="hidden" name="is_featured" value="0">
                     <input type="checkbox" name="is_featured" value="1" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                            {{ old('is_featured', $product?->is_featured ?? false) ? 'checked' : '' }}>
                     Featured
                 </label>
             </div>
-            <p class="text-[11px] text-slate-400">New Arrival and Trending control which products appear in those homepage sections.</p>
+            <p class="text-[11px] text-slate-400">Leave Publish unticked to keep the product in inventory only. New Arrival and Trending control those homepage sections.</p>
 
             @if(!$isEdit)
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" x-show="isSimple">

@@ -591,7 +591,16 @@ class WebsiteService
      */
     public function productVariantOptions(Product $product): array
     {
-        $empty = ['colors' => [], 'combos' => [], 'storages' => [], 'rams' => []];
+        $option1Label = $product->option1Label();
+        $option2Label = $product->option2Label();
+        $empty = [
+            'colors' => [],
+            'combos' => [],
+            'storages' => [],
+            'rams' => [],
+            'option1_label' => $option1Label,
+            'option2_label' => $option2Label,
+        ];
 
         if (! $product->variant_group) {
             return $empty;
@@ -613,10 +622,45 @@ class WebsiteService
             $family->push($product);
         }
 
+        $customOption1 = $product->hasCustomOption1Label()
+            || $family->contains(fn (Product $p) => $p->hasCustomOption1Label());
+        $customOption2 = $product->hasCustomOption2Label()
+            || $family->contains(fn (Product $p) => $p->hasCustomOption2Label());
+
+        // Prefer a sibling that actually has a custom label if the current row is blank.
+        if ($customOption1 && ! $product->hasCustomOption1Label()) {
+            $withLabel = $family->first(fn (Product $p) => $p->hasCustomOption1Label());
+            if ($withLabel) {
+                $option1Label = $withLabel->option1Label();
+            }
+        }
+        if ($customOption2 && ! $product->hasCustomOption2Label()) {
+            $withLabel = $family->first(fn (Product $p) => $p->hasCustomOption2Label());
+            if ($withLabel) {
+                $option2Label = $withLabel->option2Label();
+            }
+        }
+
         $inStock = fn (Product $p) => (int) $p->stock_quantity > 0;
         $colorKey = fn (?string $color) => strtolower(trim((string) $color));
-        $ramKey = fn (?string $ram) => memory_size_compact($ram);
-        $storageKey = fn (?string $storage) => memory_size_compact($storage);
+        $ramKey = $customOption1
+            ? fn (?string $ram) => strtolower(trim((string) $ram))
+            : fn (?string $ram) => memory_size_compact($ram);
+        $storageKey = $customOption2
+            ? fn (?string $storage) => strtolower(trim((string) $storage))
+            : fn (?string $storage) => memory_size_compact($storage);
+        $formatRam = $customOption1
+            ? fn (?string $ram) => trim((string) $ram)
+            : fn (?string $ram) => str_replace(' ', '', normalize_memory_size($ram) ?? (string) $ram);
+        $formatStorage = $customOption2
+            ? fn (?string $storage) => trim((string) $storage)
+            : fn (?string $storage) => str_replace(' ', '', normalize_memory_size($storage) ?? (string) $storage);
+        $sortRam = $customOption1
+            ? fn (?string $ram) => strtolower(trim((string) $ram))
+            : fn (?string $ram) => memory_size_sort_key($ram);
+        $sortStorage = $customOption2
+            ? fn (?string $storage) => strtolower(trim((string) $storage))
+            : fn (?string $storage) => memory_size_sort_key($storage);
 
         $pickBest = function ($candidates) use ($product, $inStock, $ramKey, $storageKey) {
             $candidates = collect($candidates)->values();
@@ -674,12 +718,12 @@ class WebsiteService
             ? $family->filter(fn (Product $p) => $colorKey($p->color) === $currentColor)
             : $family;
 
-        // ── Combined RAM + storage chips for the active color ────────────
+        // ── Combined option chips for the active color ───────────────────
         $combos = [];
         $seenCombos = [];
         foreach ($forColor->sortBy([
-            fn (Product $p) => memory_size_sort_key($p->ram),
-            fn (Product $p) => memory_size_sort_key($p->storage),
+            fn (Product $p) => $sortRam($p->ram),
+            fn (Product $p) => $sortStorage($p->storage),
             fn (Product $p) => $p->id,
         ]) as $row) {
             $hasRam = filled($row->ram);
@@ -705,16 +749,16 @@ class WebsiteService
 
             $parts = [];
             if ($hasRam) {
-                $parts[] = str_replace(' ', '', normalize_memory_size($row->ram) ?? (string) $row->ram);
+                $parts[] = $formatRam($row->ram);
             }
             if ($hasStorage) {
-                $parts[] = str_replace(' ', '', normalize_memory_size($row->storage) ?? (string) $row->storage);
+                $parts[] = $formatStorage($row->storage);
             }
 
             $combos[] = [
                 'label' => implode('/', $parts),
-                'ram' => $hasRam ? (normalize_memory_size($row->ram) ?? $row->ram) : null,
-                'storage' => $hasStorage ? (normalize_memory_size($row->storage) ?? $row->storage) : null,
+                'ram' => $hasRam ? $formatRam($row->ram) : null,
+                'storage' => $hasStorage ? $formatStorage($row->storage) : null,
                 'url' => route('website.product', $match),
                 'active' => $ramKey($product->ram) === $ramKey($row->ram)
                     && $storageKey($product->storage) === $storageKey($row->storage),
@@ -733,7 +777,7 @@ class WebsiteService
 
         if (! $useCombos) {
             $seenStorage = [];
-            foreach ($forColor->whereNotNull('storage')->sortBy(fn (Product $p) => memory_size_sort_key($p->storage)) as $row) {
+            foreach ($forColor->whereNotNull('storage')->sortBy(fn (Product $p) => $sortStorage($p->storage)) as $row) {
                 $compact = $storageKey($row->storage);
                 if ($compact === '' || isset($seenStorage[$compact])) {
                     continue;
@@ -745,7 +789,7 @@ class WebsiteService
                 $available = $twins->contains($inStock);
 
                 $storages[] = [
-                    'label' => str_replace(' ', '', normalize_memory_size($row->storage) ?? (string) $row->storage),
+                    'label' => $formatStorage($row->storage),
                     'url' => route('website.product', $match),
                     'active' => $storageKey($product->storage) === $compact,
                     'product_id' => $match->id,
@@ -759,7 +803,7 @@ class WebsiteService
                 ? $forColor->filter(fn (Product $p) => $storageKey($p->storage) === $storageKey($product->storage))
                 : $forColor;
 
-            foreach ($storageFiltered->whereNotNull('ram')->sortBy(fn (Product $p) => memory_size_sort_key($p->ram)) as $row) {
+            foreach ($storageFiltered->whereNotNull('ram')->sortBy(fn (Product $p) => $sortRam($p->ram)) as $row) {
                 $compact = $ramKey($row->ram);
                 if ($compact === '' || isset($seenRam[$compact])) {
                     continue;
@@ -771,7 +815,7 @@ class WebsiteService
                 $available = $twins->contains($inStock);
 
                 $rams[] = [
-                    'label' => str_replace(' ', '', normalize_memory_size($row->ram) ?? (string) $row->ram),
+                    'label' => $formatRam($row->ram),
                     'url' => route('website.product', $match),
                     'active' => $ramKey($product->ram) === $compact,
                     'product_id' => $match->id,
@@ -786,6 +830,8 @@ class WebsiteService
             'combos' => $useCombos ? array_values($combos) : [],
             'storages' => array_values($storages),
             'rams' => array_values($rams),
+            'option1_label' => $option1Label,
+            'option2_label' => $option2Label,
         ];
     }
 

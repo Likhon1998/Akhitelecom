@@ -463,6 +463,52 @@ class ProductAndBrandManagementTest extends TestCase
             ->assertSee('/storage/'.$logo, false);
     }
 
+    public function test_storefront_shows_exact_admin_product_name_including_hyphens(): void
+    {
+        $fullName = 'Samsung Galaxy A15 - Black / 8GB / 128GB';
+
+        $product = $this->makeProduct([
+            'name' => $fullName,
+            'variant_group' => 'samsung-galaxy-a15-black-8gb-128gb',
+            'color' => 'Black',
+            'ram' => '8GB',
+            'storage' => '128GB',
+            'is_published' => true,
+            'stock_quantity' => 3,
+        ]);
+
+        $this->assertSame($fullName, $product->storefrontDisplayName());
+        $this->assertSame($fullName, $product->receiptDisplayName());
+
+        $this->get(route('website.product', $product))
+            ->assertOk()
+            ->assertSee($fullName, false);
+
+        $this->get(route('website.shop'))
+            ->assertOk()
+            ->assertSee($fullName, false);
+    }
+
+    public function test_simple_product_create_does_not_set_variant_group(): void
+    {
+        $this->actingAs($this->admin, 'admin')
+            ->post(route('products.store'), [
+                'product_mode' => 'simple',
+                'name' => 'USB-C Cable - 1m Black',
+                'barcode' => 'USB-C-1M-BLK',
+                'cost_price' => 50,
+                'selling_price' => 120,
+                'stock_quantity' => 10,
+                'variant_group' => 'usb-c-cable-1m-black',
+                'is_published' => '1',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $product = Product::where('barcode', 'USB-C-1M-BLK')->firstOrFail();
+        $this->assertNull($product->variant_group);
+        $this->assertSame('USB-C Cable - 1m Black', $product->storefrontDisplayName());
+    }
+
     private function imeiUpdate(Product $product, array $imeis, array $extra = []): \Illuminate\Testing\TestResponse
     {
         return $this->actingAs($this->admin, 'admin')->put(route('products.update', $product), array_merge([
@@ -570,6 +616,113 @@ class ProductAndBrandManagementTest extends TestCase
             'requires_imei' => 1,
             'imeis' => $imeis,
         ], $extra));
+    }
+
+    public function test_new_product_stays_unpublished_until_publish_is_ticked(): void
+    {
+        $base = [
+            'product_mode' => 'simple',
+            'name' => 'Hidden Cable',
+            'barcode' => 'CAB-HIDE-1',
+            'cost_price' => 100,
+            'selling_price' => 200,
+            'stock_quantity' => 5,
+        ];
+
+        // Unticked Publish (hidden 0 only) must not go live.
+        $this->actingAs($this->admin, 'admin')
+            ->post(route('products.store'), $base + ['is_published' => '0'])
+            ->assertSessionHasNoErrors();
+
+        $product = Product::where('barcode', 'CAB-HIDE-1')->firstOrFail();
+        $this->assertFalse((bool) $product->is_published);
+        $this->assertFalse((bool) $product->is_new_arrival);
+        $this->assertFalse((bool) $product->is_best_seller);
+        $this->assertFalse((bool) $product->is_featured);
+
+        $this->assertFalse(
+            app(\App\Services\WebsiteService::class)->catalogQuery($this->shop->id)
+                ->whereKey($product->id)
+                ->exists()
+        );
+
+        // Ticking Publish + New + Trending + Featured must stick.
+        $this->put(route('products.update', $product), [
+            'product_mode' => 'simple',
+            'name' => $product->name,
+            'barcode' => $product->barcode,
+            'cost_price' => 100,
+            'selling_price' => 200,
+            'is_published' => '1',
+            'is_new_arrival' => '1',
+            'is_best_seller' => '1',
+            'is_featured' => '1',
+        ])->assertSessionHasNoErrors();
+
+        $product->refresh();
+        $this->assertTrue((bool) $product->is_published);
+        $this->assertTrue((bool) $product->is_new_arrival);
+        $this->assertTrue((bool) $product->is_best_seller);
+        $this->assertTrue((bool) $product->is_featured);
+
+        $this->assertTrue(
+            app(\App\Services\WebsiteService::class)->catalogQuery($this->shop->id)
+                ->whereKey($product->id)
+                ->exists()
+        );
+
+        // Unticking Publish on edit hides it again.
+        $this->put(route('products.update', $product), [
+            'product_mode' => 'simple',
+            'name' => $product->name,
+            'barcode' => $product->barcode,
+            'cost_price' => 100,
+            'selling_price' => 200,
+            'is_published' => '0',
+            'is_new_arrival' => '1',
+            'is_best_seller' => '0',
+            'is_featured' => '0',
+        ])->assertSessionHasNoErrors();
+
+        $product->refresh();
+        $this->assertFalse((bool) $product->is_published);
+        $this->assertTrue((bool) $product->is_new_arrival);
+        $this->assertFalse((bool) $product->is_best_seller);
+        $this->assertFalse(
+            app(\App\Services\WebsiteService::class)->catalogQuery($this->shop->id)
+                ->whereKey($product->id)
+                ->exists()
+        );
+    }
+
+    public function test_product_list_homepage_flag_ticks_update_new_and_trending(): void
+    {
+        $product = $this->makeProduct(['is_published' => true, 'stock_quantity' => 3]);
+
+        $this->actingAs($this->admin, 'admin')
+            ->patchJson(route('products.homepage-flags', $product), [
+                'flag' => 'is_new_arrival',
+                'value' => 1,
+            ])
+            ->assertOk()
+            ->assertJson(['ok' => true, 'is_new_arrival' => true]);
+
+        $this->assertTrue((bool) $product->fresh()->is_new_arrival);
+
+        $this->patchJson(route('products.homepage-flags', $product), [
+            'flag' => 'is_best_seller',
+            'value' => 1,
+        ])->assertOk()->assertJson(['is_best_seller' => true]);
+
+        $this->assertTrue((bool) $product->fresh()->is_best_seller);
+
+        // Create form: Publish starts unticked (inventory-only until staff opts in).
+        $html = $this->get(route('products.create'))->assertOk()->assertSee('Publish on website', false)->getContent();
+        $this->assertTrue(
+            (bool) preg_match('/<input[^>]*name="is_published"[^>]*value="1"[^>]*>/', $html, $match),
+            'Publish checkbox missing on create form'
+        );
+        $this->assertStringNotContainsString('checked', $match[0]);
     }
 
     public function test_ten_iphones_each_get_their_own_imei(): void
@@ -860,5 +1013,113 @@ class ProductAndBrandManagementTest extends TestCase
             ->get(route('brands.index'))
             ->assertOk()
             ->assertSee('Nokia');
+    }
+
+    public function test_custom_variant_option_labels_show_as_chips_on_storefront(): void
+    {
+        $this->actingAs($this->admin, 'admin')
+            ->post(route('products.store'), [
+                'product_mode' => 'gadget',
+                'name' => 'USB-C Cable',
+                'variant_group' => 'usb-c-cable',
+                'option1_label' => 'Size',
+                'option2_label' => 'Length',
+                'cost_price' => 50,
+                'selling_price' => 120,
+                'is_published' => '1',
+                'variants' => [
+                    [
+                        'barcode' => 'USB-S-1M',
+                        'color' => 'Black',
+                        'ram' => 'S',
+                        'storage' => '1m',
+                        'cost_price' => 50,
+                        'selling_price' => 120,
+                        'stock_quantity' => 5,
+                    ],
+                    [
+                        'barcode' => 'USB-M-2M',
+                        'color' => 'Black',
+                        'ram' => 'M',
+                        'storage' => '2m',
+                        'cost_price' => 60,
+                        'selling_price' => 150,
+                        'stock_quantity' => 4,
+                    ],
+                ],
+            ])
+            ->assertSessionHasNoErrors();
+
+        $small = Product::where('barcode', 'USB-S-1M')->firstOrFail();
+        $medium = Product::where('barcode', 'USB-M-2M')->firstOrFail();
+
+        $this->assertSame('Size', $small->option1_label);
+        $this->assertSame('Length', $small->option2_label);
+        $this->assertSame('S', $small->ram);
+        $this->assertSame('1m', $small->storage);
+        $this->assertSame('Size', $medium->option1Label());
+        $this->assertSame('Length', $medium->option2Label());
+
+        $options = app(\App\Services\WebsiteService::class)->productVariantOptions($small);
+        $this->assertSame('Size', $options['option1_label']);
+        $this->assertSame('Length', $options['option2_label']);
+        $this->assertNotEmpty($options['combos']);
+        $comboLabels = collect($options['combos'])->pluck('label')->all();
+        $this->assertContains('S/1m', $comboLabels);
+        $this->assertContains('M/2m', $comboLabels);
+
+        $this->get(route('website.product', $small))
+            ->assertOk()
+            ->assertSee('Size / Length', false)
+            ->assertSee('S/1m', false)
+            ->assertSee('M/2m', false)
+            ->assertDontSee('>RAM<', false)
+            ->assertDontSee('>Storage<', false);
+    }
+
+    public function test_phone_variants_still_default_to_ram_and_storage_labels(): void
+    {
+        $this->actingAs($this->admin, 'admin')
+            ->post(route('products.store'), [
+                'product_mode' => 'gadget',
+                'name' => 'Galaxy A15',
+                'variant_group' => 'galaxy-a15',
+                'cost_price' => 18000,
+                'selling_price' => 22000,
+                'is_published' => '1',
+                'variants' => [
+                    [
+                        'barcode' => 'A15-8-128',
+                        'color' => 'Black',
+                        'ram' => '8GB',
+                        'storage' => '128GB',
+                        'cost_price' => 18000,
+                        'selling_price' => 22000,
+                        'stock_quantity' => 3,
+                    ],
+                    [
+                        'barcode' => 'A15-8-256',
+                        'color' => 'Black',
+                        'ram' => '8GB',
+                        'storage' => '256GB',
+                        'cost_price' => 19000,
+                        'selling_price' => 24000,
+                        'stock_quantity' => 2,
+                    ],
+                ],
+            ])
+            ->assertSessionHasNoErrors();
+
+        $product = Product::where('barcode', 'A15-8-128')->firstOrFail();
+        $this->assertNull($product->option1_label);
+        $this->assertNull($product->option2_label);
+        $this->assertSame('RAM', $product->option1Label());
+        $this->assertSame('Storage', $product->option2Label());
+
+        $this->get(route('website.product', $product))
+            ->assertOk()
+            ->assertSee('RAM / Storage', false)
+            ->assertSee('8GB/128GB', false)
+            ->assertSee('8GB/256GB', false);
     }
 }

@@ -110,9 +110,10 @@ class WebsiteController extends Controller
             'name' => $query->orderBy('name')->orderBy('id'),
             'latest' => $query->latest('id'),
             'bestsellers' => $query->orderByDesc('is_best_seller')->orderByDesc('review_count')->latest('id'),
+            'featured' => $query->orderByDesc('is_featured')->orderByDesc('is_best_seller')->orderByDesc('review_count')->latest('id'),
             default => $request->filter === 'new'
                 ? $query->latest('id')
-                : $query->orderByDesc('is_best_seller')->orderByDesc('review_count')->latest('id'),
+                : $query->orderByDesc('is_featured')->orderByDesc('is_best_seller')->orderByDesc('review_count')->latest('id'),
         };
 
         $this->website->applyVariantGroupListing($query);
