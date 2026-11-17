@@ -309,7 +309,7 @@ class Order extends Model
 
     /**
      * Unique customer-facing online order ID (stored in invoice_no).
-     * Format: WEB-{shopId}-{year}-{#####}
+     * Encoded format — see nextInvoiceNo().
      */
     public static function nextWebInvoiceNo(int $shopId): string
     {
@@ -318,38 +318,88 @@ class Order extends Model
 
     /**
      * Unique POS invoice number. Call inside a DB transaction (uses lockForUpdate).
-     * Format: INV-{shopId}-{year}-{#####} or OFF-... for offline sync.
+     * Encoded format — see nextInvoiceNo(). OFF-... for offline sync.
      */
     public static function nextPosInvoiceNo(int $shopId, string $prefix = 'INV'): string
     {
         return static::nextInvoiceNo($shopId, $prefix);
     }
 
+    /**
+     * Build the next invoice / order number.
+     *
+     * Format: {KIND}-{DD}{M}{YY}{SS}-{#####}
+     * Example: INV-17K2601-00003
+     *
+     * Admin decode (customers should not need this):
+     * - DD  = day of month (01–31)
+     * - M   = month letter A–L (A=Jan … L=Dec)  e.g. K = November
+     * - YY  = 2-digit year
+     * - SS  = shop id, zero-padded to 2 digits
+     * - ##### = that day's receipt position for this shop + kind (00001 = first)
+     */
     protected static function nextInvoiceNo(int $shopId, string $kind): string
     {
-        $year = date('Y');
-        $prefix = strtoupper($kind) . '-' . $shopId . '-' . $year . '-';
+        $tz = config('app.display_timezone', config('app.timezone', 'Asia/Dhaka'));
+        $now = now()->timezone($tz);
+        $kind = strtoupper($kind);
+        $day = $now->format('d');
+        $monthLetter = chr(64 + (int) $now->format('n')); // A=Jan … L=Dec
+        $year2 = $now->format('y');
+        $shopPad = str_pad((string) max(1, $shopId), 2, '0', STR_PAD_LEFT);
+
+        $prefix = $kind.'-'.$day.$monthLetter.$year2.$shopPad.'-';
 
         $latest = static::query()
             ->where('shop_id', $shopId)
-            ->where('invoice_no', 'like', $prefix . '%')
+            ->where('invoice_no', 'like', $prefix.'%')
             ->orderByDesc('id')
             ->lockForUpdate()
             ->value('invoice_no');
 
         $seq = 1;
-        if (is_string($latest) && preg_match('/(\d+)$/', $latest, $m)) {
+        if (is_string($latest) && preg_match('/-(\d+)$/', $latest, $m)) {
             $seq = ((int) $m[1]) + 1;
         }
 
         for ($i = 0; $i < 50; $i++) {
-            $candidate = $prefix . str_pad((string) ($seq + $i), 5, '0', STR_PAD_LEFT);
+            $candidate = $prefix.str_pad((string) ($seq + $i), 5, '0', STR_PAD_LEFT);
             if (! static::where('invoice_no', $candidate)->exists()) {
                 return $candidate;
             }
         }
 
-        return $prefix . str_pad((string) random_int(1, 99999), 5, '0', STR_PAD_LEFT) . '-' . substr(uniqid(), -4);
+        return $prefix.str_pad((string) random_int(1, 99999), 5, '0', STR_PAD_LEFT).'-'.substr(uniqid(), -4);
+    }
+
+    /**
+     * Decode an encoded invoice number for admin tooling.
+     * Returns null for legacy formats (e.g. INV-1-2026-00265).
+     *
+     * @return array{kind: string, day: int, month: int, month_letter: string, year: int, shop_id: int, position: int}|null
+     */
+    public static function decodeInvoiceNo(?string $invoiceNo): ?array
+    {
+        if (! is_string($invoiceNo) || $invoiceNo === '') {
+            return null;
+        }
+
+        if (! preg_match('/^([A-Z]+)-(\d{2})([A-L])(\d{2})(\d{2})-(\d+)$/i', $invoiceNo, $m)) {
+            return null;
+        }
+
+        $monthLetter = strtoupper($m[3]);
+        $month = ord($monthLetter) - 64;
+
+        return [
+            'kind' => strtoupper($m[1]),
+            'day' => (int) $m[2],
+            'month' => $month,
+            'month_letter' => $monthLetter,
+            'year' => 2000 + (int) $m[4],
+            'shop_id' => (int) $m[5],
+            'position' => (int) $m[6],
+        ];
     }
 
     /** Cash portion that actually hit the till (split-tender aware). */
