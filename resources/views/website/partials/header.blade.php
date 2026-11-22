@@ -25,9 +25,7 @@
                 <a href="{{ route('home') }}" class="flex items-center gap-3 shrink-0 no-underline min-w-0">
                     @php
                         $headerName = $settings->store_name ?? config('app.name', 'Akhi Telecom');
-                        $headerIcon = method_exists($settings, 'storeLogoUrl')
-                            ? $settings->storeLogoUrl()
-                            : (default_brand_logo_url() ?: null);
+                        $headerIcon = brand_logo_url($settings ?? null);
                     @endphp
                     @if($headerIcon)
                         <img src="{{ $headerIcon }}"
@@ -35,7 +33,8 @@
                              class="gaget-logo-wordmark"
                              width="140"
                              height="48"
-                             decoding="async">
+                             decoding="async"
+                             onerror="this.onerror=null;this.src='{{ asset('images/brand/akhi-telecom-at.png') }}';">
                     @else
                         <div class="gaget-logo-icon">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>

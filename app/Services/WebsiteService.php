@@ -62,6 +62,9 @@ class WebsiteService
             'store_name' => $site->store_name ?: ($shop?->name ?? config('app.name', 'Akhi Telecom')),
             'logo_path' => $site->logo_path,
             'favicon_path' => $site->favicon_path,
+            // Precomputed URLs — views receive a plain object, not the Eloquent model.
+            'logo_url' => $site->storeLogoUrl() ?: (function_exists('default_brand_logo_url') ? default_brand_logo_url() : null),
+            'favicon_url' => site_favicon_url($site),
             'currency_code' => $currencyCode,
             'currency_symbol' => $currencySymbol,
             'special_offer_text' => $site->special_offer_text ?: 'Special Offer!',

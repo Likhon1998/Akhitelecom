@@ -86,6 +86,49 @@ if (! function_exists('default_brand_logo_url')) {
     }
 }
 
+if (! function_exists('brand_logo_url')) {
+    /**
+     * Resolve the store brand logo for any settings-like object (Eloquent or WebsiteService stdClass).
+     */
+    function brand_logo_url(?object $settings = null): ?string
+    {
+        if ($settings && method_exists($settings, 'storeLogoUrl')) {
+            return $settings->storeLogoUrl() ?: default_brand_logo_url();
+        }
+
+        if ($settings && ! empty($settings->logo_url)) {
+            return (string) $settings->logo_url;
+        }
+
+        foreach ([data_get($settings, 'logo_path'), data_get($settings, 'favicon_path')] as $path) {
+            if (! filled($path)) {
+                continue;
+            }
+            if (preg_match('#^(https?:)?//#i', (string) $path)) {
+                return (string) $path;
+            }
+            $url = public_storage_url($path);
+            if (! $url) {
+                continue;
+            }
+            $mtime = @filemtime(public_storage_path($path)) ?: time();
+
+            return $url.(str_contains($url, '?') ? '&' : '?').'v='.$mtime;
+        }
+
+        try {
+            $fromModel = \App\Models\SiteSetting::current()->storeLogoUrl();
+            if ($fromModel) {
+                return $fromModel;
+            }
+        } catch (\Throwable) {
+            // fall through
+        }
+
+        return default_brand_logo_url();
+    }
+}
+
 if (! function_exists('site_favicon_url')) {
     /**
      * Browser tab icon: custom favicon → store logo → bundled AT brand → default SVG.

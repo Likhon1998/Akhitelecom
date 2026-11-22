@@ -52,9 +52,7 @@
             <div class="tn-footer-brand">
                 <a href="{{ route('home') }}" class="tn-footer-logo">
                     @php
-                        $footerIcon = method_exists($settings, 'storeLogoUrl')
-                            ? $settings->storeLogoUrl()
-                            : (default_brand_logo_url() ?: null);
+                        $footerIcon = brand_logo_url($settings ?? null);
                     @endphp
                     @if($footerIcon)
                         <img src="{{ $footerIcon }}"
@@ -62,7 +60,8 @@
                              class="tn-footer-logo-img"
                              width="120"
                              height="44"
-                             decoding="async">
+                             decoding="async"
+                             onerror="this.onerror=null;this.src='{{ asset('images/brand/akhi-telecom-at.png') }}';">
                         <span class="tn-footer-logo-text">{{ $storeName }}</span>
                     @else
                         <span class="tn-footer-logo-mark" aria-hidden="true">
