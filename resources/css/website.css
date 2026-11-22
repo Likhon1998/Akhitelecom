@@ -116,15 +116,19 @@ body.gaget-store {
     box-shadow: none;
 }
 .gaget-logo-wordmark {
-    height: 52px !important;
+    height: 48px !important;
     width: auto !important;
-    max-width: 220px !important;
-    max-height: 52px !important;
+    max-width: min(160px, 42vw) !important;
+    max-height: 48px !important;
     object-fit: contain;
-    border-radius: 0;
+    object-position: left center;
+    border-radius: 10px;
     flex-shrink: 0;
-    background: transparent !important;
+    /* AT mark is gold/silver on black — keep the black plate so it stays visible on white headers */
+    background: #000 !important;
     display: block;
+    border: 0;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .12);
 }
 .gaget-logo-text {
     font-size: 20px;
@@ -2448,10 +2452,13 @@ body.gaget-store {
     flex-shrink: 0;
 }
 .tn-footer-logo-img {
-    width: 52px !important;
-    height: 52px !important;
+    width: auto !important;
+    height: 44px !important;
+    max-width: min(140px, 48vw) !important;
     object-fit: contain;
-    background: transparent !important;
+    object-position: left center;
+    background: #000 !important;
+    border-radius: 10px;
     display: block;
     flex-shrink: 0;
 }
@@ -3788,7 +3795,7 @@ body.gaget-store {
     }
     .gaget-logo-icon { width: 36px; height: 36px; }
     .gaget-logo-mark { width: 48px !important; height: 48px !important; max-width: 48px !important; max-height: 48px !important; }
-    .gaget-logo-wordmark { height: 44px !important; max-width: 170px !important; }
+    .gaget-logo-wordmark { height: 42px !important; max-width: min(140px, 46vw) !important; }
     .gaget-logo-text { font-size: 17px; }
     .gaget-hover-panel { display: none !important; }
     .gaget-mobile-search {

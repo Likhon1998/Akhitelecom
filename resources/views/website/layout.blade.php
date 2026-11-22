@@ -535,6 +535,8 @@
         .gaget-store .tn-brand-logo{height:40px!important;max-height:40px!important;max-width:112px!important;width:auto!important;object-fit:contain!important}
         .gaget-store .tn-brand-logo-frame{height:44px!important;max-width:120px!important;overflow:hidden!important}
         .gaget-store .pd-brand-logo{height:18px!important;max-height:18px!important;max-width:88px!important;width:auto!important;object-fit:contain!important}
+        .gaget-store .gaget-logo-wordmark{height:48px!important;max-height:48px!important;max-width:min(160px,42vw)!important;width:auto!important;object-fit:contain!important;background:#000!important;border-radius:10px!important}
+        .gaget-store .tn-footer-logo-img{height:44px!important;width:auto!important;max-width:min(140px,48vw)!important;object-fit:contain!important;background:#000!important;border-radius:10px!important}
         .tn-footer-credit{border-top:1px solid #eef2f7;padding:14px 16px 18px;text-align:center;background:#f8f9fc}
         .powered-by,.powered-by--footer{margin:0;font-size:12px;font-weight:500;letter-spacing:.02em;color:#94a3b8}
         .powered-by strong,.powered-by--footer strong{color:#0f172a;font-weight:800}

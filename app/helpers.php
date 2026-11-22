@@ -54,9 +54,41 @@ if (! function_exists('public_storage_url')) {
     }
 }
 
+if (! function_exists('default_brand_logo_relative')) {
+    /** Bundled Akhi Telecom AT mark (committed under public/images/brand). */
+    function default_brand_logo_relative(): string
+    {
+        return 'images/brand/akhi-telecom-at.png';
+    }
+}
+
+if (! function_exists('default_brand_logo_absolute')) {
+    function default_brand_logo_absolute(): ?string
+    {
+        $absolute = public_path(default_brand_logo_relative());
+
+        return is_file($absolute) && is_readable($absolute) ? $absolute : null;
+    }
+}
+
+if (! function_exists('default_brand_logo_url')) {
+    function default_brand_logo_url(): ?string
+    {
+        $absolute = default_brand_logo_absolute();
+        if (! $absolute) {
+            return null;
+        }
+
+        $url = asset(default_brand_logo_relative());
+        $mtime = @filemtime($absolute) ?: time();
+
+        return $url.(str_contains($url, '?') ? '&' : '?').'v='.$mtime;
+    }
+}
+
 if (! function_exists('site_favicon_url')) {
     /**
-     * Browser tab icon: custom favicon → store logo → branded default SVG.
+     * Browser tab icon: custom favicon → store logo → bundled AT brand → default SVG.
      */
     function site_favicon_url(?object $settings = null): string
     {
@@ -68,17 +100,19 @@ if (! function_exists('site_favicon_url')) {
             }
         }
 
-        $favicon = data_get($settings, 'favicon_path');
-        if (filled($favicon)) {
-            return public_storage_url($favicon);
+        foreach ([data_get($settings, 'favicon_path'), data_get($settings, 'logo_path')] as $path) {
+            if (! filled($path)) {
+                continue;
+            }
+            $url = public_storage_url($path);
+            if ($url) {
+                $mtime = @filemtime(public_storage_path($path)) ?: time();
+
+                return $url.(str_contains($url, '?') ? '&' : '?').'v='.$mtime;
+            }
         }
 
-        $logo = data_get($settings, 'logo_path');
-        if (filled($logo)) {
-            return public_storage_url($logo);
-        }
-
-        return asset('favicon.svg');
+        return default_brand_logo_url() ?: asset('favicon.svg');
     }
 }
 

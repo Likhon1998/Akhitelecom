@@ -52,19 +52,17 @@
             <div class="tn-footer-brand">
                 <a href="{{ route('home') }}" class="tn-footer-logo">
                     @php
-                        $footerIconPath = $settings->favicon_path ?: $settings->logo_path;
-                        $footerIcon = $footerIconPath ? public_storage_url($footerIconPath) : null;
-                        $footerIconVer = $footerIconPath
-                            ? (@filemtime(public_storage_path($footerIconPath)) ?: time())
-                            : time();
+                        $footerIcon = method_exists($settings, 'storeLogoUrl')
+                            ? $settings->storeLogoUrl()
+                            : (default_brand_logo_url() ?: null);
                     @endphp
                     @if($footerIcon)
-                        <img src="{{ $footerIcon }}?v={{ $footerIconVer }}"
+                        <img src="{{ $footerIcon }}"
                              alt="{{ $storeName }}"
                              class="tn-footer-logo-img"
-                             width="52"
-                             height="52"
-                             style="width:52px;height:52px;object-fit:contain;background:transparent;border:0;border-radius:0;">
+                             width="120"
+                             height="44"
+                             decoding="async">
                         <span class="tn-footer-logo-text">{{ $storeName }}</span>
                     @else
                         <span class="tn-footer-logo-mark" aria-hidden="true">

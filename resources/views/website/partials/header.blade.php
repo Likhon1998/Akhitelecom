@@ -25,25 +25,23 @@
                 <a href="{{ route('home') }}" class="flex items-center gap-3 shrink-0 no-underline min-w-0">
                     @php
                         $headerName = $settings->store_name ?? config('app.name', 'Akhi Telecom');
-                        $headerIconPath = $settings->favicon_path ?: $settings->logo_path;
-                        $headerIcon = $headerIconPath ? public_storage_url($headerIconPath) : null;
-                        $headerIconVer = $headerIconPath
-                            ? (@filemtime(public_storage_path($headerIconPath)) ?: time())
-                            : time();
+                        $headerIcon = method_exists($settings, 'storeLogoUrl')
+                            ? $settings->storeLogoUrl()
+                            : (default_brand_logo_url() ?: null);
                     @endphp
                     @if($headerIcon)
-                        <img src="{{ $headerIcon }}?v={{ $headerIconVer }}"
+                        <img src="{{ $headerIcon }}"
                              alt="{{ $headerName }}"
-                             class="gaget-logo-mark"
-                             width="56"
-                             height="56"
-                             style="width:56px;height:56px;object-fit:contain;flex-shrink:0;background:transparent;border:0;border-radius:0;box-shadow:none;">
+                             class="gaget-logo-wordmark"
+                             width="140"
+                             height="48"
+                             decoding="async">
                     @else
                         <div class="gaget-logo-icon">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
                         </div>
+                        <span class="gaget-logo-text truncate">{{ $headerName }}</span>
                     @endif
-                    <span class="gaget-logo-text truncate">{{ $headerName }}</span>
                 </a>
                 </div>
 

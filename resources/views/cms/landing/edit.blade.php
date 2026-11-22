@@ -44,17 +44,17 @@
                         :existing="$settings->logo_path ? public_storage_url($settings->logo_path) : null"
                         preview-class="h-14 max-w-full object-contain rounded-lg bg-black p-1 border border-slate-200"
                     />
-                    <p class="mt-1 text-[11px] text-slate-400">Used on header, footer, login, admin sidebar, and printed receipts / invoices (watermark). If empty, the favicon is used instead. Black backgrounds are auto-removed.</p>
+                    <p class="mt-1 text-[11px] text-slate-400">Main store logo — used on header, footer, login, admin, POS, and receipts. Upload a new file anytime to replace it. Preview uses a black plate so gold/chrome marks stay visible.</p>
                 </div>
                 <div>
                     <label class="text-xs font-bold uppercase text-slate-500">Browser tab icon (favicon)</label>
                     <x-image-file-preview
                         name="favicon"
                         accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/x-icon,.ico"
-                        :existing="($settings->favicon_path ? public_storage_url($settings->favicon_path) : ($settings->logo_path ? public_storage_url($settings->logo_path) : asset('favicon.svg')))"
-                        preview-class="h-10 w-10 rounded object-contain border border-slate-200 bg-white p-0.5"
+                        :existing="($settings->favicon_path ? public_storage_url($settings->favicon_path) : ($settings->logo_path ? public_storage_url($settings->logo_path) : asset('images/brand/akhi-telecom-at.png')))"
+                        preview-class="h-10 w-10 rounded object-contain border border-slate-200 bg-black p-0.5"
                     />
-                    <p class="mt-1 text-[11px] text-slate-400">Text-less icon for the browser tab. Extra black padding is cropped automatically.</p>
+                    <p class="mt-1 text-[11px] text-slate-400">Browser tab icon. Can match the full logo or be a simpler mark — replace anytime.</p>
                 </div>
                 <div>
                     <label class="text-xs font-bold uppercase text-slate-500">Currency</label>

@@ -1,12 +1,9 @@
 <x-login-layout>
     @php
         $brandName = data_get($settings ?? null, 'store_name') ?: config('app.name', 'Akhi Telecom');
-        $brandLogo = !empty(data_get($settings ?? null, 'logo_path'))
-            ? public_storage_url($settings->logo_path)
-            : null;
-        $brandIcon = !empty(data_get($settings ?? null, 'favicon_path'))
-            ? public_storage_url($settings->favicon_path)
-            : ($brandLogo ?: null);
+        $brandIcon = ($settings && method_exists($settings, 'storeLogoUrl'))
+            ? $settings->storeLogoUrl()
+            : default_brand_logo_url();
     @endphp
     <div class="nexa-shell">
         <section class="nexa-left" aria-label="{{ $brandName }} overview">
@@ -26,8 +23,8 @@
             <div class="nexa-left-content">
                 <div class="nexa-brand">
                     @if($brandIcon)
-                        <div class="nexa-brand-mark" aria-hidden="true" style="background:transparent;border:0;box-shadow:none;width:56px;height:56px;">
-                            <img src="{{ $brandIcon }}?v={{ @filemtime(public_storage_path($settings->favicon_path)) ?: time() }}" alt="" style="width:56px;height:56px;object-fit:contain;">
+                        <div class="nexa-brand-mark nexa-brand-mark--logo" aria-hidden="true">
+                            <img src="{{ $brandIcon }}" alt="{{ $brandName }}" width="140" height="48" decoding="async">
                         </div>
                         <div>
                             <div class="nexa-brand-name">{{ strtoupper($brandName) }}</div>

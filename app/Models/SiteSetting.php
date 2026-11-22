@@ -92,48 +92,53 @@ class SiteSetting extends Model
     /**
      * Browser URL for the homepage brand image (path-only, same as storefront).
      * Avoids absolute APP_URL links that break when APP_URL differs from the request host.
+     * Falls back to the bundled AT brand mark in public/images/brand.
      */
     public function storeLogoUrl(): ?string
     {
         $path = $this->storeBrandImagePath();
-        if (! $path) {
-            return null;
+        if ($path) {
+            if (preg_match('#^(https?:)?//#i', $path)) {
+                return $path;
+            }
+
+            $url = public_storage_url($path);
+            if ($url) {
+                $mtime = @filemtime($this->brandImageAbsolutePath($path) ?? '') ?: time();
+
+                return $url.(str_contains($url, '?') ? '&' : '?').'v='.$mtime;
+            }
         }
 
-        if (preg_match('#^(https?:)?//#i', $path)) {
-            return $path;
-        }
-
-        $url = public_storage_url($path);
-        if (! $url) {
-            return null;
-        }
-
-        $mtime = @filemtime($this->brandImageAbsolutePath($path) ?? '') ?: time();
-
-        return $url.(str_contains($url, '?') ? '&' : '?').'v='.$mtime;
+        return function_exists('default_brand_logo_url') ? default_brand_logo_url() : null;
     }
 
     /**
      * Data-URI of the homepage brand image for print (works offline / thermal).
-     * Falls back to a same-origin storage URL when the file cannot be read from disk.
+     * Falls back to bundled AT brand mark, then a same-origin URL.
      */
     public function storeLogoSrc(): ?string
     {
         $path = $this->storeBrandImagePath();
-        if (! $path) {
-            return null;
+        if ($path) {
+            if (preg_match('#^(https?:)?//#i', $path)) {
+                return $path;
+            }
+
+            $absolute = $this->brandImageAbsolutePath($path);
+            if ($absolute) {
+                $bytes = @file_get_contents($absolute);
+                if ($bytes !== false && $bytes !== '') {
+                    return 'data:'.$this->brandImageMime($absolute, $path).';base64,'.base64_encode($bytes);
+                }
+            }
         }
 
-        if (preg_match('#^(https?:)?//#i', $path)) {
-            return $path;
-        }
-
-        $absolute = $this->brandImageAbsolutePath($path);
-        if ($absolute) {
-            $bytes = @file_get_contents($absolute);
+        $bundled = function_exists('default_brand_logo_absolute') ? default_brand_logo_absolute() : null;
+        if ($bundled) {
+            $bytes = @file_get_contents($bundled);
             if ($bytes !== false && $bytes !== '') {
-                return 'data:'.$this->brandImageMime($absolute, $path).';base64,'.base64_encode($bytes);
+                return 'data:image/png;base64,'.base64_encode($bytes);
             }
         }
 

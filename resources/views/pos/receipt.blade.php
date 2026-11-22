@@ -74,11 +74,13 @@
         .brand .brand-logo {
             display: block;
             margin: 0 auto 8px;
-            max-width: 96px;
-            max-height: 64px;
+            max-width: 140px;
+            max-height: 56px;
             width: auto;
             height: auto;
             object-fit: contain;
+            background: #000;
+            border-radius: 8px;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }

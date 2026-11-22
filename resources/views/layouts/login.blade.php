@@ -93,11 +93,24 @@
             border: 1px solid rgba(148, 163, 184, .25);
             box-shadow: 0 0 28px rgba(37, 99, 235, .28);
         }
+        .nexa-brand-mark--logo {
+            width: auto;
+            min-width: 120px;
+            max-width: min(160px, 48vw);
+            height: 48px;
+            padding: 0;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, .2);
+        }
         .nexa-brand-mark img {
             width: 100%;
             height: 100%;
             object-fit: contain;
             display: block;
+        }
+        .nexa-brand-mark--logo img {
+            width: auto;
+            max-width: 100%;
+            height: 100%;
         }
         .nexa-brand-mark svg { width: 26px; height: 26px; }
         .nexa-brand-logo {

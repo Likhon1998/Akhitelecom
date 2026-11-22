@@ -35,6 +35,8 @@
             html.sidebar-collapsed .admin-brand{justify-content:center;padding-left:0;padding-right:0}
             html.sidebar-collapsed .admin-brand a{flex:0 0 auto}
             html.sidebar-collapsed .admin-brand-name{display:none}
+            .admin-brand-logo{height:40px;width:auto;max-width:148px;object-fit:contain;border-radius:8px;background:#000;display:block}
+            html.sidebar-collapsed .admin-brand-logo{height:36px;max-width:52px;object-position:left center}
             html.sidebar-collapsed .admin-sidebar nav a,
             html.sidebar-collapsed .admin-sidebar nav button{
                 width:46px;margin-left:auto;margin-right:auto;padding-left:13px;padding-right:13px;

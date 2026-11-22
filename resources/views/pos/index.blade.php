@@ -1479,9 +1479,7 @@
         <a href="{{ route('dashboard') }}" class="pos-brand" title="Dashboard">
             @php
                 $posSettings = \App\Models\SiteSetting::current();
-                $posIcon = $posSettings->favicon_path
-                    ? public_storage_url($posSettings->favicon_path)
-                    : ($posSettings->logo_path ? public_storage_url($posSettings->logo_path) : null);
+                $posIcon = $posSettings->storeLogoUrl() ?: default_brand_logo_url();
             @endphp
             <span class="pos-brand-mark">
                 @if($posIcon)
