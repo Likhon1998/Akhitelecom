@@ -89,7 +89,7 @@
             display: grid;
             place-items: center;
             overflow: hidden;
-            background: #000;
+            background: transparent;
             border: 1px solid rgba(148, 163, 184, .25);
             box-shadow: 0 0 28px rgba(37, 99, 235, .28);
         }
@@ -99,7 +99,9 @@
             max-width: min(160px, 48vw);
             height: 48px;
             padding: 0;
-            box-shadow: 0 1px 3px rgba(15, 23, 42, .2);
+            background: transparent;
+            border: 0;
+            box-shadow: none;
         }
         .nexa-brand-mark img {
             width: 100%;
@@ -118,8 +120,8 @@
             width: auto;
             max-width: min(260px, 70vw);
             object-fit: contain;
-            border-radius: 10px;
-            background: #000;
+            border-radius: 0;
+            background: transparent;
             display: block;
         }
         .nexa-brand-name {

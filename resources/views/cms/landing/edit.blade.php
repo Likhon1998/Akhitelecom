@@ -42,9 +42,9 @@
                         name="logo"
                         accept="image/*"
                         :existing="$settings->logo_path ? public_storage_url($settings->logo_path) : null"
-                        preview-class="h-14 max-w-full object-contain rounded-lg bg-black p-1 border border-slate-200"
+                        preview-class="h-14 max-w-full object-contain rounded-lg bg-slate-100 p-1 border border-slate-200"
                     />
-                    <p class="mt-1 text-[11px] text-slate-400">Main store logo — used on header, footer, login, admin, POS, and receipts. Upload a new file anytime to replace it. Preview uses a black plate so gold/chrome marks stay visible.</p>
+                    <p class="mt-1 text-[11px] text-slate-400">Main store logo — used on header, footer, login, admin, POS, and receipts. Upload anytime to replace. Black backgrounds are removed automatically for a transparent mark.</p>
                 </div>
                 <div>
                     <label class="text-xs font-bold uppercase text-slate-500">Browser tab icon (favicon)</label>
@@ -52,7 +52,7 @@
                         name="favicon"
                         accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/x-icon,.ico"
                         :existing="($settings->favicon_path ? public_storage_url($settings->favicon_path) : ($settings->logo_path ? public_storage_url($settings->logo_path) : asset('images/brand/akhi-telecom-at.png')))"
-                        preview-class="h-10 w-10 rounded object-contain border border-slate-200 bg-black p-0.5"
+                        preview-class="h-10 w-10 rounded object-contain border border-slate-200 bg-slate-100 p-0.5"
                     />
                     <p class="mt-1 text-[11px] text-slate-400">Browser tab icon. Can match the full logo or be a simpler mark — replace anytime.</p>
                 </div>

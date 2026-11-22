@@ -3,14 +3,15 @@
 namespace Database\Seeders;
 
 use App\Models\SiteSetting;
+use App\Services\SiteLogoNormalizer;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\File;
 
 class BrandLogoSeeder extends Seeder
 {
     /**
-     * Install / refresh the bundled AT brand mark as CMS Full logo + Favicon.
-     * Safe to re-run. Admins can replace either file anytime in CMS → Landing.
+     * Install a transparent, cropped AT brand mark as CMS Full logo + Favicon.
+     * Admins can replace either file anytime in CMS → Landing.
      */
     public function run(): void
     {
@@ -23,12 +24,18 @@ class BrandLogoSeeder extends Seeder
 
         $logoRel = 'cms/logo/akhi-telecom-at.png';
         $faviconRel = 'cms/favicon/akhi-telecom-at.png';
+        $normalizer = app(SiteLogoNormalizer::class);
 
-        foreach ([$logoRel, $faviconRel] as $rel) {
-            $dest = public_storage_path($rel);
-            File::ensureDirectoryExists(dirname($dest));
-            File::copy($source, $dest);
-        }
+        $logoDest = public_storage_path($logoRel);
+        $faviconDest = public_storage_path($faviconRel);
+        File::ensureDirectoryExists(dirname($logoDest));
+        File::ensureDirectoryExists(dirname($faviconDest));
+
+        $normalizer->normalizeToPng($source, $logoDest, square: false, padding: 6, threshold: 48, maxSize: 1600);
+        $normalizer->normalizeToPng($source, $faviconDest, square: false, padding: 4, threshold: 48, maxSize: 512);
+
+        // Keep the public bundled copy transparent too (for asset fallbacks).
+        $normalizer->normalizeToPng($source, $source, square: false, padding: 6, threshold: 48, maxSize: 1600);
 
         $settings = SiteSetting::query()->first();
         if (! $settings) {
@@ -46,6 +53,6 @@ class BrandLogoSeeder extends Seeder
         }
         $settings->save();
 
-        $this->command?->info('CMS logo + favicon set to AT brand mark (change anytime in CMS → Landing).');
+        $this->command?->info('Transparent AT logo installed (CMS logo + favicon). Change anytime in CMS → Landing.');
     }
 }

@@ -61,12 +61,12 @@
             display: block;
             margin: 0 auto 8px;
             max-width: 140px;
-            max-height: 56px;
+            max-height: 52px;
             width: auto;
             height: auto;
             object-fit: contain;
-            background: #000;
-            border-radius: 8px;
+            background: transparent;
+            border-radius: 0;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }

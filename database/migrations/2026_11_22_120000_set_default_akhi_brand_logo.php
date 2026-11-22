@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\SiteLogoNormalizer;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -8,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Install the bundled AT brand mark as the CMS Full logo + Favicon.
+     * Install a transparent cropped AT brand mark as CMS Full logo + Favicon.
      * Admins can replace either anytime from CMS → Landing.
      */
     public function up(): void
@@ -24,13 +25,25 @@ return new class extends Migration
 
         $logoRel = 'cms/logo/akhi-telecom-at.png';
         $faviconRel = 'cms/favicon/akhi-telecom-at.png';
+        $logoDest = function_exists('public_storage_path')
+            ? public_storage_path($logoRel)
+            : storage_path('app/public/'.$logoRel);
+        $faviconDest = function_exists('public_storage_path')
+            ? public_storage_path($faviconRel)
+            : storage_path('app/public/'.$faviconRel);
 
-        foreach ([$logoRel, $faviconRel] as $rel) {
-            $dest = function_exists('public_storage_path')
-                ? public_storage_path($rel)
-                : storage_path('app/public/'.$rel);
-            File::ensureDirectoryExists(dirname($dest));
-            File::copy($source, $dest);
+        File::ensureDirectoryExists(dirname($logoDest));
+        File::ensureDirectoryExists(dirname($faviconDest));
+
+        try {
+            $normalizer = app(SiteLogoNormalizer::class);
+            $normalizer->normalizeToPng($source, $logoDest, square: false, padding: 6, threshold: 48, maxSize: 1600);
+            $normalizer->normalizeToPng($source, $faviconDest, square: false, padding: 4, threshold: 48, maxSize: 512);
+            // Refresh bundled public asset to transparent crop as well.
+            $normalizer->normalizeToPng($source, $source, square: false, padding: 6, threshold: 48, maxSize: 1600);
+        } catch (Throwable) {
+            File::copy($source, $logoDest);
+            File::copy($source, $faviconDest);
         }
 
         $row = DB::table('site_settings')->orderBy('id')->first();

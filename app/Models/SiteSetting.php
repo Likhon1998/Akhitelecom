@@ -62,12 +62,12 @@ class SiteSetting extends Model
 
     /**
      * Path of the brand image shown on the public homepage (CMS Landing).
-     * Same order as header/footer: favicon, then full logo. Prefers a file that exists on disk.
+     * Prefers Full logo, then favicon. Prefers a file that exists on disk.
      */
     public function storeBrandImagePath(): ?string
     {
         $candidates = [];
-        foreach ([$this->favicon_path, $this->logo_path] as $path) {
+        foreach ([$this->logo_path, $this->favicon_path] as $path) {
             if (filled($path)) {
                 $candidates[] = (string) $path;
             }

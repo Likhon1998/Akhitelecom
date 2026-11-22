@@ -16,7 +16,8 @@
         @endphp
         <a href="{{ route('dashboard') }}" @click="sidebarOpen = false" class="flex items-center gap-2.5 text-white font-bold text-[15px] tracking-tight min-w-0 flex-1">
             @if($navIcon)
-                <img src="{{ $navIcon }}" alt="{{ $navName }}" class="admin-brand-logo shrink-0" width="120" height="40" decoding="async">
+                <img src="{{ $navIcon }}" alt="" class="admin-brand-logo shrink-0" width="120" height="40" decoding="async">
+                <span class="admin-brand-name truncate">{{ $navName }}</span>
             @else
                 <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/30">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>

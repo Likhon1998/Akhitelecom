@@ -63,7 +63,7 @@ body.gaget-store {
 .gaget-header-main { background: #fff; border-bottom: 1px solid var(--g-border); }
 .gaget-header-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(480px, 640px) minmax(0, 1fr);
+    grid-template-columns: minmax(220px, 1.05fr) minmax(420px, 640px) minmax(160px, 1fr);
     align-items: center;
     gap: 12px 20px;
 }
@@ -85,7 +85,7 @@ body.gaget-store {
 }
 @media (max-width: 1100px) {
     .gaget-header-row {
-        grid-template-columns: minmax(0, 1fr) minmax(360px, 560px) minmax(0, 1fr);
+        grid-template-columns: minmax(200px, 1.05fr) minmax(320px, 560px) minmax(140px, 1fr);
         gap: 12px 14px;
     }
 }
@@ -116,27 +116,29 @@ body.gaget-store {
     box-shadow: none;
 }
 .gaget-logo-wordmark {
-    height: 48px !important;
+    height: 44px !important;
     width: auto !important;
-    max-width: min(160px, 42vw) !important;
-    max-height: 48px !important;
+    max-width: min(112px, 28vw) !important;
+    max-height: 44px !important;
     object-fit: contain;
     object-position: left center;
-    border-radius: 10px;
+    border-radius: 0;
     flex-shrink: 0;
-    /* AT mark is gold/silver on black — keep the black plate so it stays visible on white headers */
-    background: #000 !important;
+    background: transparent !important;
     display: block;
     border: 0;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, .12);
+    box-shadow: none;
 }
 .gaget-logo-text {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 800;
     color: var(--g-navy);
     letter-spacing: -0.02em;
     text-transform: uppercase;
     line-height: 1.1;
+    white-space: nowrap;
+    flex-shrink: 0;
+    overflow: visible;
 }
 
 /* Search: input | categories | navy button */
@@ -2453,12 +2455,12 @@ body.gaget-store {
 }
 .tn-footer-logo-img {
     width: auto !important;
-    height: 44px !important;
-    max-width: min(140px, 48vw) !important;
+    height: 42px !important;
+    max-width: min(132px, 42vw) !important;
     object-fit: contain;
     object-position: left center;
-    background: #000 !important;
-    border-radius: 10px;
+    background: transparent !important;
+    border-radius: 0;
     display: block;
     flex-shrink: 0;
 }
@@ -3789,14 +3791,10 @@ body.gaget-store {
 @media (max-width: 768px) {
     .gaget-action-label { display: none; }
     .gaget-action-btn { padding: 4px 6px; }
-    .gaget-logo-text {
-        max-width: min(42vw, 148px);
-        font-size: 14px;
-    }
     .gaget-logo-icon { width: 36px; height: 36px; }
     .gaget-logo-mark { width: 48px !important; height: 48px !important; max-width: 48px !important; max-height: 48px !important; }
-    .gaget-logo-wordmark { height: 42px !important; max-width: min(140px, 46vw) !important; }
-    .gaget-logo-text { font-size: 17px; }
+    .gaget-logo-wordmark { height: 40px !important; max-width: min(104px, 32vw) !important; }
+    .gaget-logo-text { font-size: 15px; max-width: none; }
     .gaget-hover-panel { display: none !important; }
     .gaget-mobile-search {
         border-radius: 14px;
@@ -3858,7 +3856,7 @@ body.gaget-store {
 }
 
 @media (max-width: 480px) {
-    .gaget-logo-text { max-width: min(38vw, 120px); }
+    .gaget-logo-text { font-size: 14px; max-width: none; }
     .gaget-cart-badge { top: -2px; right: 0; }
     .tn-flash-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
     .tn-cat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
