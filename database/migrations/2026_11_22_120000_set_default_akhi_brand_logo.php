@@ -41,7 +41,7 @@ return new class extends Migration
             $normalizer->normalizeToPng($source, $faviconDest, square: false, padding: 4, threshold: 48, maxSize: 512);
             // Refresh bundled public asset to transparent crop as well.
             $normalizer->normalizeToPng($source, $source, square: false, padding: 6, threshold: 48, maxSize: 1600);
-        } catch (Throwable) {
+        } catch (\Throwable) {
             File::copy($source, $logoDest);
             File::copy($source, $faviconDest);
         }

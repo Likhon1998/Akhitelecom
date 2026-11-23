@@ -1,9 +1,11 @@
 <x-login-layout>
     @php
-        $brandName = data_get($settings ?? null, 'store_name') ?: config('app.name', 'Akhi Telecom');
-        $brandIcon = ($settings && method_exists($settings, 'storeLogoUrl'))
-            ? $settings->storeLogoUrl()
-            : default_brand_logo_url();
+        // Slot content does not inherit LoginLayout::$settings — resolve explicitly.
+        $brandSettings = \App\Models\SiteSetting::current();
+        $brandName = filled($brandSettings->store_name)
+            ? $brandSettings->store_name
+            : config('app.name', 'Akhi Telecom');
+        $brandIcon = $brandSettings->storeLogoUrl() ?: default_brand_logo_url();
     @endphp
     <div class="nexa-shell">
         <section class="nexa-left" aria-label="{{ $brandName }} overview">
@@ -120,7 +122,7 @@
                 <h2 class="nexa-card-title">Welcome Back</h2>
                 <p class="nexa-card-sub">Sign in to your {{ $brandName }} admin account</p>
 
-                @if ($errors->has('email') || $errors->has('password'))
+                @if ($errors?->has('email') || $errors?->has('password'))
                     <div class="nexa-alert" role="alert">
                         <strong>Access Denied</strong>
                         {{ $errors->first('email') ?: $errors->first('password') }}

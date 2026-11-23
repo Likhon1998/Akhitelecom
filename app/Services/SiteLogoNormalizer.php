@@ -165,7 +165,7 @@ class SiteLogoNormalizer
                 throw new RuntimeException('Failed to save processed logo.');
             }
             imagedestroy($out);
-        } catch (Throwable $e) {
+        } catch (\Throwable $e) {
             imagedestroy($im);
             throw $e;
         }
