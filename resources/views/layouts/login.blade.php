@@ -246,12 +246,23 @@
                 0 0 0 10px rgba(168, 85, 247, .08),
                 0 0 0 20px rgba(168, 85, 247, .04);
         }
+        .nexa-lock--logo {
+            width: auto;
+            min-width: 132px;
+            max-width: min(168px, 56vw);
+            height: 72px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            overflow: visible;
+            background: radial-gradient(circle at center, rgba(168, 85, 247, .22), rgba(168, 85, 247, .05) 75%);
+        }
         .nexa-lock img {
             width: auto;
             height: auto;
-            max-width: 52px;
-            max-height: 40px;
+            max-width: min(136px, 48vw);
+            max-height: 56px;
             object-fit: contain;
+            object-position: center;
             display: block;
         }
         .nexa-lock svg { width: 26px; height: 26px; }
