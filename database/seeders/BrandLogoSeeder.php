@@ -31,11 +31,11 @@ class BrandLogoSeeder extends Seeder
         File::ensureDirectoryExists(dirname($logoDest));
         File::ensureDirectoryExists(dirname($faviconDest));
 
-        $normalizer->normalizeToPng($source, $logoDest, square: false, padding: 6, threshold: 48, maxSize: 1600);
-        $normalizer->normalizeToPng($source, $faviconDest, square: false, padding: 4, threshold: 48, maxSize: 512);
+        $normalizer->normalizeToPng($source, $logoDest, square: false, padding: 8, threshold: 28, maxSize: 1600);
+        $normalizer->normalizeToPng($source, $faviconDest, square: false, padding: 6, threshold: 28, maxSize: 512);
 
         // Keep the public bundled copy transparent too (for asset fallbacks).
-        $normalizer->normalizeToPng($source, $source, square: false, padding: 6, threshold: 48, maxSize: 1600);
+        $normalizer->normalizeToPng($source, $source, square: false, padding: 8, threshold: 28, maxSize: 1600);
 
         $settings = SiteSetting::query()->first();
         if (! $settings) {

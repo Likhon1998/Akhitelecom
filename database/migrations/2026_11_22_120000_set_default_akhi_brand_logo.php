@@ -37,10 +37,10 @@ return new class extends Migration
 
         try {
             $normalizer = app(SiteLogoNormalizer::class);
-            $normalizer->normalizeToPng($source, $logoDest, square: false, padding: 6, threshold: 48, maxSize: 1600);
-            $normalizer->normalizeToPng($source, $faviconDest, square: false, padding: 4, threshold: 48, maxSize: 512);
+            $normalizer->normalizeToPng($source, $logoDest, square: false, padding: 8, threshold: 28, maxSize: 1600);
+            $normalizer->normalizeToPng($source, $faviconDest, square: false, padding: 6, threshold: 28, maxSize: 512);
             // Refresh bundled public asset to transparent crop as well.
-            $normalizer->normalizeToPng($source, $source, square: false, padding: 6, threshold: 48, maxSize: 1600);
+            $normalizer->normalizeToPng($source, $source, square: false, padding: 8, threshold: 28, maxSize: 1600);
         } catch (\Throwable) {
             File::copy($source, $logoDest);
             File::copy($source, $faviconDest);

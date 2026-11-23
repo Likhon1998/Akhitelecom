@@ -92,16 +92,19 @@
             background: transparent;
             border: 1px solid rgba(148, 163, 184, .25);
             box-shadow: 0 0 28px rgba(37, 99, 235, .28);
+            flex-shrink: 0;
         }
         .nexa-brand-mark--logo {
             width: auto;
-            min-width: 120px;
-            max-width: min(160px, 48vw);
-            height: 48px;
+            min-width: 0;
+            max-width: min(168px, 46vw);
+            height: auto;
             padding: 0;
+            overflow: visible;
             background: transparent;
             border: 0;
             box-shadow: none;
+            border-radius: 0;
         }
         .nexa-brand-mark img {
             width: 100%;
@@ -111,8 +114,11 @@
         }
         .nexa-brand-mark--logo img {
             width: auto;
-            max-width: 100%;
-            height: 100%;
+            height: auto;
+            max-width: min(168px, 46vw);
+            max-height: 56px;
+            object-fit: contain;
+            object-position: left center;
         }
         .nexa-brand-mark svg { width: 26px; height: 26px; }
         .nexa-brand-logo {
@@ -241,12 +247,13 @@
                 0 0 80px rgba(88, 28, 135, 0.12);
         }
         .nexa-lock {
-            width: 64px;
-            height: 64px;
+            width: 72px;
+            height: 72px;
             margin: 0 auto 18px;
             border-radius: 999px;
             display: grid;
             place-items: center;
+            overflow: hidden;
             color: #e9d5ff;
             background: radial-gradient(circle, rgba(168, 85, 247, .28), rgba(168, 85, 247, .06) 72%);
             border: 1.5px solid rgba(192, 132, 252, .55);
@@ -254,6 +261,14 @@
                 0 0 28px rgba(168, 85, 247, .35),
                 0 0 0 10px rgba(168, 85, 247, .08),
                 0 0 0 20px rgba(168, 85, 247, .04);
+        }
+        .nexa-lock img {
+            width: auto;
+            height: auto;
+            max-width: 52px;
+            max-height: 40px;
+            object-fit: contain;
+            display: block;
         }
         .nexa-lock svg { width: 26px; height: 26px; }
         .nexa-card-title {

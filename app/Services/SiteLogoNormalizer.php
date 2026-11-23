@@ -37,8 +37,8 @@ class SiteLogoNormalizer
             $tmp,
             $absolute,
             square: $kind === 'favicon',
-            padding: $kind === 'favicon' ? 4 : 6,
-            threshold: 48,
+            padding: $kind === 'favicon' ? 6 : 8,
+            threshold: 28,
             maxSize: $kind === 'favicon' ? 512 : 1600,
         );
 
@@ -144,7 +144,7 @@ class SiteLogoNormalizer
                         $g = ($rgb >> 8) & 0xFF;
                         $b = $rgb & 0xFF;
 
-                        if ($this->isCanvasPixel($r, $g, $b, $threshold) || $this->isFringePixel($r, $g, $b)) {
+                        if ($this->isCanvasPixel($r, $g, $b, $threshold)) {
                             imagesetpixel($out, $ox + $x, $oy + $y, $transparent);
                             continue;
                         }
@@ -152,9 +152,6 @@ class SiteLogoNormalizer
                         imagesetpixel($out, $ox + $x, $oy + $y, imagecolorallocatealpha($out, $r, $g, $b, 0));
                     }
                 }
-
-                // Eat 2px of chromatic edge glow left by AI black-background exports.
-                $this->erodeAlphaEdge($out, 2);
             } else {
                 imagecopy($out, $im, $ox, $oy, $minX, $minY, $cw, $ch);
             }
@@ -249,63 +246,4 @@ class SiteLogoNormalizer
         return false;
     }
 
-    /**
-     * Soft red/yellow glow that often surrounds AI logos on black plates.
-     * Keep bright gold/chrome faces; drop muddy chromatic fringe.
-     */
-    private function isFringePixel(int $r, int $g, int $b): bool
-    {
-        $max = max($r, $g, $b);
-        $min = min($r, $g, $b);
-        if (($max - $min) < 45) {
-            return false;
-        }
-
-        // Reddish / amber fringe: blue channel lags far behind.
-        if ($b <= 95 && $r >= 90 && ($r + $g) > (int) (2.35 * ($b + 1))) {
-            // Dim / mid fringe only — bright gold faces stay.
-            return $max < 235 || $b < 55;
-        }
-
-        return false;
-    }
-
-    /** Shrink opaque content by $steps pixels wherever it touches transparency. */
-    private function erodeAlphaEdge(\GdImage $im, int $steps): void
-    {
-        if ($steps < 1) {
-            return;
-        }
-
-        imagealphablending($im, false);
-        imagesavealpha($im, true);
-        $w = imagesx($im);
-        $h = imagesy($im);
-        $transparent = imagecolorallocatealpha($im, 0, 0, 0, 127);
-
-        for ($step = 0; $step < $steps; $step++) {
-            $kill = [];
-            for ($y = 0; $y < $h; $y++) {
-                for ($x = 0; $x < $w; $x++) {
-                    if (((imagecolorat($im, $x, $y) >> 24) & 0x7F) >= self::TRANSPARENT_ALPHA) {
-                        continue;
-                    }
-
-                    foreach ([[-1, 0], [1, 0], [0, -1], [0, 1]] as [$dx, $dy]) {
-                        $nx = $x + $dx;
-                        $ny = $y + $dy;
-                        if ($nx < 0 || $ny < 0 || $nx >= $w || $ny >= $h
-                            || (((imagecolorat($im, $nx, $ny) >> 24) & 0x7F) >= self::TRANSPARENT_ALPHA)) {
-                            $kill[] = [$x, $y];
-                            break;
-                        }
-                    }
-                }
-            }
-
-            foreach ($kill as [$x, $y]) {
-                imagesetpixel($im, $x, $y, $transparent);
-            }
-        }
-    }
 }
