@@ -3947,19 +3947,26 @@ body.gaget-store {
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
-    margin-bottom: 0.35rem;
-    min-height: 1.25rem;
+    margin-bottom: 0.5rem;
+    min-height: 1.5rem;
 }
 /* Beat .gaget-store img { height: auto } which blew logos up full-width */
 .gaget-store .pd-brand-logo,
 .pd-brand-logo {
     display: block !important;
-    height: 18px !important;
+    height: 24px !important;
     width: auto !important;
-    max-width: 88px !important;
-    max-height: 18px !important;
+    max-width: 120px !important;
+    max-height: 24px !important;
     object-fit: contain !important;
     object-position: left center;
+}
+.pd-brand-text {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
 }
 .gaget-store .pd-color-thumb,
 .pd-color-thumb {

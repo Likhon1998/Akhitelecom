@@ -534,7 +534,7 @@
         /* Safety: brand logos must never render at intrinsic SVG/PNG size */
         .gaget-store .tn-brand-logo{height:40px!important;max-height:40px!important;max-width:112px!important;width:auto!important;object-fit:contain!important}
         .gaget-store .tn-brand-logo-frame{height:44px!important;max-width:120px!important;overflow:hidden!important}
-        .gaget-store .pd-brand-logo{height:18px!important;max-height:18px!important;max-width:88px!important;width:auto!important;object-fit:contain!important}
+        .gaget-store .pd-brand-logo{height:24px!important;max-height:24px!important;max-width:120px!important;width:auto!important;object-fit:contain!important}
         .gaget-store .gaget-logo-wordmark{height:44px!important;max-height:44px!important;max-width:min(112px,28vw)!important;width:auto!important;object-fit:contain!important;background:transparent!important;border-radius:0!important;box-shadow:none!important}
         .gaget-store .gaget-logo-text{flex-shrink:0!important;white-space:nowrap!important;overflow:visible!important;color:var(--g-navy,#0f172a)!important}
         .gaget-store .tn-footer-logo-img{height:42px!important;width:auto!important;max-width:min(120px,36vw)!important;object-fit:contain!important;background:transparent!important;border-radius:0!important}

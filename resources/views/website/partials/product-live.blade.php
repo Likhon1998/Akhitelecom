@@ -104,16 +104,19 @@
             @if($product->showsAsNew())
                 <span class="text-[10px] font-semibold uppercase bg-emerald-500 text-white px-2 py-0.5 rounded">New</span>
             @endif
-            @if($product->brand?->logo_path)
-                <img src="{{ $product->brand->logo_url }}"
-                     alt="{{ $product->brand->name }}"
+            @php
+                $brandLabel = $product->brand_name ?? $product->brand?->name;
+                $brandLogo = $product->brand?->logo_url;
+            @endphp
+            @if($brandLogo)
+                <img src="{{ $brandLogo }}"
+                     alt="{{ $brandLabel }}"
+                     title="{{ $brandLabel }}"
                      class="pd-brand-logo"
-                     onerror="this.hidden = true;">
-            @elseif($product->brand_name || $product->brand)
-                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">{{ $product->brand_name ?? $product->brand?->name }}</span>
-            @endif
-            @if(($product->brand_name || $product->brand) && $product->brand?->logo_path)
-                <span class="text-xs font-medium text-slate-500">{{ $product->brand_name ?? $product->brand?->name }}</span>
+                     onerror="this.hidden=true;if(this.nextElementSibling)this.nextElementSibling.hidden=false;">
+                <span class="pd-brand-text" hidden>{{ $brandLabel }}</span>
+            @elseif($brandLabel)
+                <span class="pd-brand-text">{{ $brandLabel }}</span>
             @endif
         </div>
 
