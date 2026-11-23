@@ -25,13 +25,14 @@
             <div class="nexa-left-content">
                 <div class="nexa-brand">
                     @if($brandIcon)
-                        <div class="nexa-brand-mark nexa-brand-mark--logo" aria-hidden="true">
-                            <img src="{{ $brandIcon }}" alt="{{ $brandName }}" width="168" height="56" decoding="async">
-                        </div>
-                        <div>
-                            <div class="nexa-brand-name">{{ strtoupper($brandName) }}</div>
-                            <div class="nexa-brand-sub">Smart POS &amp; Inventory System</div>
-                        </div>
+                        <img
+                            src="{{ $brandIcon }}"
+                            alt="{{ $brandName }}"
+                            class="nexa-brand-logo"
+                            width="180"
+                            height="72"
+                            decoding="async"
+                        >
                     @else
                         <div class="nexa-brand-mark" aria-hidden="true">
                             <svg viewBox="0 0 32 32" fill="none">
@@ -45,11 +46,11 @@
                                 <path d="M16 15.5L27 9.5M16 15.5V28.5M16 15.5L5 9.5" stroke="url(#nexaCube)" stroke-width="1.6" stroke-linecap="round"/>
                             </svg>
                         </div>
-                        <div>
-                            <div class="nexa-brand-name">{{ strtoupper($brandName) }}</div>
-                            <div class="nexa-brand-sub">Smart POS &amp; Inventory System</div>
-                        </div>
                     @endif
+                    <div>
+                        <div class="nexa-brand-name">{{ strtoupper($brandName) }}</div>
+                        <div class="nexa-brand-sub">Smart POS &amp; Inventory System</div>
+                    </div>
                 </div>
 
                 <div class="nexa-left-body">

@@ -94,41 +94,25 @@
             box-shadow: 0 0 28px rgba(37, 99, 235, .28);
             flex-shrink: 0;
         }
-        .nexa-brand-mark--logo {
-            width: auto;
-            min-width: 0;
-            max-width: min(168px, 46vw);
-            height: auto;
-            padding: 0;
-            overflow: visible;
-            background: transparent;
-            border: 0;
-            box-shadow: none;
-            border-radius: 0;
-        }
         .nexa-brand-mark img {
             width: 100%;
             height: 100%;
             object-fit: contain;
             display: block;
         }
-        .nexa-brand-mark--logo img {
-            width: auto;
-            height: auto;
-            max-width: min(168px, 46vw);
-            max-height: 56px;
-            object-fit: contain;
-            object-position: left center;
-        }
         .nexa-brand-mark svg { width: 26px; height: 26px; }
         .nexa-brand-logo {
-            height: 52px;
+            height: 72px;
             width: auto;
-            max-width: min(260px, 70vw);
+            max-width: min(200px, 52vw);
+            max-height: 72px;
             object-fit: contain;
+            object-position: left center;
             border-radius: 0;
             background: transparent;
             display: block;
+            flex-shrink: 0;
+            overflow: visible;
         }
         .nexa-brand-name {
             font-size: 19px;
